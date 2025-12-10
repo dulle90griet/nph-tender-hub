@@ -10,8 +10,8 @@ terraform {
     }
 
     backend "s3" {
-        region = "${var.AWS_REGION}"
-        bucket = "${var.STATE_BUCKET_NAME}"
-        key = "${var.STATE_KEY}"
+        region = "${tfenv.AWS_REGION}"
+        bucket = "${tfenv.STATE_BUCKET}"
+        key = "${tfenv.STATE_KEY}"
     }
 }

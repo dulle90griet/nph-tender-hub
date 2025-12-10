@@ -12,7 +12,7 @@ provider "aws" {
     }
 }
 
-# Define output data helpful for troubleshooting
+# Retrieve details of our current AWS connection
 
 data "aws_caller_identity" "current" {}
 

@@ -1,0 +1,22 @@
+# Constants for use throughout the TF deployment
+
+variable "AWS_REGION" {
+    type        = string
+    description = "The region in which to deploy our AWS resources"
+    default     = "${tfenv.AWS_REGION}"
+}
+
+variable "PREFIX" {
+    type        = string
+    description = "The string to prepend to all resource names associated with this project"
+    default     = "${tfenv.PREFIX}"
+}
+
+variable "GLOBAL_TAGS" {
+    type        = map(string)
+    description = "The tags to attach to all resources associated with this project"
+    default     = {
+        client  = "${tfenv.TAGS_CLIENT}"
+        project = "${tfenv.TAGS_PROJECT}"
+    }
+}

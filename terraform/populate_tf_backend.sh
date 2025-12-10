@@ -7,14 +7,26 @@ source "${SCRIPT_DIR}/.tfenv"
 safe_escape () {
     printf '%s\n' "$1" | sed 's/[&/\]/\\&/g'
 }
-TF_AWS_REGION_ESC=$(safe_escape "$TF_AWS_REGION")
-TF_STATE_BUCKET_ESC=$(safe_escape "$TF_STATE_BUCKET")
-TF_STATE_KEY_ESC=$(safe_escape "$TF_STATE_KEY")
 
-sed -e "s/\${var.AWS_REGION}/${TF_AWS_REGION_ESC}/g" \
-    -e "s/\${var.STATE_BUCKET_NAME}/${TF_STATE_BUCKET_ESC}/g" \
-    -e "s/\${var.STATE_KEY}/${TF_STATE_KEY_ESC}/g" \
-    "${SCRIPT_DIR}/backend.tf.template" \
-    > "${SCRIPT_DIR}/backend.tf"
- 
- echo "backend.tf generated using values stored in .tfenv file."
+AWS_REGION_ESC=$(safe_escape "$AWS_REGION")
+STATE_BUCKET_ESC=$(safe_escape "$STATE_BUCKET")
+STATE_KEY_ESC=$(safe_escape "$STATE_KEY")
+PREFIX_ESC=$(safe_escape "$PREFIX")
+TAGS_CLIENT_ESC=$(safe_escape "$TAGS_CLIENT")
+TAGS_PROJECT_ESC=$(safe_escape "$TAGS_PROJECT")
+
+generate () {
+    sed -e "s/\${tfenv.AWS_REGION}/${AWS_REGION_ESC}/g" \
+        -e "s/\${tfenv.STATE_BUCKET}/${STATE_BUCKET_ESC}/g" \
+        -e "s/\${tfenv.STATE_KEY}/${STATE_KEY_ESC}/g" \
+        -e "s/\${tfenv.PREFIX}/${PREFIX_ESC}/g" \
+        -e "s/\${tfenv.TAGS_CLIENT}/${TAGS_CLIENT_ESC}/g" \
+        -e "s/\${tfenv.TAGS_PROJECT}/${TAGS_PROJECT_ESC}/g" \
+        "${SCRIPT_DIR}/$1.tf.template" \
+        > "${SCRIPT_DIR}/${1}.tf"
+}
+
+generate backend
+echo "backend.tf generated using values defined in .tfenv file."
+generate vars
+echo "vars.tf generated using values defined in .tfenv file."
