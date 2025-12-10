@@ -138,6 +138,7 @@ celerybeat.pid
 .env
 .envrc
 .venv
+.tfenv
 env/
 venv/
 ENV/
@@ -208,3 +209,8 @@ __marimo__/
 
 # Discovery folder
 discovery/
+
+# Terraform
+terraform/vars.tf
+terraform/backend.tf
+.tfenv
