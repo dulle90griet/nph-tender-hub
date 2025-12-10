@@ -1,0 +1,17 @@
+# Define the backend - .tf file must be generated from .tf.template
+# using populate_tf_backend.sh prior to each terraform plan/apply
+
+terraform {
+    required_providers {
+      aws = {
+        source = "hashicorp/aws"
+        version = "~> 6.0"
+      }
+    }
+
+    backend "s3" {
+        region = "${var.AWS_REGION}"
+        bucket = "${var.STATE_BUCKET_NAME}"
+        key = "${var.STATE_KEY}"
+    }
+}
