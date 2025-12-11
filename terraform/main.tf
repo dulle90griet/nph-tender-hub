@@ -4,10 +4,11 @@ provider "aws" {
     region = var.AWS_REGION
     default_tags {
       tags = {
-        Project_name = "NPH Pricing and Tender Hub"
-        Repo_name = "nph-tender-hub"
+        Client        = "NPH"
+        Project       = "Tender Hub"
+        Repo_name     = "nph-tender-hub"
         Deployed_from = "Terraform"
-        Environment = "dev"
+        Environment   = "dev"
       }
     }
 }
