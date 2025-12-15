@@ -216,3 +216,29 @@ resource "aws_vpc_endpoint" "s3" {
         Name = "${var.PREFIX}-vpce-s3"
     }
 }
+
+
+# Create security groups
+resource "aws_security_group" "budibase_fargate" {
+    name = "${var.PREFIX}BudibaseFargateService"
+    description = "Security group for ${var.CLIENT} ${var.PROJECT} Fargate Budibase deployment"
+    vpc_id = aws_vpc.main.id
+}
+
+resource "aws_security_group" "budibase_load_balancer" {
+    name = "${var.PREFIX}BudibaseLoadBalancer"
+    description = "Security group for ${var.CLIENT} ${var.PROJECT} Budibase load balancer"
+    vpc_id = aws_vpc.main.id
+}
+
+resource "aws_security_group" "budibase_efs" {
+    name = "${var.PREFIX}BudibaseEFS"
+    description = "Allows NFS from ECS tasks"
+    vpc_id = aws_vpc.main.id
+}
+
+resource "aws_security_group_ingress_rule" "allow_nfs_ingress" {
+    security_group_id = aws_security_group.budibase_efs.id
+    ip_protocol = "nfs"
+    referenced_security_group_id = aws_security_group.budibase_fargate.id
+} 
