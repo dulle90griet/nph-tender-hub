@@ -20,3 +20,21 @@ variable "GLOBAL_TAGS" {
         project = "${tfenv.TAGS_PROJECT}"
     }
 }
+
+variable "CLIENT" {
+    type        = map(string)
+    description = "The name of the client who has commissioned the current project"
+    default     = "${tfenv.TAGS_CLIENT}"
+}
+
+variable "PROJECT" {
+    type        = map(string)
+    description = "The name of the current project"
+    default     = "${tfenv.TAGS_PROJECT}"
+}
+
+variable "REPO_NAME" {
+    type        = map(string)
+    description = "The name of the current repository"
+    default     = "${tfenv.REPO_NAME}"
+}
