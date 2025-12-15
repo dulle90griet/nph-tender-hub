@@ -1,0 +1,73 @@
+resource "aws_efs_file_system" "budibase_fargate_data" {
+    creation_token = "${vars.PREFIX}-budibase-fargate-efs"
+    encrypted = true
+    kms_key_id = aws_kms_key.fargate_managed_storage.id
+
+    lifecycle_policy {
+        transition_to_archive = "AFTER_90_DAYS"
+        transition_to_ia = "AFTER_30_DAYS"
+        transition_to_primary_storage_class = "AFTER_1_ACCESS"
+    }
+    performance_mode = "generalPurpose" # DOUBLE-CHECK THIS
+    throughput_mode = "elastic" # DOUBLE-CHECK THIS
+    protection {
+        replication_overwite = "ENABLED" # DOUBLE-CHECK THIS
+    }
+
+    tags = {
+        Name = "${var.PREFIX}_budibase_data"
+    }
+    # Enable encryption of data at rest using NPH Fargate Managed Storage KMS key
+    # Use our NPH Fargate Managed Storage KMS key
+
+    # Throughput enhanced
+
+    # Network access:
+    # Choose the new VPC we've created
+    # Choose the private subnets and use the EFS Security Group for each
+
+    # File system policy:
+    # Check 'Enforce in-transit encryption for all clients'
+}
+
+resource "aws_efs_backup_policy" "budibase_fargate_backup_policy" {
+    file_system_id = aws_efs_file_system.budibase_fargate_data.id
+
+    backup_policy {
+        status = "ENABLED"
+    }
+}
+
+resource "aws_efs_mount_target" "budibase_fargate_mount_target" {
+    file_system_id = aws_efs_file_system.budibase_fargate_data.id
+    subnet_id = aws_subnet.private_a.id
+    security_groups = [ aws_security_group.budibase_efs.id ]
+    ip_address_type = "IPV4_ONLY"
+}
+
+# Should there be a mount target for each private subnet?
+
+resource "aws_efs_access_point" "budibase_fargate_access_point" {
+    file_system_id = aws_efs_file_system.budibase_fargate_data.id
+
+    posix_user {
+        uid = "1001"
+        gid = "1001"
+        secondary_gids = None
+    }
+
+    root_directory {
+        path = "/data"
+
+        creation_info {
+            owner_uid = "1001"
+            owner_gid = "1001"
+            permissions = "0755"
+        }
+    }
+
+    tags = {
+        Name = "${var.PREFIX}_budibase_access_point"
+    }
+}
+ 
