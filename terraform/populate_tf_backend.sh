@@ -9,7 +9,7 @@ safe_escape () {
 generate () {
     # Retrieve args
     TARGET_FILE="$1"
-    declare -n VALS_REF=$2
+    declare -n VALS_REF="$2"
 
     # Build the sed substitution command
     CMD="sed"
