@@ -88,4 +88,52 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
         }
         resources = "*"
     }
+
+    statement {
+        sid = "AllowFargateToGenerateKey"
+        effect = "Allow"
+        principals {
+            type = "Service"
+            identifiers = [ "fargate.amazonaws.com" ]
+        }
+        actions = [ "kms:GenerateDataKeyWithoutPlaintext" ]
+        resources = [ "*" ]
+        condition {
+            test = "StringEquals"
+            variable = "kms:EncryptionContext:aws:ecs:clusterAccount"
+            values = [ "${data.aws_caller_identity.current.account_id}" ]
+        }
+        condition {
+            test = "StringEquals"
+            variable = "kms:EncryptionContext:aws:ecs:clusterName"
+            values = [ "${aws_ecs_cluster.budibase_cluster.name}" ]
+        }
+
+    }
+
+    statement {
+        sid = "AllowFargateToCreateGrant"
+        effect = "Allow"
+        principals {
+            type = "Service"
+            identifiers = [ "fargate.amazonaws.com" ]
+        }
+        actions = [ "kms:CreateGrant" ]
+        resources = [ "*" ]
+        condition {
+            test = "StringEquals"
+            variable = "kms:EncryptionContext:aws:ecs:clusterAccount"
+            values = [ "${data.aws_caller_identity.current.account_id}" ]
+        }
+        condition {
+            test = "StringEquals"
+            variable = "kms:EncryptionContext:aws:ecs:clusterName"
+            values = [ "${aws_ecs_cluster.budibase_cluster.name}" ]
+        }
+        condition {
+            test = "ForAllValues:StringEquals"
+            variable = "kms:GrantOperations"
+            values = [ "Decrypt" ]
+        }
+    }
 }
