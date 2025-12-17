@@ -233,12 +233,14 @@ resource "aws_security_group" "budibase_load_balancer" {
 
 resource "aws_security_group" "budibase_efs" {
     name = "${var.PREFIX}BudibaseEFS"
-    description = "Allows NFS from ECS tasks"
+    description = "Security group for EFS access from ECS tasks"
     vpc_id = aws_vpc.main.id
 }
 
 resource "aws_security_group_ingress_rule" "allow_nfs_ingress" {
     security_group_id = aws_security_group.budibase_efs.id
-    ip_protocol = "nfs"
+    from_port = 2049
+    to_port = 2049
+    ip_protocol = "tcp"
     referenced_security_group_id = aws_security_group.budibase_fargate.id
 } 

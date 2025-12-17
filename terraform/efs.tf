@@ -1,5 +1,8 @@
 resource "aws_efs_file_system" "budibase_fargate_data" {
     creation_token = "${vars.PREFIX}-budibase-fargate-efs"
+
+    # Enable encryption of data at rest using Fargate Managed Storage KMS key
+    # Use our Fargate Managed Storage KMS key
     encrypted = true
     kms_key_id = aws_kms_key.fargate_managed_storage.id
 
@@ -17,18 +20,39 @@ resource "aws_efs_file_system" "budibase_fargate_data" {
     tags = {
         Name = "${var.PREFIX}_budibase_data"
     }
-    # Enable encryption of data at rest using NPH Fargate Managed Storage KMS key
-    # Use our NPH Fargate Managed Storage KMS key
-
-    # Throughput enhanced
-
-    # Network access:
-    # Choose the new VPC we've created
-    # Choose the private subnets and use the EFS Security Group for each
-
-    # File system policy:
-    # Check 'Enforce in-transit encryption for all clients'
 }
+
+# File system policy: Enforce in-transit encryption for all clients
+resource "aws_efs_file_system_policy" "budibase_efs_policy" {
+    file_system_id = aws_efs_file_system.budibase_fargate_data.id
+
+    # enforce TLS 1.2 encryption for all clients
+    policy = jsonencode({
+        Version = "2012-10-17"
+        Id      = "EnforceInTransitEncryption"
+        Statement = [
+            {
+                Sid    = "EnforceInTransitEncryption"
+                Effect = "Allow"
+                Principal = {
+                    AWS = "*"
+                }
+                Action = [
+                    "elasticfilesystem:ClientMount",
+                    "elasticfilesystem:ClientWrite",
+                    "elasticFileSystem:ClientRootAccess"
+                ]
+                Resource = "${aws_efs_file_system.budibase_fargate_data.arn}"
+                Condition = {
+                    Bool = {
+                        "aws:SecureTransport" = true
+                    }
+                }
+            }
+        ]
+    })
+}
+
 
 resource "aws_efs_backup_policy" "budibase_fargate_backup_policy" {
     file_system_id = aws_efs_file_system.budibase_fargate_data.id
@@ -38,6 +62,9 @@ resource "aws_efs_backup_policy" "budibase_fargate_backup_policy" {
     }
 }
 
+# Network access:
+# Choose the new VPC we've created
+# Choose the private subnets and use the EFS Security Group for each
 resource "aws_efs_mount_target" "budibase_fargate_mount_target" {
     file_system_id = aws_efs_file_system.budibase_fargate_data.id
     subnet_id = aws_subnet.private_a.id
