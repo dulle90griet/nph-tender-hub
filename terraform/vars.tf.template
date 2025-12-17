@@ -36,6 +36,11 @@ variable "IAM_USER" {
     default     = "${tfenv.IAM_USER}"
 }
 
+variable "BUDIBASE_IMAGE_URL" {
+    type        = map(string)
+    description = "The URL of the Budibase image to use for the ECS container"
+    default     = "${tfenv.BUDIBASE_IMAGE_URL}"
+
 variable "GLOBAL_TAGS" {
     type        = map(string)
     description = "The tags to attach to all resources associated with this project"
