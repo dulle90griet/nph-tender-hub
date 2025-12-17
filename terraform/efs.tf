@@ -65,9 +65,23 @@ resource "aws_efs_backup_policy" "budibase_fargate_backup_policy" {
 # Network access:
 # Choose the new VPC we've created
 # Choose the private subnets and use the EFS Security Group for each
-resource "aws_efs_mount_target" "budibase_fargate_mount_target" {
+resource "aws_efs_mount_target" "budibase_fargate_mount_target_a" {
     file_system_id = aws_efs_file_system.budibase_fargate_data.id
     subnet_id = aws_subnet.private_a.id
+    security_groups = [ aws_security_group.budibase_efs.id ]
+    ip_address_type = "IPV4_ONLY"
+}
+
+resource "aws_efs_mount_target" "budibase_fargate_mount_target_b" {
+    file_system_id = aws_efs_file_system.budibase_fargate_data.id
+    subnet_id = aws_subnet.private_b.id
+    security_groups = [ aws_security_group.budibase_efs.id ]
+    ip_address_type = "IPV4_ONLY"
+}
+
+resource "aws_efs_mount_target" "budibase_fargate_mount_target_c" {
+    file_system_id = aws_efs_file_system.budibase_fargate_data.id
+    subnet_id = aws_subnet.private_c.id
     security_groups = [ aws_security_group.budibase_efs.id ]
     ip_address_type = "IPV4_ONLY"
 }
