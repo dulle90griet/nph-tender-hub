@@ -1,20 +1,24 @@
 resource "aws_efs_file_system" "budibase_fargate_data" {
-    creation_token = "${vars.PREFIX}-budibase-fargate-efs"
+    creation_token = "${var.PREFIX}-budibase-fargate-efs"
 
     # Enable encryption of data at rest using Fargate Managed Storage KMS key
     # Use our Fargate Managed Storage KMS key
     encrypted = true
-    kms_key_id = aws_kms_key.fargate_managed_storage.id
+    kms_key_id = aws_kms_key.fargate_managed_storage.arn
 
     lifecycle_policy {
         transition_to_archive = "AFTER_90_DAYS"
+    }
+    lifecycle_policy {
         transition_to_ia = "AFTER_30_DAYS"
+    }
+    lifecycle_policy {
         transition_to_primary_storage_class = "AFTER_1_ACCESS"
     }
     performance_mode = "generalPurpose" # DOUBLE-CHECK THIS
     throughput_mode = "elastic" # DOUBLE-CHECK THIS
     protection {
-        replication_overwite = "ENABLED" # DOUBLE-CHECK THIS
+        replication_overwrite = "ENABLED" # DOUBLE-CHECK THIS
     }
 
     tags = {
@@ -92,17 +96,17 @@ resource "aws_efs_access_point" "budibase_fargate_access_point" {
     file_system_id = aws_efs_file_system.budibase_fargate_data.id
 
     posix_user {
-        uid = "1001"
-        gid = "1001"
-        secondary_gids = None
+        uid = "0"
+        gid = "0"
+        # secondary_gids = None
     }
 
     root_directory {
         path = "/data"
 
         creation_info {
-            owner_uid = "1001"
-            owner_gid = "1001"
+            owner_uid = "0"
+            owner_gid = "0"
             permissions = "0755"
         }
     }

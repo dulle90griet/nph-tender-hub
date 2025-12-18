@@ -1,10 +1,10 @@
 # Create symmetric, single-region, encrypt-and-decrypt KMS Key for managed storage used by Fargate, giving `Allow administration of the key`, `Allow use of the key` and `Allow attachment of persistent resources` permissions to the dev IAM user. (And to AWSServiceRoleForECS?)
 
 resource "aws_kms_key" "fargate_managed_storage" {
-    description = "KMS key used for encrypting and decrypting managed storage used by Fargate for ${var.CLIENT} ${var.PROJECT}."
-    enable_key_rotation = true
+    description             = "KMS key used for encrypting and decrypting managed storage used by Fargate for ${var.CLIENT} ${var.PROJECT}."
+    enable_key_rotation     = true
     deletion_window_in_days = 30
-    policy = aws_iam_policy_document.kms_key_for_fargate.policy
+    policy                  = data.aws_iam_policy_document.kms_key_for_fargate.json
 
     tags = {
       Name = "${var.PREFIX}-key-for-fargate-managed"
@@ -14,10 +14,10 @@ resource "aws_kms_key" "fargate_managed_storage" {
 # Create symmetric, single-region, encrypt-and-decrypt KMS Key for ephemeral storage used by Fargate, giving `Allow administration of the key`, `Allow use of the key` and `Allow attachment of persistent resources` permissions to the dev IAM user. (And to AWSServiceRoleForECS?)
 
 resource "aws_kms_key" "fargate_ephemeral_storage" {
-    description = "KMS key used for encrypting and decrypting ephemeral storage used by Fargate for ${var.CLIENT} ${var.PROJECT}."
-    enable_key_rotation = true
+    description             = "KMS key used for encrypting and decrypting ephemeral storage used by Fargate for ${var.CLIENT} ${var.PROJECT}."
+    enable_key_rotation     = true
     deletion_window_in_days = 30
-    policy = data.aws_iam_policy_document.kms_key_for_fargate.json
+    policy                  = data.aws_iam_policy_document.kms_key_for_fargate.json
 
     tags = {
       Name = "${var.PREFIX}-key-for-fargate-ephemeral"
@@ -26,22 +26,22 @@ resource "aws_kms_key" "fargate_ephemeral_storage" {
 
 data "aws_iam_policy_document" "kms_key_for_fargate" {
     statement {
-        sid = "Enable IAM User Permissions"
-        effect = "Allow"
+        sid       = "Enable IAM User Permissions"
+        effect    = "Allow"
         principals {
-            type = "AWS"
+            type        = "AWS"
             identifiers = [ "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" ]
         }
-        actions = [ "kms:*" ]
+        actions   = [ "kms:*" ]
         resources = [ "*" ]
     }
 
     statement {
-        sid = "AllowUserAdministrationOfKey"
+        sid    = "AllowUserAdministrationOfKey"
         effect = "Allow"
         principals {
-            type = "AWS"
-            identifiers = [ "arn:aws:iam:${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}" ] # Can I get user name from the caller identity or does it need to be a .tfenv var?
+            type        = "AWS"
+            identifiers = [ "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}" ] # Can I get user name from the caller identity or does it need to be a .tfenv var?
         }
         actions = [
             "kms:ReplicateKey",
@@ -62,11 +62,11 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
     }
 
     statement {
-        sid = "AllowUserToUseKey"
+        sid    = "AllowUserToUseKey"
         effect = "Allow"
         principals {
-            type = "AWS"
-            identifiers = [ "arn:aws:iam:$${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}" ] # Can I get user name from the caller identity or does it need to be a .tfenv var?
+            type        = "AWS"
+            identifiers = [ "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}" ] # Can I get user name from the caller identity or does it need to be a .tfenv var?
         }
         actions = [
             "kms:DescribeKey",
@@ -80,68 +80,78 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
     }
 
     statement {
-        sid = "AllowUserToAttachPersistentResources"
+        sid    = "AllowUserToAttachPersistentResources"
         effect = "Allow"
         principals {
-            type = "AWS"
-            identifiers = [ "arn:aws:iam:$${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}" ] # Can I get user name from the caller identity or does it need to be a .tfenv var?
+            type        = "AWS"
+            identifiers = [ "arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}" ] # Can I get user name from the caller identity or does it need to be a .tfenv var?
         }
-        resources = "*"
+        actions = [
+            "kms:CreateGrant",
+            "kms:ListGrants",
+            "kms:RevokeGrants"
+        ]
+        resources = [ "*" ]
+        condition {
+            test     = "Bool"
+            variable = "kms:GrantIsForAWSResource"
+            values   = [ true ]
+        }
     }
 
     statement {
-        sid = "AllowFargateToGenerateKey"
-        effect = "Allow"
+        sid       = "AllowFargateToGenerateKey"
+        effect    = "Allow"
         principals {
-            type = "Service"
+            type        = "Service"
             identifiers = [ "fargate.amazonaws.com" ]
         }
-        actions = [ "kms:GenerateDataKeyWithoutPlaintext" ]
+        actions   = [ "kms:GenerateDataKeyWithoutPlaintext" ]
         resources = [ "*" ]
         condition {
-            test = "StringEquals"
+            test     = "StringEquals"
             variable = "kms:EncryptionContext:aws:ecs:clusterAccount"
-            values = [ "${data.aws_caller_identity.current.account_id}" ]
+            values   = [ "${data.aws_caller_identity.current.account_id}" ]
         }
         condition {
-            test = "StringEquals"
+            test     = "StringEquals"
             variable = "kms:EncryptionContext:aws:ecs:clusterName"
-            values = [ "${aws_ecs_cluster.budibase_cluster.name}" ]
+            values   = [ "${var.BUDIBASE_CLUSTER_NAME}" ]
         }
 
     }
 
     statement {
-        sid = "AllowFargateToCreateGrant"
-        effect = "Allow"
+        sid       = "AllowFargateToCreateGrant"
+        effect    = "Allow"
         principals {
-            type = "Service"
+            type        = "Service"
             identifiers = [ "fargate.amazonaws.com" ]
         }
-        actions = [ "kms:CreateGrant" ]
+        actions   = [ "kms:CreateGrant" ]
         resources = [ "*" ]
         condition {
-            test = "StringEquals"
+            test     = "StringEquals"
             variable = "kms:EncryptionContext:aws:ecs:clusterAccount"
-            values = [ "${data.aws_caller_identity.current.account_id}" ]
+            values   = [ "${data.aws_caller_identity.current.account_id}" ]
         }
         condition {
-            test = "StringEquals"
+            test     = "StringEquals"
             variable = "kms:EncryptionContext:aws:ecs:clusterName"
-            values = [ "${aws_ecs_cluster.budibase_cluster.name}" ]
+            values   = [ "${var.BUDIBASE_CLUSTER_NAME}" ]
         }
         condition {
-            test = "ForAllValues:StringEquals"
+            test     = "ForAllValues:StringEquals"
             variable = "kms:GrantOperations"
-            values = [ "Decrypt" ]
+            values   = [ "Decrypt" ]
         }
     }
 
     statement {
-        sid = "AllowEFSToUseKey"
+        sid    = "AllowEFSToUseKey"
         effect = "Allow"
         principals {
-            type = "Service"
+            type        = "Service"
             identifiers = [ "fargate.amazonaws.com" ]
         }
         actions = [
@@ -152,14 +162,14 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
         ]
         resources = [ "*" ]
         condition {
-            test = "StringEquals"
+            test     = "StringEquals"
             variable = "kms:ViaService"
-            values = [ "elasticfilesystem.${var.AWS_REGION}.amazonaws.com" ]
+            values   = [ "elasticfilesystem.${var.AWS_REGION}.amazonaws.com" ]
         }
         condition {
-            test = "StringEquals"
+            test     = "StringEquals"
             variable = "kms:CallerAccount"
-            values = [ "${data.aws_caller_identity.current.account_id}" ]
+            values   = [ "${data.aws_caller_identity.current.account_id}" ]
         }
     }
 }

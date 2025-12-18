@@ -3,7 +3,7 @@ locals {
 }
 
 resource "aws_ecs_cluster" "budibase_cluster" {
-    name = "${var.PREFIX}-budibase-cluster"
+    name = "${var.BUDIBASE_CLUSTER_NAME}"
 
     # 'Fargate only' method of obtaining compute capacity (under Infrastructure) -- does this move to the ECS Service?
 
@@ -17,7 +17,7 @@ resource "aws_ecs_cluster" "budibase_cluster" {
         # ECS Exec encryption and logging set to 'Default' (also Monitoring).
 
         execute_command_configuration {
-            kms_key_id = None # What was this in the Console?
+            # kms_key_id = None # What was this in the Console?
             logging = "DEFAULT"
         }
 
@@ -28,7 +28,7 @@ resource "aws_ecs_cluster" "budibase_cluster" {
         }
     }
 
-    depends_on = [ aws_iam_policy_document.kms_key_for_fargate ]
+    depends_on = [ data.aws_iam_policy_document.kms_key_for_fargate ]
 }
 
 # DEFINE ECS TASK
@@ -45,9 +45,9 @@ resource "aws_ecs_task_definition" "budibase_ecs_task" {
     network_mode             = "awsvpc"
     # Task size:
     #   - CPU: 2 vCPU (4GB)
-    cpu                      = 2
+    cpu                      = 2048
     #   - Memory: 6GB
-    memory                   = 5723 # 6 GB
+    memory                   = 6144
     # Task role: NPHBudibaseRoleForECSTask
     task_role_arn            = aws_iam_role.budibase_ecs_task.arn
     # Task execution role: NPHBudibaseRoleForECSTaskExecution
@@ -75,52 +75,54 @@ resource "aws_ecs_task_definition" "budibase_ecs_task" {
 
     # Container 1
     # Environment variables: None?
-    container_definitions = jsonencode({
-        name      = "${local.budibase_container_name}"
-        # Essential: Yes
-        essential = true
-        image     = "${var.BUDIBASE_IMAGE_URL}:latest"
-        # Resource allocation limits:
-        #   - CPU: 2 vCPU
-        cpu       = 2
-        #   - Memory hard limit: 6 GB
-        memory    = 5723 # in MiB = 6 GB
-        #   - Memory soft limit: 0 GB (default)
-        portMappings = [
-            {
-                name          = "${var.PREFIX}-budibase-container-80-tcp"
-                containerPort = 80
-                approtocol    = "http"
-            },
-            {
-                name          = "${var.PREFIX}-budibase-container-443-tcp"
-                containerPort = 443
-            },
-            {
-                name          = "${var.PREFIX}-budibase-container-2222-tcp"
-                containerPort = 2222
-            },
-            {
-                name          = "${var.PREFIX}-budibase-container-4369-tcp"
-                containerPort = 4369
-            },
-            {
-                name          = "${var.PREFIX}-budibase-container-5984-tcp"
-                containerPort = 5984
-            },
-            {
-                name          = "${var.PREFIX}-budibase-container-9100-tcp"
-                containerPort = 9100
-            }
-        ]
-        # Add mount point
-        mountPoints = [
-            {
-                sourceVolume  = "${var.PREFIX}-budibase-ecs-task-storage"
-                containerPath = "/data"
-            }
-        ]
-    })
+    container_definitions = jsonencode([
+        {
+            name      = "${local.budibase_container_name}"
+            # Essential: Yes
+            essential = true
+            image     = "${var.BUDIBASE_IMAGE_URL}:latest"
+            # Resource allocation limits:
+            #   - CPU: 2 vCPU
+            cpu       = 2048
+            #   - Memory hard limit: 6 GB
+            memory    = 6144
+            #   - Memory soft limit: 0 GB (default)
+            portMappings = [
+                {
+                    name          = "${var.PREFIX}-budibase-container-80-tcp"
+                    containerPort = 80
+                    appProtocol    = "http"
+                },
+                {
+                    name          = "${var.PREFIX}-budibase-container-443-tcp"
+                    containerPort = 443
+                },
+                {
+                    name          = "${var.PREFIX}-budibase-container-2222-tcp"
+                    containerPort = 2222
+                },
+                {
+                    name          = "${var.PREFIX}-budibase-container-4369-tcp"
+                    containerPort = 4369
+                },
+                {
+                    name          = "${var.PREFIX}-budibase-container-5984-tcp"
+                    containerPort = 5984
+                },
+                {
+                    name          = "${var.PREFIX}-budibase-container-9100-tcp"
+                    containerPort = 9100
+                }
+            ]
+            # Add mount point
+            mountPoints = [
+                {
+                    sourceVolume  = "${var.PREFIX}-budibase-ecs-task-storage"
+                    containerPath = "/data"
+                }
+            ]
+        }
+    ])
 }
 
 #   - Application Load Balancer: Create a new load balancer
@@ -141,7 +143,7 @@ resource "aws_lb" "budibase_alb" {
 
 resource "aws_lb_target_group" "budibase_alb_target_group" {
     name = "${var.PREFIX}-budibase-lb-tg"
-    target_type = "instance"
+    target_type = "ip"
     #   - VPC: as above
     vpc_id = aws_vpc.main.id
     #       - Protocol: HTTP
@@ -163,7 +165,7 @@ resource "aws_lb_target_group" "budibase_alb_target_group" {
 
 #       - Create new listener
 resource "aws_lb_listener" "budibase_alb_listener" {
-    load_balancer_arn = TK.arn
+    load_balancer_arn = aws_lb.budibase_alb.arn
     #       - Protocol: HTTP
     protocol          = "HTTP"
     #       - Port: 80

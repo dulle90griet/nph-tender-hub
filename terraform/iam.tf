@@ -1,7 +1,7 @@
 # Create ECS Task Iam role. Trusted entity type: AWS service. Use case: Elastic Container Service Task. Permissions policies: none for now. Add client and project tags. Once created, use the `aws:SourceAccount` or `aws:SourceArn` condition keys in the trust relationship policy to prevent the confused deputy security issue. See here (https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html?icmpid=docs_ecs_hp-task-definition) and here (https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html). Add a statement allowing "ssmmessages:CreateControlChannel", "ssmmessages:CreateDataChannel", "ssmmessages:OpenControlChannel" and "ssmmessages:OpenDataChannel".
 
 resource "aws_iam_role" "budibase_ecs_task" {
-    name = "${var.PREFIX}BudibaseRoleForECSTask"
+    name = "${var.PREFIX}BudibaseTFRoleForECSTask"
 
     assume_role_policy = jsonencode({
         Version = "2012-10-17"
@@ -24,8 +24,9 @@ resource "aws_iam_policy" "budibase_ecs_task_policy" {
         Version = "2012-10-17"
         Statement = [
             {
+                Effect = "Allow"
                 Action = [
-                    "ssmmessages:CreateDatacChannel",
+                    "ssmmessages:CreateDataChannel",
                     "ssmmessages:OpenDataChannel",
                     "ssmmessages:CreateControlChannel",
                     "ssmmessages:OpenControlChannel"
@@ -44,7 +45,7 @@ resource "aws_iam_role_policy_attachment" "budbase_ecs_task_policy" {
 # Create ECS Task Execution IAM role. Trusted entity type: AWS service. Use case: Elastic Container Service Task Execution Role. Permissions policies: just the required AmazonECSTaskExecutionRolePolicy to begin with. Add client and project tags. Not sure if I need to worry about the confused deputy security issue in this case.
 
 resource "aws_iam_role" "budibase_ecs_task_execution" {
-    name = "{$var.PREFIX}BudibaseRoleForECSTaskExecution"
+    name = "${var.PREFIX}BudibaseTFRoleForECSTaskExecution"
 
     assume_role_policy = jsonencode({
         Version = "2012-10-17"
