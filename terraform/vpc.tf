@@ -216,3 +216,65 @@ resource "aws_vpc_endpoint" "s3" {
         Name = "${var.PREFIX}-vpce-s3"
     }
 }
+
+
+# Create security groups
+resource "aws_security_group" "budibase_fargate" {
+    name = "${var.PREFIX}BudibaseFargateService"
+    description = "Security group for ${var.CLIENT} ${var.PROJECT} Fargate Budibase deployment"
+    vpc_id = aws_vpc.main.id
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_fargate_egress" {
+    security_group_id = aws_security_group.budibase_fargate.id
+    ip_protocol = -1
+    cidr_ipv4 = "0.0.0.0/0"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_inbound_from_lb" {
+    security_group_id = aws_security_group.budibase_fargate.id
+    ip_protocol = "tcp"
+    from_port = 80
+    to_port = 80
+    referenced_security_group_id = aws_security_group.budibase_load_balancer.id
+}
+
+resource "aws_security_group" "budibase_load_balancer" {
+    name = "${var.PREFIX}BudibaseLoadBalancer"
+    description = "Security group for ${var.CLIENT} ${var.PROJECT} Budibase load balancer"
+    vpc_id = aws_vpc.main.id
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_lb_egress" {
+    security_group_id = aws_security_group.budibase_load_balancer.id
+    ip_protocol = -1
+    cidr_ipv4 = "0.0.0.0/0"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_inbound_to_lb" {
+    security_group_id = aws_security_group.budibase_load_balancer.id
+    cidr_ipv4   = "0.0.0.0/0"
+    ip_protocol = "tcp"
+    from_port   = 80
+    to_port     = 80
+}
+
+resource "aws_security_group" "budibase_efs" {
+    name = "${var.PREFIX}BudibaseEFS"
+    description = "Security group for EFS access from ECS tasks"
+    vpc_id = aws_vpc.main.id
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_efs_egress" {
+    security_group_id = aws_security_group.budibase_efs.id
+    ip_protocol = -1
+    cidr_ipv4 = "0.0.0.0/0"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_nfs_ingress_to_efs" {
+    security_group_id = aws_security_group.budibase_efs.id
+    from_port = 2049
+    to_port = 2049
+    ip_protocol = "tcp"
+    referenced_security_group_id = aws_security_group.budibase_fargate.id
+} 
