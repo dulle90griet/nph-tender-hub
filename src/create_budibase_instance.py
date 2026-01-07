@@ -1,8 +1,9 @@
+import json
 import os, boto3
 
 
 def create_budibase_instance(client):
-    client.update_service(
+    return client.update_service(
         cluster = os.environ.get("TARGET_CLUSTER_NAME"),
         service = os.environ.get("TARGET_SERVICE_NAME"),
         desiredCount = 1
@@ -10,4 +11,11 @@ def create_budibase_instance(client):
 
 
 def lambda_handler(event, context):
-    pass
+    ecs_client = boto3.client("ecs")
+
+    result = create_budibase_instance(ecs_client)
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps(result)
+    }
