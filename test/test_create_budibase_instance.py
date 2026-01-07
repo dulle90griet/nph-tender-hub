@@ -1,7 +1,8 @@
 import os, pytest, boto3, time
 from pprint import pprint
 from moto import mock_aws
-from src.create_budibase_instance import create_budibase_instance
+from unittest.mock import patch, Mock
+from src.create_budibase_instance import create_budibase_instance, lambda_handler
 
 
 @pytest.fixture(scope="function")
@@ -34,38 +35,54 @@ def ecs_with_cluster(ecs_client):
     )
     ecs_client.create_service(
         cluster = os.environ["TARGET_CLUSTER_NAME"],
-        serviceName = os.environ["TARGET_SERVICE_NAME"]
+        serviceName = os.environ["TARGET_SERVICE_NAME"],
+        desiredCount = 0
     )
-    ecs_client.update_service(
-        cluster = os.environ["TARGET_CLUSTER_NAME"],
-        service = os.environ["TARGET_SERVICE_NAME"],
-        desiredCount = 0,
-        forceNewDeployment = True
-    )
-    time.sleep(1)
     yield ecs_client
 
 
-def test_service_desired_count_set_to_1(ecs_with_cluster):
-    create_budibase_instance(ecs_with_cluster)
-    result = ecs_with_cluster.describe_services(
-        cluster = os.environ["TARGET_CLUSTER_NAME"],
-        services = [os.environ["TARGET_SERVICE_NAME"]]
-    )
-    assert result["services"][0]["desiredCount"] == 1
+class TestCreateBudibaseInstanceFunction:
+    """ Unit tests for the create_budibase_instance() function. """
+
+    def test_service_desired_count_set_to_1(self, ecs_with_cluster):
+        create_budibase_instance(ecs_with_cluster)
+        result = ecs_with_cluster.describe_services(
+            cluster = os.environ["TARGET_CLUSTER_NAME"],
+            services = [os.environ["TARGET_SERVICE_NAME"]]
+        )
+        assert result["services"][0]["desiredCount"] == 1
 
 
-def test_deployments_increase_from_0_to_1(ecs_with_cluster):
-    result = ecs_with_cluster.describe_services(
-        cluster = os.environ["TARGET_CLUSTER_NAME"],
-        services = [os.environ["TARGET_SERVICE_NAME"]]
-    )
-    assert result["services"][0]["runningCount"] == 0
+    def test_deployments_increase_from_0_to_1(self, ecs_with_cluster):
+        result = ecs_with_cluster.describe_services(
+            cluster = os.environ["TARGET_CLUSTER_NAME"],
+            services = [os.environ["TARGET_SERVICE_NAME"]]
+        )
+        assert result["services"][0]["runningCount"] == 0
 
-    create_budibase_instance(ecs_with_cluster)
+        create_budibase_instance(ecs_with_cluster)
 
-    result = ecs_with_cluster.describe_services(
-        cluster = os.environ["TARGET_CLUSTER_NAME"],
-        services = [os.environ["TARGET_SERVICE_NAME"]]
-    )
-    assert result["services"][0]["runningCount"] == 1
+        result = ecs_with_cluster.describe_services(
+            cluster = os.environ["TARGET_CLUSTER_NAME"],
+            services = [os.environ["TARGET_SERVICE_NAME"]]
+        )
+        assert result["services"][0]["runningCount"] == 1
+
+
+class TestCreateBudibaseInstanceLambdaHandler:
+    """ Unit tests for the Lambda handler. """
+
+    @patch("src.create_budibase_instance.create_budibase_instance")
+    @patch("src.create_budibase_instance.boto3.client")
+    def test_lambda_handler_invokes_create_budibase_instance(
+        self,
+        mock_boto3_client,
+        mock_create_budibase_instance,
+        aws_credentials,
+        env_vars
+    ):
+        mock_create_budibase_instance.return_value = {}
+
+        lambda_handler({}, object())
+
+        mock_create_budibase_instance.assert_called_once()
