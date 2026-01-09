@@ -50,8 +50,8 @@ def ecs_with_cluster(ecs_client):
     yield ecs_client
 
 
-class TestCreateBudibaseInstanceFunction:
-    """ Unit tests for the create_budibase_instance() function. """
+class TestDestroyBudibaseInstanceFunction:
+    """ Unit tests for the destroy_budibase_instance() function. """
 
     def test_service_desired_count_set_to_0(self, ecs_with_cluster):
         destroy_budibase_instance(ecs_with_cluster)
@@ -78,3 +78,23 @@ class TestCreateBudibaseInstanceFunction:
         )
         assert (result["services"][0]["desiredCount"] == 0
                 and result["services"][0]["pendingCount"] == 0)
+
+
+
+class TestDestroyBudibaseInstanceLambdaHandler:
+    """ Unit tests for the Lambda handler. """
+
+    @patch("src.destroy_budibase_instance.destroy_budibase_instance")
+    @patch("src.destroy_budibase_instance.boto3.client")
+    def test_lambda_handler_invokes_destroy_budibase_instance(
+        self,
+        mock_boto3_client,
+        mock_destroy_budibase_instance,
+        aws_credentials,
+        env_vars
+    ):
+        mock_destroy_budibase_instance.return_value = {}
+
+        lambda_handler({}, object())
+
+        mock_destroy_budibase_instance.assert_called_once()
