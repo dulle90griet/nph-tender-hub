@@ -2,7 +2,7 @@ import os, pytest, boto3, time
 from pprint import pprint
 from moto import mock_aws
 from unittest.mock import patch
-from src.destroy_budibase_instance import destroy_budibase_instance
+from src.destroy_budibase_instance import destroy_budibase_instance, lambda_handler
 
 
 @pytest.fixture(scope="function")
@@ -46,7 +46,7 @@ def ecs_with_cluster(ecs_client):
         service = os.environ["TARGET_SERVICE_NAME"],
         desiredCount = 1
     )
-    
+
     yield ecs_client
 
 
