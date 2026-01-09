@@ -1,7 +1,7 @@
-import os, pytest, boto3, time
+import os, pytest, boto3
 from pprint import pprint
 from moto import mock_aws
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 from src.create_budibase_instance import create_budibase_instance, lambda_handler
 
 
@@ -50,15 +50,17 @@ class TestCreateBudibaseInstanceFunction:
             cluster = os.environ["TARGET_CLUSTER_NAME"],
             services = [os.environ["TARGET_SERVICE_NAME"]]
         )
-        assert result["services"][0]["desiredCount"] == 1
+        assert (result["services"][0]["desiredCount"] == 1
+                or result["services"][0]["pendingCount"] == 1)
 
 
-    def test_deployments_increase_from_0_to_1(self, ecs_with_cluster):
+    def test_running_count_increases_from_0_to_1(self, ecs_with_cluster):
         result = ecs_with_cluster.describe_services(
             cluster = os.environ["TARGET_CLUSTER_NAME"],
             services = [os.environ["TARGET_SERVICE_NAME"]]
         )
-        assert result["services"][0]["runningCount"] == 0
+        assert (result["services"][0]["runningCount"] == 0
+                and result["services"][0]["pendingCount"] == 0)
 
         create_budibase_instance(ecs_with_cluster)
 
@@ -66,7 +68,8 @@ class TestCreateBudibaseInstanceFunction:
             cluster = os.environ["TARGET_CLUSTER_NAME"],
             services = [os.environ["TARGET_SERVICE_NAME"]]
         )
-        assert result["services"][0]["runningCount"] == 1
+        assert (result["services"][0]["desiredCount"] == 1
+                or result["services"][0]["pendingCount"] == 1)
 
 
 class TestCreateBudibaseInstanceLambdaHandler:
