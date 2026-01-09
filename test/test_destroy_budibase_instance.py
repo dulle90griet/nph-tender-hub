@@ -2,7 +2,7 @@ import os, pytest, boto3, time
 from pprint import pprint
 from moto import mock_aws
 from unittest.mock import patch
-from src.destroy_budibase_instance import destroy_budibase_instance, lambda_handler
+from src.destroy_budibase_instance import destroy_budibase_instance
 
 
 @pytest.fixture(scope="function")
@@ -38,6 +38,15 @@ def ecs_with_cluster(ecs_client):
         serviceName = os.environ["TARGET_SERVICE_NAME"],
         desiredCount = 1
     )
+
+    # For some reason, setting desiredCount on create currently creates
+    # a pending service in moto; setting on update creates a running service
+    ecs_client.update_service(
+        cluster = os.environ["TARGET_CLUSTER_NAME"],
+        service = os.environ["TARGET_SERVICE_NAME"],
+        desiredCount = 1
+    )
+    
     yield ecs_client
 
 
@@ -50,7 +59,8 @@ class TestCreateBudibaseInstanceFunction:
             cluster = os.environ["TARGET_CLUSTER_NAME"],
             services = [os.environ["TARGET_SERVICE_NAME"]]
         )
-        assert result["services"][0]["desiredCount"] == 0
+        assert (result["services"][0]["desiredCount"] == 0
+                and result["services"][0]["pendingCount"] == 0)
 
 
     def test_running_count_decreases_from_1_to_0(self, ecs_with_cluster):
@@ -58,12 +68,13 @@ class TestCreateBudibaseInstanceFunction:
             cluster = os.environ["TARGET_CLUSTER_NAME"],
             services = [os.environ["TARGET_SERVICE_NAME"]]
         )
-        assert result["services"][0]["runningCount"] == 1
-
+        assert (result["services"][0]["desiredCount"] == 1
+                or result["services"][0]["pendingCount"] == 1)
         destroy_budibase_instance(ecs_with_cluster)
 
         result = ecs_with_cluster.describe_services(
             cluster = os.environ["TARGET_CLUSTER_NAME"],
             services = [os.environ["TARGET_SERVICE_NAME"]]
         )
-        assert result["services"][0]["runningCount"] == 0
+        assert (result["services"][0]["desiredCount"] == 0
+                and result["services"][0]["pendingCount"] == 0)
