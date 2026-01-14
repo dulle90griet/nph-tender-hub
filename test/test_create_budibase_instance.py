@@ -1,4 +1,4 @@
-import os, pytest, boto3
+import os, pytest, boto3, json
 from pprint import pprint
 from moto import mock_aws
 from unittest.mock import patch
@@ -89,3 +89,17 @@ class TestCreateBudibaseInstanceLambdaHandler:
         lambda_handler({}, object())
 
         mock_create_budibase_instance.assert_called_once()
+
+
+    @patch("src.create_budibase_instance.boto3.client")
+    def test_lambda_handler_returns_status_code_and_json_string(
+        self,
+        mock_boto3_client,
+        ecs_with_cluster
+    ):
+        mock_boto3_client.return_value = ecs_with_cluster
+
+        result = lambda_handler({}, object())
+
+        assert result["statusCode"] == 200
+        body_json = json.loads(result["body"])
