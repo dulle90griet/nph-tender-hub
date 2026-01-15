@@ -95,6 +95,63 @@ resource "aws_iam_role_policy_attachment" "budibase_task_execution_managed_polic
 }
 
 resource "aws_iam_role_policy_attachment" "budibase_task_execution_kms_policy" {
-    role = aws_iam_role.budibase_ecs_task_execution.name
+    role       = aws_iam_role.budibase_ecs_task_execution.name
     policy_arn = aws_iam_policy.budibase_task_execution_kms_policy.arn
+}
+
+
+# IAM role and policy for Lambda execution
+data "aws_iam_policy_document" "lambda_assume_role" {
+    statement {
+        effect = "Allow"
+
+        principals {
+          type        = "Service"
+          identifiers = [ "lambda.amazonaws.com" ]
+        }
+
+        actions = [ "sts:AssumeRole" ]
+    }
+}
+
+resource "aws_iam_role" "lambda_execution_role" {
+    name               = "${var.PREFIX}BudibaseRoleForLambdaExecution"
+    assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+resource "aws_iam_policy" "create_instance_lambda_policy" {
+    name = "${var.PREFIX}BudibasePolicyForCreateInstanceLambda"
+
+    policy = jsonencode({
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                Effect: "Allow",
+                Action: [
+                    "logs:CreateLogGroup"
+                ],
+                Resource: "arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:*"
+            },
+            {
+                Effect: "Allow",
+                Action: [
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                ],
+                Resource: "arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-create-instance-lambda:*"
+            },
+            {
+                Effect: "Allow",
+                Action: [
+                    "ecs:UpdateService"
+                ],
+                Resource: "arn:aws:ecs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:service/*"
+            }
+        ]
+    })
+}
+
+resource "aws_iam_role_policy_attachment" "create_instance_lambda_policy" {
+    role       = aws_iam_role.lambda_execution_role.name
+    policy_arn = aws_iam_policy.create_instance_lambda_policy.arn
 }
