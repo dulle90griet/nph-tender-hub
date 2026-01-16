@@ -190,7 +190,7 @@ resource "aws_ecs_service" "budibase_ecs_service" {
     scheduling_strategy = "REPLICA"
     # Deployment configuration:
     #   - Desired tasks: 1
-    desired_count       = 1 
+    desired_count       = 0
     #   - AZ re-balancing: On
     availability_zone_rebalancing = "ENABLED"
     #   - Health check grace period: 0 (disabled)

@@ -44,7 +44,7 @@ resource "aws_efs_file_system_policy" "budibase_efs_policy" {
                 Action = [
                     "elasticfilesystem:ClientMount",
                     "elasticfilesystem:ClientWrite",
-                    "elasticFileSystem:ClientRootAccess"
+                    "elasticfilesystem:ClientRootAccess"
                 ]
                 Resource = "${aws_efs_file_system.budibase_fargate_data.arn}"
                 Condition = {
@@ -89,8 +89,6 @@ resource "aws_efs_mount_target" "budibase_fargate_mount_target_c" {
     security_groups = [ aws_security_group.budibase_efs.id ]
     ip_address_type = "IPV4_ONLY"
 }
-
-# Should there be a mount target for each private subnet?
 
 resource "aws_efs_access_point" "budibase_fargate_access_point" {
     file_system_id = aws_efs_file_system.budibase_fargate_data.id
