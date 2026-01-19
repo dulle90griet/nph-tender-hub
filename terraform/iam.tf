@@ -100,7 +100,7 @@ resource "aws_iam_role_policy_attachment" "budibase_task_execution_kms_policy" {
 }
 
 
-# IAM role and policy for Lambda execution
+# IAM roles and policies for Lambda execution
 data "aws_iam_policy_document" "lambda_assume_role" {
     statement {
         effect = "Allow"
@@ -114,44 +114,90 @@ data "aws_iam_policy_document" "lambda_assume_role" {
     }
 }
 
-resource "aws_iam_role" "lambda_execution_role" {
-    name               = "${var.PREFIX}BudibaseRoleForLambdaExecution"
+resource "aws_iam_role" "create_instance_lambda_execution_role" {
+    name               = "${var.PREFIX}BudibaseRoleForCreateInstanceLambda"
     assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
-resource "aws_iam_policy" "create_instance_lambda_policy" {
-    name = "${var.PREFIX}BudibasePolicyForCreateInstanceLambda"
-
-    policy = jsonencode({
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                Effect: "Allow",
-                Action: [
-                    "logs:CreateLogGroup"
-                ],
-                Resource: "arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:*"
-            },
-            {
-                Effect: "Allow",
-                Action: [
-                    "logs:CreateLogStream",
-                    "logs:PutLogEvents"
-                ],
-                Resource: "arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-create-instance-lambda:*"
-            },
-            {
-                Effect: "Allow",
-                Action: [
-                    "ecs:UpdateService"
-                ],
-                Resource: "arn:aws:ecs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:service/*"
-            }
-        ]
-    })
+resource "aws_iam_role" "destroy_instance_lambda_execution_role" {
+    name               = "${var.PREFIX}BudibaseRoleForDestroyInstanceLambda"
+    assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
-resource "aws_iam_role_policy_attachment" "create_instance_lambda_policy" {
-    role       = aws_iam_role.lambda_execution_role.name
+data "aws_iam_policy_document" "generic_create_log_group_policy_doc" {
+    statement {
+        sid       = "GenericCreateLogGroup"
+        effect    = "Allow"
+        actions   = [ "logs:CreateLogGroup" ]
+        resources = [ "arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:*" ]
+    }
+}
+
+data "aws_iam_policy_document" "generic_update_service_policy_doc" {
+    statement {
+        sid       = "GenericUpdateService"
+        effect    = "Allow"
+        actions   = [ "ecs:UpdateService" ]
+        resources = [ "arn:aws:ecs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:service/*" ]
+    }
+}
+
+data "aws_iam_policy_document" "create_instance_lambda_policy_doc" {
+    source_policy_documents = [
+        data.aws_iam_policy_document.generic_create_log_group_policy_doc.json,
+        data.aws_iam_policy_document.generic_update_service_policy_doc.json
+    ]
+
+    statement {
+        sid       = "CreateInstanceLambdaLogging"
+        effect    = "Allow"
+        
+        actions = [
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+        ]
+
+        resources = [ "arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-create-instance-lambda:*" ]
+    }
+}
+
+data "aws_iam_policy_document" "destroy_instance_lambda_policy_doc" {
+    source_policy_documents = [
+        data.aws_iam_policy_document.generic_create_log_group_policy_doc.json,
+        data.aws_iam_policy_document.generic_update_service_policy_doc.json
+    ]
+
+    statement {
+        sid       = "DestroyInstanceLambdaLogging"
+        effect    = "Allow"
+        
+        actions = [
+            "logs:DestroyLogStream",
+            "logs:PutLogEvents"
+        ]
+
+        resources = [ "arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-destroy-instance-lambda:*" ]
+    }
+}
+
+resource "aws_iam_policy" "create_instance_lambda_policy" {
+    name        = "${var.PREFIX}BudibasePolicyForCreateInstanceLambda"
+    description = "Policy allowing the Budibase Create Instance Lambda to write logs and update the Budibase ECS service."
+    policy      = data.aws_iam_policy_document.create_instance_lambda_policy_doc.json
+}
+
+resource "aws_iam_policy" "destroy_instance_lambda_policy" {
+    name        = "${var.PREFIX}BudibasePolicyForDestroyInstanceLambda"
+    description = "Policy allowing the Budibase Destroy Instance Lambda to write logs and update the Budibase ECS service."
+    policy      = data.aws_iam_policy_document.destroy_instance_lambda_policy_doc.json
+}
+
+resource "aws_iam_role_policy_attachment" "create_instance_lambda_policy_attachment" {
+    role       = aws_iam_role.create_instance_lambda_execution_role.name
     policy_arn = aws_iam_policy.create_instance_lambda_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "destroy_instance_lambda_policy_attachment" {
+    role       = aws_iam_role.destroy_instance_lambda_execution_role.name
+    policy_arn = aws_iam_policy.destroy_instance_lambda_policy.arn
 }
