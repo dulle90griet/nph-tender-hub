@@ -202,9 +202,9 @@ resource "aws_ecs_service" "budibase_ecs_service" {
         #   - VPC: select our new VPC
         #   - Subnets: choose our private egress-only subnets
         subnets = [
-            aws_subnet.private_a.id,
-            aws_subnet.private_b.id,
-            aws_subnet.private_c.id
+            aws_subnet.private["a"].id,
+            aws_subnet.private["b"].id,
+            aws_subnet.private["c"].id
         ]
         #   - Security Group: choose the FargateService SG
         security_groups = [ aws_security_group.budibase_fargate.id ]

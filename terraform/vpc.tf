@@ -44,6 +44,39 @@ resource "aws_subnet" "public_c" {
     }
 }
 
+locals {
+    # Create a map of the private subnets to be created
+    private_subnets = {
+        a   = { cidr_block = "10.0.128.0/20", az = "${var.AWS_REGION}a" }
+        b   = { cidr_block = "10.0.144.0/20", az = "${var.AWS_REGION}b" }
+        c   = { cidr_block = "10.0.160.0/20", az = "${var.AWS_REGION}c" }
+    }
+
+    # Create a list of private subnet keys for easier indexing
+    subnet_keys = keys(local.private_subnets)
+
+    # Map each private subnet to a NAT Gateway using modulo operation
+    subnet_to_nat_map = {
+        for idx, subnet_key in local.subnet_keys:
+            subnet_key => var.NAT_GATEWAY_COUNT > 0 ? idx % var.NAT_GATEWAY_COUNT
+                : null
+            if var.NAT_GATEWAY_COUNT > 0
+    }
+}
+
+resource "aws_subnet" "private" {
+    for_each = local.private_subnets
+
+    vpc_id            = aws_vpc.main.id
+    cidr_block        = each.value.cidr_block
+    availability_zone = each.value.az
+
+    tags = {
+        Name = "${var.PREFIX}-subnet-private${index(keys(local.private_subnets), each.key)}-${each.value.az}"
+    }
+}
+
+/*
 resource "aws_subnet" "private_a" {
     vpc_id            = aws_vpc.main.id
     cidr_block        = "10.0.128.0/20"
@@ -73,7 +106,7 @@ resource "aws_subnet" "private_c" {
         Name = "${var.PREFIX}-subnet-private3-${var.AWS_REGION}c"
     }
 }
-
+*/
 
 # Create internet gateway
 
@@ -118,7 +151,7 @@ resource "aws_route_table_association" "public_c" {
 }
 
 
-# Allocate elastic IP eipalloc-0c59b697e45a00edf
+# Allocate elastic IPs
 resource "aws_eip" "a" {
     domain = "vpc"
 }
@@ -153,7 +186,7 @@ resource "aws_route_table" "private_a" {
 
 # Associate route table
 resource "aws_route_table_association" "private_a" {
-    subnet_id      = aws_subnet.private_a.id
+    subnet_id      = aws_subnet.private["a"].id
     route_table_id = aws_route_table.private_a.id
 }
 
@@ -174,7 +207,7 @@ resource "aws_route_table" "private_b" {
 
 # Associate route table
 resource "aws_route_table_association" "private_b" {
-    subnet_id      = aws_subnet.private_b.id
+    subnet_id      = aws_subnet.private["b"].id
     route_table_id = aws_route_table.private_b.id
 }
 
@@ -195,7 +228,7 @@ resource "aws_route_table" "private_c" {
 
 # Associate route table
 resource "aws_route_table_association" "private_c" {
-    subnet_id      = aws_subnet.private_c.id
+    subnet_id      = aws_subnet.private["c"].id
     route_table_id = aws_route_table.private_c.id
 }
 

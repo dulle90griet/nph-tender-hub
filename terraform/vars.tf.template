@@ -30,18 +30,6 @@ variable "REPO_NAME" {
     default     = "${tfenv.REPO_NAME}"
 }
 
-variable "IAM_USER" {
-    type        = string
-    description = "The name of the dev IAM user"
-    default     = "${tfenv.IAM_USER}"
-}
-
-variable "BUDIBASE_IMAGE_URL" {
-    type        = string
-    description = "The URL of the Budibase image to use for the ECS container"
-    default     = "${tfenv.BUDIBASE_IMAGE_URL}"
-}
-
 variable "GLOBAL_TAGS" {
     type        = map(string)
     description = "The tags to attach to all resources associated with this project"
@@ -49,6 +37,29 @@ variable "GLOBAL_TAGS" {
         client  = "${tfenv.TAGS_CLIENT}"
         project = "${tfenv.TAGS_PROJECT}"
     }
+}
+
+variable "IAM_USER" {
+    type        = string
+    description = "The name of the dev IAM user"
+    default     = "${tfenv.IAM_USER}"
+}
+
+variable "NAT_GATEWAY_COUNT" {
+    description = "Number of NAT Gateways to create (0-3)"
+    type        = number
+    default     = 1
+
+    validation {
+        condition     = var.NAT_GATEWAY_COUNT >= 0 && var.NAT_GATEWAY_COUNT <= 3
+        error_message = "NAT Gateway count must be between 0 and 3."
+    }
+}
+
+variable "BUDIBASE_IMAGE_URL" {
+    type        = string
+    description = "The URL of the Budibase image to use for the ECS container"
+    default     = "${tfenv.BUDIBASE_IMAGE_URL}"
 }
 
 variable "BUDIBASE_CLUSTER_NAME" {
