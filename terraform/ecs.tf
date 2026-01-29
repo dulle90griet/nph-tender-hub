@@ -24,7 +24,7 @@ resource "aws_ecs_cluster" "budibase_cluster" {
         # Provide AWS KMS keys for encryption of both managed and ephemeral storage.
         managed_storage_configuration {
             kms_key_id = aws_kms_key.fargate_managed_storage.id
-            fargate_ephemeral_storage_kms_key_id = aws_kms_key.fargate_ephemeral_storage.id
+            fargate_ephemeral_storage_kms_key_id = aws_kms_key.fargate_ephemeral_storage.arn
         }
     }
 
@@ -133,9 +133,9 @@ resource "aws_lb" "budibase_alb" {
     security_groups = [ aws_security_group.budibase_load_balancer.id ]
     #   - VPC: as above
     subnets = [ 
-        aws_subnet.public_a.id,
-        aws_subnet.public_b.id,
-        aws_subnet.public_c.id
+        aws_subnet.public["a"].id,
+        aws_subnet.public["b"].id,
+        aws_subnet.public["c"].id
     ]
 
     enable_deletion_protection = false  # MUST BE TRUE IN PROD
