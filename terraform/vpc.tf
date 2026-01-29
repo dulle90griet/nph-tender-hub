@@ -38,38 +38,6 @@ resource "aws_subnet" "public" {
     }
 }
 
-/*
-resource "aws_subnet" "public_a" {
-    vpc_id            = aws_vpc.main.id
-    cidr_block        = "10.0.0.0/20"
-    availability_zone = "${var.AWS_REGION}a"
-
-    tags = {
-        Name = "${var.PREFIX}-subnet-public1-${var.AWS_REGION}a"
-    }
-}
-
-resource "aws_subnet" "public_b" {
-    vpc_id            = aws_vpc.main.id
-    cidr_block        = "10.0.16.0/20"
-    availability_zone = "${var.AWS_REGION}b"
-
-    tags = {
-        Name = "${var.PREFIX}-subnet-public2-${var.AWS_REGION}b"
-    }
-}
-
-resource "aws_subnet" "public_c" {
-    vpc_id            = aws_vpc.main.id
-    cidr_block        = "10.0.32.0/20"
-    availability_zone = "${var.AWS_REGION}c"
-    
-    tags = {
-        Name = "${var.PREFIX}-subnet-public3-${var.AWS_REGION}c"
-    }
-}
-*/
-
 locals {
     # Create a map of the private subnets to be created
     private_subnets = {
@@ -94,37 +62,6 @@ resource "aws_subnet" "private" {
     }
 }
 
-/*
-resource "aws_subnet" "private_a" {
-    vpc_id            = aws_vpc.main.id
-    cidr_block        = "10.0.128.0/20"
-    availability_zone = "${var.AWS_REGION}a"
-    
-    tags = {
-        Name = "${var.PREFIX}-subnet-private1-${var.AWS_REGION}a"
-    }
-}
-
-resource "aws_subnet" "private_b" {
-    vpc_id            = aws_vpc.main.id
-    cidr_block        = "10.0.144.0/20"
-    availability_zone = "${var.AWS_REGION}b"
-    
-    tags = {
-        Name = "${var.PREFIX}-subnet-private2-${var.AWS_REGION}b"
-    }
-}
-
-resource "aws_subnet" "private_c" {
-    vpc_id            = aws_vpc.main.id
-    cidr_block        = "10.0.160.0/20"
-    availability_zone = "${var.AWS_REGION}c"
-    
-    tags = {
-        Name = "${var.PREFIX}-subnet-private3-${var.AWS_REGION}c"
-    }
-}
-*/
 
 # Create internet gateway
 
@@ -138,6 +75,7 @@ resource "aws_internet_gateway" "igw" {
 
 
 # Create route table
+
 resource "aws_route_table" "public" {
     vpc_id = aws_vpc.main.id
 
@@ -153,6 +91,7 @@ resource "aws_route_table" "public" {
 
 
 # Associate route table
+
 resource "aws_route_table_association" "public_a" {
     subnet_id      = aws_subnet.public["a"].id
     route_table_id = aws_route_table.public.id
@@ -170,6 +109,7 @@ resource "aws_route_table_association" "public_c" {
 
 
 # Allocate elastic IPs
+
 resource "aws_eip" "nat" {
     for_each = { for idx in range(var.NAT_GATEWAY_COUNT): idx => null }
 
@@ -180,14 +120,9 @@ resource "aws_eip" "nat" {
     }
 }
 
-/*
-resource "aws_eip" "a" {
-    domain = "vpc"
-}
-*/
-
 
 # Create NAT gateways
+
 locals {
     # Map each NAT Gateway to a public subnet using modulo round robin
     nat_to_subnet_map = {
@@ -209,19 +144,6 @@ resource "aws_nat_gateway" "ngw" {
         Name = "${var.PREFIX}-nat-public${each.key+1}-${var.AWS_REGION}${local.nat_to_subnet_map[each.key]}"
     }
 }
-
-/*
-resource "aws_nat_gateway" "a" {
-    allocation_id = aws_eip.a.id
-    subnet_id     = aws_subnet.public["a"].id
-
-    depends_on    = [ aws_internet_gateway.igw ]
-
-    tags = {
-        Name = "${var.PREFIX}-nat-public1-${var.AWS_REGION}"
-    }
-}
-*/
 
 
 # Create and associate route tables
@@ -257,70 +179,9 @@ resource "aws_route_table_association" "private" {
     route_table_id = aws_route_table.private[each.value].id
 }
 
-/*
-resource "aws_route_table" "private_a" {
-    vpc_id = aws_vpc.main.id
-
-    route {
-        cidr_block     = "0.0.0.0/0"
-        nat_gateway_id = aws_nat_gateway.a.id
-    }
-
-    tags = {
-        Name = "${var.PREFIX}-rtb-private1-${var.AWS_REGION}a"
-    }
-}
-
-# Associate route table
-resource "aws_route_table_association" "private_a" {
-    subnet_id      = aws_subnet.private["a"].id
-    route_table_id = aws_route_table.private_a.id
-}
-
-
-# Create route table
-resource "aws_route_table" "private_b" {
-    vpc_id = aws_vpc.main.id
-
-    route {
-        cidr_block     = "0.0.0.0/0"
-        nat_gateway_id = aws_nat_gateway.a.id
-    }
-
-    tags = {
-        Name = "${var.PREFIX}-rtb-private2-${var.AWS_REGION}b"
-    }
-}
-
-# Associate route table
-resource "aws_route_table_association" "private_b" {
-    subnet_id      = aws_subnet.private["b"].id
-    route_table_id = aws_route_table.private_b.id
-}
-
-
-# Create route table
-resource "aws_route_table" "private_c" {
-    vpc_id = aws_vpc.main.id
-
-    route {
-        cidr_block     = "0.0.0.0/0"
-        nat_gateway_id = aws_nat_gateway.a.id
-    }
-
-    tags = {
-        Name = "${var.PREFIX}-rtb-private3-${var.AWS_REGION}c"
-    }
-}
-
-# Associate route table
-resource "aws_route_table_association" "private_c" {
-    subnet_id      = aws_subnet.private["c"].id
-    route_table_id = aws_route_table.private_c.id
-}
-*/
 
 # Create S3 endpoint and associate it with private subnet route tables
+
 resource "aws_vpc_endpoint" "s3" {
     vpc_id            = aws_vpc.main.id
     vpc_endpoint_type = "Gateway"
@@ -346,6 +207,7 @@ resource "aws_vpc_endpoint_route_table_association" "s3" {
 
 
 # Create security groups
+
 resource "aws_security_group" "budibase_fargate" {
     name = "${var.PREFIX}BudibaseFargateService"
     description = "Security group for ${var.CLIENT} ${var.PROJECT} Fargate Budibase deployment"
