@@ -41,9 +41,25 @@ resource "aws_subnet" "public" {
 locals {
     # Create a map of the private subnets to be created
     private_subnets = {
-        a   = { cidr_block = "10.0.128.0/20", az = "${var.AWS_REGION}a" }
-        b   = { cidr_block = "10.0.144.0/20", az = "${var.AWS_REGION}b" }
-        c   = { cidr_block = "10.0.160.0/20", az = "${var.AWS_REGION}c" }
+        # Three private subnets for Budibase/ECS dev
+        a   = { cidr_block = "10.0.128.0/21", az = "${var.AWS_REGION}a" }
+        b   = { cidr_block = "10.0.136.0/21", az = "${var.AWS_REGION}b" }
+        c   = { cidr_block = "10.0.144.0/21", az = "${var.AWS_REGION}c" }
+        
+        # Three private subnets for Budibase/ECS stage
+        d   = { cidr_block = "10.0.152.0/21", az = "${var.AWS_REGION}d" }
+        e   = { cidr_block = "10.0.160.0/21", az = "${var.AWS_REGION}e" }
+        f   = { cidr_block = "10.0.168.0/21", az = "${var.AWS_REGION}f" }
+
+        # Three private subnets for Budibase/ECS prod
+        g   = { cidr_block = "10.0.176.0/21", az = "${var.AWS_REGION}g" }
+        h   = { cidr_block = "10.0.184.0/21", az = "${var.AWS_REGION}h" }
+        i   = { cidr_block = "10.0.192.0/21", az = "${var.AWS_REGION}i" }
+
+        # Three private subnets for RDS
+        j   = { cidr_block = "10.0.200.0/21", az = "${var.AWS_REGION}j" }
+        k   = { cidr_block = "10.0.208.0/21", az = "${var.AWS_REGION}k" }
+        l   = { cidr_block = "10.0.216.0/21", az = "${var.AWS_REGION}l" }
     }
 
     # Create a list of private subnet keys for easier indexing
