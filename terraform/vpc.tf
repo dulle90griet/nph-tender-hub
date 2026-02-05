@@ -47,19 +47,19 @@ locals {
         c   = { cidr_block = "10.0.144.0/21", az = "${var.AWS_REGION}c" }
         
         # Three private subnets for Budibase/ECS stage
-        d   = { cidr_block = "10.0.152.0/21", az = "${var.AWS_REGION}d" }
-        e   = { cidr_block = "10.0.160.0/21", az = "${var.AWS_REGION}e" }
-        f   = { cidr_block = "10.0.168.0/21", az = "${var.AWS_REGION}f" }
+        d   = { cidr_block = "10.0.152.0/21", az = "${var.AWS_REGION}a" }
+        e   = { cidr_block = "10.0.160.0/21", az = "${var.AWS_REGION}b" }
+        f   = { cidr_block = "10.0.168.0/21", az = "${var.AWS_REGION}c" }
 
         # Three private subnets for Budibase/ECS prod
-        g   = { cidr_block = "10.0.176.0/21", az = "${var.AWS_REGION}g" }
-        h   = { cidr_block = "10.0.184.0/21", az = "${var.AWS_REGION}h" }
-        i   = { cidr_block = "10.0.192.0/21", az = "${var.AWS_REGION}i" }
+        g   = { cidr_block = "10.0.176.0/21", az = "${var.AWS_REGION}a" }
+        h   = { cidr_block = "10.0.184.0/21", az = "${var.AWS_REGION}b" }
+        i   = { cidr_block = "10.0.192.0/21", az = "${var.AWS_REGION}c" }
 
         # Three private subnets for RDS
-        j   = { cidr_block = "10.0.200.0/21", az = "${var.AWS_REGION}j" }
-        k   = { cidr_block = "10.0.208.0/21", az = "${var.AWS_REGION}k" }
-        l   = { cidr_block = "10.0.216.0/21", az = "${var.AWS_REGION}l" }
+        j   = { cidr_block = "10.0.200.0/21", az = "${var.AWS_REGION}a" }
+        k   = { cidr_block = "10.0.208.0/21", az = "${var.AWS_REGION}b" }
+        l   = { cidr_block = "10.0.216.0/21", az = "${var.AWS_REGION}c" }
     }
 
     # Create a list of private subnet keys for easier indexing
@@ -109,17 +109,9 @@ resource "aws_route_table" "public" {
 # Associate route table
 
 resource "aws_route_table_association" "public_a" {
-    subnet_id      = aws_subnet.public["a"].id
-    route_table_id = aws_route_table.public.id
-}
+    for_each = aws_subnet.public
 
-resource "aws_route_table_association" "public_b" {
-    subnet_id      = aws_subnet.public["b"].id
-    route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "public_c" {
-    subnet_id      = aws_subnet.public["c"].id
+    subnet_id      = each.value.id
     route_table_id = aws_route_table.public.id
 }
 
