@@ -1,5 +1,5 @@
 resource "aws_efs_file_system" "budibase_fargate_data" {
-    creation_token = "${var.PREFIX}-budibase-fargate-efs"
+    creation_token = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-fargate-efs"
 
     # Enable encryption of data at rest using Fargate Managed Storage KMS key
     # Use our Fargate Managed Storage KMS key
@@ -22,7 +22,7 @@ resource "aws_efs_file_system" "budibase_fargate_data" {
     }
 
     tags = {
-        Name = "${var.PREFIX}_budibase_data"
+        Name = "${var.PREFIX}_${var.ENVIRONMENT}_budibase_data"
     }
 }
 
@@ -99,7 +99,7 @@ resource "aws_efs_access_point" "budibase_fargate_access_point" {
     }
 
     tags = {
-        Name = "${var.PREFIX}_budibase_access_point"
+        Name = "${var.PREFIX}_${var.ENVIRONMENT}_budibase_access_point"
     }
 }
  

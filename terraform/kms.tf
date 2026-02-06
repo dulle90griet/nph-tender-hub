@@ -116,7 +116,7 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
         condition {
             test     = "StringEquals"
             variable = "kms:EncryptionContext:aws:ecs:clusterName"
-            values   = [ "${var.BUDIBASE_CLUSTER_NAME}" ]
+            values   = [ "${var.BUDIBASE_CLUSTER_NAME[var.ENVIRONMENT]}" ]
         }
 
     }
@@ -138,7 +138,7 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
         condition {
             test     = "StringEquals"
             variable = "kms:EncryptionContext:aws:ecs:clusterName"
-            values   = [ "${var.BUDIBASE_CLUSTER_NAME}" ]
+            values   = [ "${var.BUDIBASE_CLUSTER_NAME[var.ENVIRONMENT]}" ]
         }
         condition {
             test     = "ForAllValues:StringEquals"

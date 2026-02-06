@@ -12,7 +12,7 @@ resource "aws_vpc" "main" {
     }
 
     lifecycle {
-        prevent_destroy = true
+        prevent_destroy = false
     }
 }
 
