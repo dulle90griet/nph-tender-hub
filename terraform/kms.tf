@@ -7,7 +7,7 @@ resource "aws_kms_key" "fargate_managed_storage" {
     policy                  = data.aws_iam_policy_document.kms_key_for_fargate.json
 
     tags = {
-      Name = "${var.PREFIX}-key-for-fargate-managed"
+      Name = "${var.PREFIX}-${var.ENVIRONMENT}-key-for-fargate-managed"
     }
 }
 
@@ -20,7 +20,7 @@ resource "aws_kms_key" "fargate_ephemeral_storage" {
     policy                  = data.aws_iam_policy_document.kms_key_for_fargate.json
 
     tags = {
-      Name = "${var.PREFIX}-key-for-fargate-ephemeral"
+      Name = "${var.PREFIX}-${var.ENVIRONMENT}-key-for-fargate-ephemeral"
     }
 }
 

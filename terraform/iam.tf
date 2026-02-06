@@ -1,7 +1,7 @@
 # Create ECS Task Iam role. Trusted entity type: AWS service. Use case: Elastic Container Service Task. Permissions policies: none for now. Add client and project tags. Once created, use the `aws:SourceAccount` or `aws:SourceArn` condition keys in the trust relationship policy to prevent the confused deputy security issue. See here (https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html?icmpid=docs_ecs_hp-task-definition) and here (https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html). Add a statement allowing "ssmmessages:CreateControlChannel", "ssmmessages:CreateDataChannel", "ssmmessages:OpenControlChannel" and "ssmmessages:OpenDataChannel".
 
 resource "aws_iam_role" "budibase_ecs_task" {
-    name = "${var.PREFIX}BudibaseTFRoleForECSTask"
+    name = "${var.PREFIX}${var.ENVIRONMENT}BudibaseTFRoleForECSTask"
 
     assume_role_policy = jsonencode({
         Version = "2012-10-17"
@@ -18,7 +18,7 @@ resource "aws_iam_role" "budibase_ecs_task" {
 }
 
 resource "aws_iam_policy" "budibase_ecs_task_policy" {
-    name = "${var.PREFIX}BudibaseECSTaskPolicy"
+    name = "${var.PREFIX}${var.ENVIRONMENT}BudibaseECSTaskPolicy"
 
     policy = jsonencode({
         Version = "2012-10-17"
@@ -45,7 +45,7 @@ resource "aws_iam_role_policy_attachment" "budbase_ecs_task_policy" {
 # Create ECS Task Execution IAM role. Trusted entity type: AWS service. Use case: Elastic Container Service Task Execution Role. Permissions policies: just the required AmazonECSTaskExecutionRolePolicy to begin with. Add client and project tags. Not sure if I need to worry about the confused deputy security issue in this case.
 
 resource "aws_iam_role" "budibase_ecs_task_execution" {
-    name = "${var.PREFIX}BudibaseTFRoleForECSTaskExecution"
+    name = "${var.PREFIX}${var.ENVIRONMENT}BudibaseTFRoleForECSTaskExecution"
 
     assume_role_policy = jsonencode({
         Version = "2012-10-17"
@@ -115,12 +115,12 @@ data "aws_iam_policy_document" "lambda_assume_role" {
 }
 
 resource "aws_iam_role" "create_instance_lambda_execution_role" {
-    name               = "${var.PREFIX}BudibaseRoleForCreateInstanceLambda"
+    name               = "${var.PREFIX}${var.ENVIRONMENT}BudibaseRoleForCreateInstanceLambda"
     assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
 resource "aws_iam_role" "destroy_instance_lambda_execution_role" {
-    name               = "${var.PREFIX}BudibaseRoleForDestroyInstanceLambda"
+    name               = "${var.PREFIX}${var.ENVIRONMENT}BudibaseRoleForDestroyInstanceLambda"
     assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
@@ -181,13 +181,13 @@ data "aws_iam_policy_document" "destroy_instance_lambda_policy_doc" {
 }
 
 resource "aws_iam_policy" "create_instance_lambda_policy" {
-    name        = "${var.PREFIX}BudibasePolicyForCreateInstanceLambda"
+    name        = "${var.PREFIX}${var.ENVIRONMENT}BudibasePolicyForCreateInstanceLambda"
     description = "Policy allowing the Budibase Create Instance Lambda to write logs and update the Budibase ECS service."
     policy      = data.aws_iam_policy_document.create_instance_lambda_policy_doc.json
 }
 
 resource "aws_iam_policy" "destroy_instance_lambda_policy" {
-    name        = "${var.PREFIX}BudibasePolicyForDestroyInstanceLambda"
+    name        = "${var.PREFIX}${var.ENVIRONMENT}BudibasePolicyForDestroyInstanceLambda"
     description = "Policy allowing the Budibase Destroy Instance Lambda to write logs and update the Budibase ECS service."
     policy      = data.aws_iam_policy_document.destroy_instance_lambda_policy_doc.json
 }
