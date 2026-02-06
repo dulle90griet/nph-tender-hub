@@ -1,5 +1,11 @@
 # Constants for use throughout the TF deployment
 
+variable "ENVIRONMENT" {
+    type        = string
+    description = "The environment to use (dev, stage or prod)"
+    default     = "dev"
+}
+
 variable "AWS_REGION" {
     type        = string
     description = "The region in which to deploy our AWS resources"
