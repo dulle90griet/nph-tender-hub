@@ -7,7 +7,12 @@ resource "aws_vpc" "main" {
     enable_dns_support   = true
     
     tags = {
-        Name = "${var.PREFIX}-vpc"
+        Name        = "${var.PREFIX}-vpc"
+        Environment = "all"
+    }
+
+    lifecycle {
+        prevent_destroy = true
     }
 }
 
@@ -48,7 +53,7 @@ resource "aws_subnet" "public" {
     availability_zone = each.value.az
 
     tags = {
-        Name = "${var.PREFIX}-subnet-public${index(local.public_subnets_in_env, each.key)+1}-${each.value.az}"
+        Name = "${var.PREFIX}-${var.ENVIRONMENT}-subnet-public${index(local.public_subnets_in_env, each.key)+1}-${each.value.az}"
     }
 }
 
@@ -91,7 +96,7 @@ resource "aws_subnet" "private" {
     availability_zone = each.value.az
 
     tags = {
-        Name = "${var.PREFIX}-subnet-private${index(local.private_subnets_in_env, each.key)+1}-${each.value.az}"
+        Name = "${var.PREFIX}-${var.ENVIRONMENT}-subnet-private${index(local.private_subnets_in_env, each.key)+1}-${each.value.az}"
     }
 }
 
@@ -102,7 +107,7 @@ resource "aws_internet_gateway" "igw" {
     vpc_id = aws_vpc.main.id
 
     tags = {
-        Name = "${var.PREFIX}-igw"
+        Name = "${var.PREFIX}-${var.ENVIRONMENT}-igw"
     }
 }
 
@@ -118,7 +123,7 @@ resource "aws_route_table" "public" {
     }
 
     tags = {
-        Name = "${var.PREFIX}-rtb-public"
+        Name = "${var.PREFIX}-${var.ENVIRONMENT}-rtb-public"
     }
 }
 
@@ -141,7 +146,7 @@ resource "aws_eip" "nat" {
     domain = "vpc"
 
     tags = {
-        Name = "${var.PREFIX}-nat-eip-${each.key+1}"
+        Name = "${var.PREFIX}-${var.ENVIRONMENT}-nat-eip-${each.key+1}"
     }
 }
 
@@ -166,7 +171,7 @@ resource "aws_nat_gateway" "ngw" {
     depends_on    = [ aws_internet_gateway.igw ]
 
     tags = {
-        Name = "${var.PREFIX}-nat-public${each.key+1}-${var.AWS_REGION}${local.nat_to_subnet_map[each.key]}"
+        Name = "${var.PREFIX}-${var.ENVIRONMENT}-nat-public${each.key+1}-${var.AWS_REGION}${local.nat_to_subnet_map[each.key]}"
     }
 }
 
@@ -193,7 +198,7 @@ resource "aws_route_table" "private" {
     }
 
     tags = {
-        Name = "${var.PREFIX}-rtb-private${each.key+1}-${var.AWS_REGION}"
+        Name = "${var.PREFIX}-${var.ENVIRONMENT}-rtb-private${each.key+1}-${var.AWS_REGION}"
     }
 }
 
@@ -215,7 +220,7 @@ resource "aws_vpc_endpoint" "s3" {
     # route_table_ids = [ for rtb in aws_route_table.private: rtb.id]
 
     tags = {
-        Name = "${var.PREFIX}-vpce-s3"
+        Name = "${var.PREFIX}-${var.ENVIRONMENT}-vpce-s3"
     }
 
     lifecycle {
@@ -234,8 +239,8 @@ resource "aws_vpc_endpoint_route_table_association" "s3" {
 # Create security groups
 
 resource "aws_security_group" "budibase_fargate" {
-    name = "${var.PREFIX}BudibaseFargateService"
-    description = "Security group for ${var.CLIENT} ${var.PROJECT} Fargate Budibase deployment"
+    name = "${var.PREFIX}${var.ENVIRONMENT}BudibaseFargateService"
+    description = "Security group for ${var.CLIENT} ${var.PROJECT} Fargate Budibase deployment in ${var.ENVIRONMENT} environment"
     vpc_id = aws_vpc.main.id
 }
 
@@ -254,7 +259,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_inbound_from_lb" {
 }
 
 resource "aws_security_group" "budibase_load_balancer" {
-    name = "${var.PREFIX}BudibaseLoadBalancer"
+    name = "${var.PREFIX}${var.ENVIRONMENT}BudibaseLoadBalancer"
     description = "Security group for ${var.CLIENT} ${var.PROJECT} Budibase load balancer"
     vpc_id = aws_vpc.main.id
 }
@@ -274,7 +279,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_inbound_to_lb" {
 }
 
 resource "aws_security_group" "budibase_efs" {
-    name = "${var.PREFIX}BudibaseEFS"
+    name = "${var.PREFIX}${var.ENVIRONMENT}BudibaseEFS"
     description = "Security group for EFS access from ECS tasks"
     vpc_id = aws_vpc.main.id
 }
