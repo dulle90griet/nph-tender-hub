@@ -69,16 +69,9 @@ resource "aws_efs_backup_policy" "budibase_fargate_backup_policy" {
 # Network access:
 # Choose the new VPC we've created
 # Choose the private subnets and use the EFS Security Group for each
-locals {
-  efs_mount_targets = {
-    "dev"   = tolist(["a", "b", "c"])
-    "stage" = tolist(["d", "e", "f"])
-    "prod"  = tolist(["g", "h", "i"])
-  }
-}
 
 resource "aws_efs_mount_target" "budibase_fargate_mount_target" {
-    for_each = { for key in local.efs_mount_targets[var.ENVIRONMENT]: key => null }
+    for_each = { for key in var.SUBNETS_BY_ENV[var.ENVIRONMENT]: key => null }
 
     file_system_id  = aws_efs_file_system.budibase_fargate_data.id
     subnet_id       = aws_subnet.private[each.key].id

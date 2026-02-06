@@ -132,11 +132,10 @@ resource "aws_lb" "budibase_alb" {
     load_balancer_type = "application"
     security_groups = [ aws_security_group.budibase_load_balancer.id ]
     #   - VPC: as above
-    subnets = [ 
-        aws_subnet.public["a"].id,
-        aws_subnet.public["b"].id,
-        aws_subnet.public["c"].id
-    ]
+    subnets = tolist([
+        for key in var.SUBNETS_BY_ENV[var.ENVIRONMENT]:
+            aws_subnet.public[key].id
+    ])
 
     enable_deletion_protection = false  # MUST BE TRUE IN PROD
 }
@@ -201,11 +200,10 @@ resource "aws_ecs_service" "budibase_ecs_service" {
     network_configuration {
         #   - VPC: select our new VPC
         #   - Subnets: choose our private egress-only subnets
-        subnets = [
-            aws_subnet.private["a"].id,
-            aws_subnet.private["b"].id,
-            aws_subnet.private["c"].id
-        ]
+        subnets = tolist([
+            for key in var.SUBNETS_BY_ENV[var.ENVIRONMENT]:
+                aws_subnet.private[key].id
+        ])
         #   - Security Group: choose the FargateService SG
         security_groups = [ aws_security_group.budibase_fargate.id ]
         #   - Public IP: off
