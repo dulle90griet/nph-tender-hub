@@ -1,9 +1,9 @@
 locals {
-    budibase_container_name = "${var.PREFIX}-budibase-container"
+    budibase_container_name = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-container"
 }
 
 resource "aws_ecs_cluster" "budibase_cluster" {
-    name = "${var.BUDIBASE_CLUSTER_NAME}"
+    name = "${var.BUDIBASE_CLUSTER_NAME[var.ENVIRONMENT]}"
 
     # 'Fargate only' method of obtaining compute capacity (under Infrastructure) -- does this move to the ECS Service?
 
@@ -55,7 +55,7 @@ resource "aws_ecs_task_definition" "budibase_ecs_task" {
 
     # Volume 1
     volume {
-        name = "${var.PREFIX}-budibase-ecs-task-storage"
+        name = "budibase-ecs-task-storage"
 
         # Volume type: EFS
         efs_volume_configuration {
@@ -89,35 +89,35 @@ resource "aws_ecs_task_definition" "budibase_ecs_task" {
             #   - Memory soft limit: 0 GB (default)
             portMappings = [
                 {
-                    name          = "${var.PREFIX}-budibase-container-80-tcp"
+                    name          = "80-tcp"
                     containerPort = 80
                     appProtocol    = "http"
                 },
                 {
-                    name          = "${var.PREFIX}-budibase-container-443-tcp"
+                    name          = "443-tcp"
                     containerPort = 443
                 },
                 {
-                    name          = "${var.PREFIX}-budibase-container-2222-tcp"
+                    name          = "2222-tcp"
                     containerPort = 2222
                 },
                 {
-                    name          = "${var.PREFIX}-budibase-container-4369-tcp"
+                    name          = "4369-tcp"
                     containerPort = 4369
                 },
                 {
-                    name          = "${var.PREFIX}-budibase-container-5984-tcp"
+                    name          = "5984-tcp"
                     containerPort = 5984
                 },
                 {
-                    name          = "${var.PREFIX}-budibase-container-9100-tcp"
+                    name          = "9100-tcp"
                     containerPort = 9100
                 }
             ]
             # Add mount point
             mountPoints = [
                 {
-                    sourceVolume  = "${var.PREFIX}-budibase-ecs-task-storage"
+                    sourceVolume  = "budibase-ecs-task-storage"
                     containerPath = "/data"
                 }
             ]
@@ -127,7 +127,7 @@ resource "aws_ecs_task_definition" "budibase_ecs_task" {
 
 #   - Application Load Balancer: Create a new load balancer
 resource "aws_lb" "budibase_alb" {
-    name = "${var.PREFIX}-budibase-lb"
+    name = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-lb"
     #   - Load balancer type: Application Load Balancer
     load_balancer_type = "application"
     security_groups = [ aws_security_group.budibase_load_balancer.id ]
@@ -137,11 +137,11 @@ resource "aws_lb" "budibase_alb" {
             aws_subnet.public[key].id
     ])
 
-    enable_deletion_protection = false  # MUST BE TRUE IN PROD
+    enable_deletion_protection = var.ENVIRONMENT == "prod"
 }
 
 resource "aws_lb_target_group" "budibase_alb_target_group" {
-    name = "${var.PREFIX}-budibase-lb-tg"
+    name = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-lb-tg"
     target_type = "ip"
     #   - VPC: as above
     vpc_id = aws_vpc.main.id
@@ -178,7 +178,7 @@ resource "aws_lb_listener" "budibase_alb_listener" {
 
 # DEFINE FARGATE SERVICE
 resource "aws_ecs_service" "budibase_ecs_service" {
-    name                = "${var.PREFIX}-budibase-ecs-service"
+    name                = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-ecs-service"
     cluster             = aws_ecs_cluster.budibase_cluster.id
     task_definition     = aws_ecs_task_definition.budibase_ecs_task.arn
     #   - Launch type: FARGATE
