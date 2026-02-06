@@ -4,6 +4,11 @@ variable "ENVIRONMENT" {
     type        = string
     description = "The environment to use (dev, stage or prod)"
     default     = "dev"
+
+    validation {
+        condition     = contains(["dev", "stage", "prod"], var.ENVIRONMENT)
+        error_message = "Environment must be 'dev', 'stage' or 'prod'."
+    }
 }
 
 variable "AWS_REGION" {
