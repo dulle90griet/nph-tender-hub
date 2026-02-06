@@ -1,5 +1,16 @@
 # Constants for use throughout the TF deployment
 
+variable "ENVIRONMENT" {
+    type        = string
+    description = "The environment to use (dev, stage or prod)"
+    default     = "dev"
+
+    validation {
+        condition     = contains(["dev", "stage", "prod"], var.ENVIRONMENT)
+        error_message = "Environment must be 'dev', 'stage' or 'prod'."
+    }
+}
+
 variable "AWS_REGION" {
     type        = string
     description = "The region in which to deploy our AWS resources"
@@ -66,4 +77,14 @@ variable "BUDIBASE_CLUSTER_NAME" {
     type        = string
     description = "The name to give to our Budibase ECS cluster"
     default     = "${tfenv.PREFIX}-budibase-cluster"
+}
+
+variable "SUBNETS_BY_ENV" {
+    type        = map(list(string))
+    description = "Maps a dedicated list of subnets to each of dev, stage, prod"
+    default     = {
+        "dev"   = ["a", "b", "c"]
+        "stage" = ["d", "e", "f"]
+        "prod"  = ["g", "h", "i"]   
+    }
 }

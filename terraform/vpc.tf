@@ -17,48 +17,81 @@ resource "aws_vpc" "main" {
 locals {
     # Create a map of the public subnets to be created
     public_subnets = {
-        a   = { cidr_block = "10.0.0.0/20", az = "${var.AWS_REGION}a" }
-        b   = { cidr_block = "10.0.16.0/20", az = "${var.AWS_REGION}b" }
-        c   = { cidr_block = "10.0.32.0/20", az = "${var.AWS_REGION}c" }
+        # Three public subnets for Budibase ALB dev
+        a   = { cidr_block = "10.0.0.0/21", az = "${var.AWS_REGION}a" }
+        b   = { cidr_block = "10.0.8.0/21", az = "${var.AWS_REGION}b" }
+        c   = { cidr_block = "10.0.16.0/21", az = "${var.AWS_REGION}c" }
+
+        # Three public subnets for Budibase ALB stage
+        d   = { cidr_block = "10.0.24.0/21", az = "${var.AWS_REGION}a" }
+        e   = { cidr_block = "10.0.32.0/21", az = "${var.AWS_REGION}b" }
+        f   = { cidr_block = "10.0.40.0/21", az = "${var.AWS_REGION}c" }
+
+        # Three public subnets for Budibase ALB prod
+        g   = { cidr_block = "10.0.48.0/21", az = "${var.AWS_REGION}a" }
+        h   = { cidr_block = "10.0.56.0/21", az = "${var.AWS_REGION}b" }
+        i   = { cidr_block = "10.0.64.0/21", az = "${var.AWS_REGION}c" }
     }
 
     # Create a list of private subnet keys for easier indexing
-    public_subnet_keys = keys(local.public_subnets)
+    public_subnets_in_env = var.SUBNETS_BY_ENV[var.ENVIRONMENT]
 }
 
 resource "aws_subnet" "public" {
-    for_each = local.public_subnets
+    for_each = {
+        for key in local.public_subnets_in_env:
+            key => local.public_subnets[key]
+    }
 
     vpc_id            = aws_vpc.main.id
     cidr_block        = each.value.cidr_block
     availability_zone = each.value.az
 
     tags = {
-        Name = "${var.PREFIX}-subnet-public${index(local.public_subnet_keys, each.key)+1}-${each.value.az}"
+        Name = "${var.PREFIX}-subnet-public${index(local.public_subnets_in_env, each.key)+1}-${each.value.az}"
     }
 }
 
 locals {
     # Create a map of the private subnets to be created
     private_subnets = {
-        a   = { cidr_block = "10.0.128.0/20", az = "${var.AWS_REGION}a" }
-        b   = { cidr_block = "10.0.144.0/20", az = "${var.AWS_REGION}b" }
-        c   = { cidr_block = "10.0.160.0/20", az = "${var.AWS_REGION}c" }
+        # Three private subnets for Budibase/ECS dev
+        a   = { cidr_block = "10.0.128.0/21", az = "${var.AWS_REGION}a" }
+        b   = { cidr_block = "10.0.136.0/21", az = "${var.AWS_REGION}b" }
+        c   = { cidr_block = "10.0.144.0/21", az = "${var.AWS_REGION}c" }
+        
+        # Three private subnets for Budibase/ECS stage
+        d   = { cidr_block = "10.0.152.0/21", az = "${var.AWS_REGION}a" }
+        e   = { cidr_block = "10.0.160.0/21", az = "${var.AWS_REGION}b" }
+        f   = { cidr_block = "10.0.168.0/21", az = "${var.AWS_REGION}c" }
+
+        # Three private subnets for Budibase/ECS prod
+        g   = { cidr_block = "10.0.176.0/21", az = "${var.AWS_REGION}a" }
+        h   = { cidr_block = "10.0.184.0/21", az = "${var.AWS_REGION}b" }
+        i   = { cidr_block = "10.0.192.0/21", az = "${var.AWS_REGION}c" }
+
+        # Three private subnets for RDS
+        j   = { cidr_block = "10.0.200.0/21", az = "${var.AWS_REGION}a" }
+        k   = { cidr_block = "10.0.208.0/21", az = "${var.AWS_REGION}b" }
+        l   = { cidr_block = "10.0.216.0/21", az = "${var.AWS_REGION}c" }
     }
 
-    # Create a list of private subnet keys for easier indexing
-    private_subnet_keys = keys(local.private_subnets)
+    # Create a list of the private subnet keys for use in the current environment
+    private_subnets_in_env = var.SUBNETS_BY_ENV[var.ENVIRONMENT]
 }
 
 resource "aws_subnet" "private" {
-    for_each = local.private_subnets
+    for_each = {
+        for key in local.private_subnets_in_env:
+            key => local.private_subnets[key]
+    }
 
     vpc_id            = aws_vpc.main.id
     cidr_block        = each.value.cidr_block
     availability_zone = each.value.az
 
     tags = {
-        Name = "${var.PREFIX}-subnet-private${index(local.private_subnet_keys, each.key)+1}-${each.value.az}"
+        Name = "${var.PREFIX}-subnet-private${index(local.private_subnets_in_env, each.key)+1}-${each.value.az}"
     }
 }
 
@@ -92,18 +125,10 @@ resource "aws_route_table" "public" {
 
 # Associate route table
 
-resource "aws_route_table_association" "public_a" {
-    subnet_id      = aws_subnet.public["a"].id
-    route_table_id = aws_route_table.public.id
-}
+resource "aws_route_table_association" "public" {
+    for_each = aws_subnet.public
 
-resource "aws_route_table_association" "public_b" {
-    subnet_id      = aws_subnet.public["b"].id
-    route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "public_c" {
-    subnet_id      = aws_subnet.public["c"].id
+    subnet_id      = each.value.id
     route_table_id = aws_route_table.public.id
 }
 
@@ -127,8 +152,8 @@ locals {
     # Map each NAT Gateway to a public subnet using modulo round robin
     nat_to_subnet_map = {
         for idx in range(var.NAT_GATEWAY_COUNT):
-            idx => local.private_subnet_keys[idx % length(local.private_subnet_keys)]
-            if length(local.private_subnet_keys) > 0
+            idx => local.private_subnets_in_env[idx % length(local.private_subnets_in_env)]
+            if length(local.private_subnets_in_env) > 0
     }
 }
 
@@ -151,7 +176,7 @@ resource "aws_nat_gateway" "ngw" {
 locals {
     # Map each private subnet to a NAT Gateway using modulo operation
     subnet_to_nat_map = {
-        for idx, subnet_key in local.private_subnet_keys:
+        for idx, subnet_key in local.private_subnets_in_env:
             subnet_key => idx % var.NAT_GATEWAY_COUNT
             if var.NAT_GATEWAY_COUNT > 0
     }
