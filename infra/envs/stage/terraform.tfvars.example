@@ -1,0 +1,3 @@
+# Specifies environment-specific variables
+
+ENVIRONMENT = "stage"
