@@ -211,9 +211,8 @@ __marimo__/
 discovery/
 
 # Terraform
-infra/*/vars.tf
-infra/*/backend.tf
+**/*.tfvars
+**/*.hcl
 */.tfenv
-*/.tfvars
-*/.out
-*/tfplan
+**/*.out
+**/tfplan

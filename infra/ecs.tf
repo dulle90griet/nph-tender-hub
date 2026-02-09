@@ -1,9 +1,10 @@
 locals {
     budibase_container_name = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-container"
+    budibase_cluster_name   = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-cluster"
 }
 
 resource "aws_ecs_cluster" "budibase_cluster" {
-    name = "${var.BUDIBASE_CLUSTER_NAME[var.ENVIRONMENT]}"
+    name = "${local.budibase_cluster_name}"
 
     # 'Fargate only' method of obtaining compute capacity (under Infrastructure) -- does this move to the ECS Service?
 
