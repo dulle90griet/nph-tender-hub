@@ -25,16 +25,20 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Initialize Terraform
+        working-directory: infra
         run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
 
       - name: Validate Terraform configuration
+        working-directory: infra
         run: terraform validate
 
       - name: Format Terraform code
+        working-directory: infra
         run: terraform fmt -check
 
       - name: Terraform plan with check for changes
         id: terraform-plan
+        working-directory: infra
         run: |
           set +e
           terraform plan \
@@ -55,10 +59,12 @@ jobs:
           fi
 
       - name: Terraform apply
+        working-directory: infra
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
         run: terraform apply tfplan
 
       - name: Clean up Terraform plan file
+        working-directory: infra
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
         run: rm -f tfplan
 
@@ -86,5 +92,6 @@ jobs:
           '
 
       - name: Terraform destroy
+        working-directory: infra
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
         run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
