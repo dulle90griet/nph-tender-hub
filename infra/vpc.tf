@@ -1,19 +1,33 @@
 # VPCs
 
 resource "aws_vpc" "main" {
+    count = var.ENVIRONMENT == "shared" ? 1 : 0
+
     cidr_block           = "10.0.0.0/16"
     instance_tenancy     = "default"
     enable_dns_hostnames = true
     enable_dns_support   = true
     
     tags = {
-        Name        = "${var.PREFIX}-vpc"
-        Environment = "all"
+        Name        = "${var.PREFIX}-shared-vpc"
+        Environment = "shared"
     }
 
     lifecycle {
         prevent_destroy = false
     }
+}
+
+data "aws_vpc" "main" {
+    count = var.ENVIRONMENT == "shared" ? 0 : 1
+
+    tags = {
+        Name = "${var.PREFIX}-shared-vpc"
+    }
+}
+
+locals {
+    vpc_id = var.ENVIRONMENT == "shared" ? aws_vpc.main[0].id : data.aws_vpc.main[0].id
 }
 
 
@@ -48,7 +62,7 @@ resource "aws_subnet" "public" {
             key => local.public_subnets[key]
     }
 
-    vpc_id            = aws_vpc.main.id
+    vpc_id            = local.vpc_id
     cidr_block        = each.value.cidr_block
     availability_zone = each.value.az
 
@@ -91,7 +105,7 @@ resource "aws_subnet" "private" {
             key => local.private_subnets[key]
     }
 
-    vpc_id            = aws_vpc.main.id
+    vpc_id            = local.vpc_id
     cidr_block        = each.value.cidr_block
     availability_zone = each.value.az
 
@@ -104,7 +118,7 @@ resource "aws_subnet" "private" {
 # Create internet gateway
 
 resource "aws_internet_gateway" "igw" {
-    vpc_id = aws_vpc.main.id
+    vpc_id = local.vpc_id
 
     tags = {
         Name = "${var.PREFIX}-${var.ENVIRONMENT}-igw"
@@ -115,7 +129,7 @@ resource "aws_internet_gateway" "igw" {
 # Create route table
 
 resource "aws_route_table" "public" {
-    vpc_id = aws_vpc.main.id
+    vpc_id = local.vpc_id
 
     route {
         cidr_block = "0.0.0.0/0"
@@ -190,7 +204,7 @@ locals {
 resource "aws_route_table" "private" {
     for_each = { for idx in range(var.NAT_GATEWAY_COUNT): idx => null }
 
-    vpc_id = aws_vpc.main.id
+    vpc_id = local.vpc_id
 
     route {
         cidr_block     = "0.0.0.0/0"
@@ -213,7 +227,7 @@ resource "aws_route_table_association" "private" {
 # Create S3 endpoint and associate it with private subnet route tables
 
 resource "aws_vpc_endpoint" "s3" {
-    vpc_id            = aws_vpc.main.id
+    vpc_id            = local.vpc_id
     vpc_endpoint_type = "Gateway"
     service_name      = "com.amazonaws.${var.AWS_REGION}.s3"
 
@@ -241,7 +255,7 @@ resource "aws_vpc_endpoint_route_table_association" "s3" {
 resource "aws_security_group" "budibase_fargate" {
     name = "${var.PREFIX}${var.ENVIRONMENT}BudibaseFargateService"
     description = "Security group for ${var.CLIENT} ${var.PROJECT} Fargate Budibase deployment in ${var.ENVIRONMENT} environment"
-    vpc_id = aws_vpc.main.id
+    vpc_id = local.vpc_id
 }
 
 resource "aws_vpc_security_group_egress_rule" "allow_fargate_egress" {
@@ -261,7 +275,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_inbound_from_lb" {
 resource "aws_security_group" "budibase_load_balancer" {
     name = "${var.PREFIX}${var.ENVIRONMENT}BudibaseLoadBalancer"
     description = "Security group for ${var.CLIENT} ${var.PROJECT} Budibase load balancer"
-    vpc_id = aws_vpc.main.id
+    vpc_id = local.vpc_id
 }
 
 resource "aws_vpc_security_group_egress_rule" "allow_lb_egress" {
@@ -281,7 +295,7 @@ resource "aws_vpc_security_group_ingress_rule" "allow_inbound_to_lb" {
 resource "aws_security_group" "budibase_efs" {
     name = "${var.PREFIX}${var.ENVIRONMENT}BudibaseEFS"
     description = "Security group for EFS access from ECS tasks"
-    vpc_id = aws_vpc.main.id
+    vpc_id = local.vpc_id
 }
 
 resource "aws_vpc_security_group_egress_rule" "allow_efs_egress" {

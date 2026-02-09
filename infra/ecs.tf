@@ -145,7 +145,7 @@ resource "aws_lb_target_group" "budibase_alb_target_group" {
     name = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-lb-tg"
     target_type = "ip"
     #   - VPC: as above
-    vpc_id = aws_vpc.main.id
+    vpc_id = local.vpc_id
     #       - Protocol: HTTP
     protocol = "HTTP"
     #       - Port: 80
