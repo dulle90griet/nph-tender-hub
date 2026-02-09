@@ -4,11 +4,11 @@
 
 variable "ENVIRONMENT" {
     type        = string
-    description = "The environment to use (dev, stage or prod)"
+    description = "The environment to use (shared, dev, stage or prod)"
 
     validation {
-        condition     = contains(["dev", "stage", "prod"], var.ENVIRONMENT)
-        error_message = "Environment must be 'dev', 'stage' or 'prod'."
+        condition     = contains(["shared", "dev", "stage", "prod"], var.ENVIRONMENT)
+        error_message = "Environment must be 'shared', 'dev', 'stage' or 'prod'."
     }
 }
 
@@ -46,11 +46,6 @@ variable "IAM_USER" {
 variable "BUDIBASE_IMAGE_URL" {
     type        = string
     description = "The URL of the Budibase image to use for the ECS container"
-}
-
-variable "BUDIBASE_CLUSTER_NAME" {
-    type        = string
-    description = "The name to give to our Budibase ECS cluster"
 }
 
 
