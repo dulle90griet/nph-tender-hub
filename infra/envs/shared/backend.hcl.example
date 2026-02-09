@@ -1,0 +1,5 @@
+# Specifies which environment-specific Terraform state file to use
+bucket  = "my-terraform-state-bucket-shared"
+key     = "terraform.tfstate"
+region  = "eu-west-2"
+encrypt = true

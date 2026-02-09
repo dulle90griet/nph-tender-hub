@@ -8,7 +8,7 @@ provider "aws" {
         Project       = var.PROJECT
         Repo_name     = var.REPO_NAME
         Deployed_from = "Terraform"
-        Environment   = "dev"
+        Environment   = var.ENVIRONMENT
       }
     }
 }

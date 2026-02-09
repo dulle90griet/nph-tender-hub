@@ -1,0 +1,12 @@
+# Defines values for global variables used across TF environments
+
+AWS_REGION = "eu-west-2"
+IAM_USER   = "my_iam_user_name"
+
+REPO_NAME = "my-repo-name"
+PREFIX    = "my-proj"
+
+CLIENT  = "My Client"
+PROJECT = "My Project"
+
+BUDIBASE_IMAGE_URL = "xxxxxxxxxxxx.dkr.ecr.eu-west-2.amazonaws.com/my-proj/budibase"

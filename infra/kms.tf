@@ -7,7 +7,7 @@ resource "aws_kms_key" "fargate_managed_storage" {
     policy                  = data.aws_iam_policy_document.kms_key_for_fargate.json
 
     tags = {
-      Name = "${var.PREFIX}-key-for-fargate-managed"
+      Name = "${var.PREFIX}-${var.ENVIRONMENT}-key-for-fargate-managed"
     }
 }
 
@@ -20,7 +20,7 @@ resource "aws_kms_key" "fargate_ephemeral_storage" {
     policy                  = data.aws_iam_policy_document.kms_key_for_fargate.json
 
     tags = {
-      Name = "${var.PREFIX}-key-for-fargate-ephemeral"
+      Name = "${var.PREFIX}-${var.ENVIRONMENT}-key-for-fargate-ephemeral"
     }
 }
 
@@ -116,7 +116,7 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
         condition {
             test     = "StringEquals"
             variable = "kms:EncryptionContext:aws:ecs:clusterName"
-            values   = [ "${var.BUDIBASE_CLUSTER_NAME}" ]
+            values   = [ "${local.budibase_cluster_name}" ]
         }
 
     }
@@ -138,7 +138,7 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
         condition {
             test     = "StringEquals"
             variable = "kms:EncryptionContext:aws:ecs:clusterName"
-            values   = [ "${var.BUDIBASE_CLUSTER_NAME}" ]
+            values   = [ "${local.budibase_cluster_name}" ]
         }
         condition {
             test     = "ForAllValues:StringEquals"
