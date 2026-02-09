@@ -60,6 +60,27 @@ variable "NAT_GATEWAY_COUNT" {
     condition     = var.NAT_GATEWAY_COUNT >= 0 && var.NAT_GATEWAY_COUNT <= 3
     error_message = "NAT Gateway count must be between 0 and 3."
   }
+
+  validation {
+    condition     = floor(var.NAT_GATEWAY_COUNT) == var.NAT_GATEWAY_COUNT
+    error_message = "NAT Gateway count must be an integer."
+  }
+}
+
+variable "BUDIBASE_TASK_COUNT" {
+  description = "Number of Budibase Fargate tasks to run in the current environment"
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.BUDIBASE_TASK_COUNT > -1
+    error_message = "Budibase task count must be 0 or more."
+  }
+
+  validation {
+    condition     = floor(var.BUDIBASE_TASK_COUNT) == var.BUDIBASE_TASK_COUNT
+    error_message = "Budibase task count must be an integer."
+  }
 }
 
 variable "SUBNETS_BY_ENV" {
