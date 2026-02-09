@@ -1,0 +1,90 @@
+name: Tender Hub CI Pipeline
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  terraform-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+    #   - name: Configure AWS credentials
+    #     uses: aws-actions/configure-aws-credentials@v6.0.0
+    #     with:
+    #       aws-access-key-id:
+    #         ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #       aws-secret-access-key:
+    #         ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    #       aws-region:
+    #         $AWS_REGION
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Initialize Terraform
+        run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
+
+      - name: Validate Terraform configuration
+        run: terraform validate
+
+      - name: Format Terraform code
+        run: terraform fmt -check
+
+      - name: Terraform plan with check for changes
+        id: terraform-plan
+        run: |
+          set +e
+          terraform plan \
+            -detailed-exitcode \
+            -out=tfplan \
+            -var-file="envs/stage/terraform.tfvars" \
+            -var="BUDIBASE_TASK_COUNT=1"
+          exit_code=$?
+          set -e
+          if [ $exit_code -eq 2 ]; then
+            echo "Changes detected in Terraform configuration."
+            echo "runapply=true" >> $GITHUB_OUTPUT"
+          elif [ $exit_code -eq 1 ]; then
+            echo "Error during Terraform plan."
+            exit 1
+          else
+            echo "No changes detected. Infrastructure is up-to-date."
+          fi
+
+      - name: Terraform apply
+        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+        run: terraform apply tfplan
+
+      - name: Clean up Terraform plan file
+        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+        run: rm -f tfplan
+
+      - name: Post-apply validation
+        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+        run: |
+          echo "Running post-apply validation..."
+          LB_URL=$(terraform output -raw lb_url)
+          timeout 300s bash -c '
+            until curl -s "$LB_URL" > /dev/null; do
+              echo "Waiting for load balancer to become available at $LB_URL..."
+              sleep 10
+            done
+            echo "Load balancer available at $LB_URL."
+            until curl -s "$LB_URL" | grep -q 'Redirecting to <a href="/builder">/builder</a>'; do
+              echo "Waiting for redirection to /builder at $LB_URL..."
+              sleep 10
+            done
+            echo "Redirection to /builder confirmed at $LB_URL."
+            until curl -s "${LB_URL}builder" | grep title | grep -q Budibase; do
+              echo "Waiting for Budibase builder to be available at ${LB_URL}builder..."
+              sleep 10
+            done
+            echo "Budibase builder is available at ${LB_URL}builder."
+          '
+
+      - name: Terraform destroy
+        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+        run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
