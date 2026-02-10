@@ -24,7 +24,8 @@ jobs:
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
-        terraform_wrapper: false
+        with:
+          terraform_wrapper: false
 
       - name: Create Terraform backend and env configuration
         working-directory: infra
