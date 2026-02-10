@@ -35,7 +35,7 @@ jobs:
           region = "${{ vars.AWS_REGION }}"
           EOF
           cat > envs/stage/terraform.tfvars <<EOF
-          ENVIRONMENT = ${{ github.environment }}
+          ENVIRONMENT = "${{ github.environment }}"
           EOF
           cat > global.auto.tfvars <<EOF
           AWS_REGION         = "${{ vars.AWS_REGION }}"
