@@ -49,9 +49,9 @@ jobs:
           BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
           EOF
 
-      - name: Initialize Terraform
+      - name: Initialize Terraform in env workspace
         working-directory: infra
-        run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
+        run: ./switch_env.sh stage
 
       - name: Validate Terraform configuration
         working-directory: infra
