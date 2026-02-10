@@ -51,7 +51,7 @@ jobs:
 
       - name: Initialize Terraform in env workspace
         working-directory: infra
-        run: ./switch_env.sh stage
+        run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
 
       - name: Validate Terraform configuration
         working-directory: infra
@@ -60,6 +60,10 @@ jobs:
       - name: Format Terraform code
         working-directory: infra
         run: terraform fmt -check
+
+      - name: Use Terraform workspace
+        working-directory: infra
+        run: ./switch_env.sh stage
 
       - name: Terraform plan with check for changes
         id: terraform-plan
