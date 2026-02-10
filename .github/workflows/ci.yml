@@ -105,7 +105,7 @@ jobs:
         run: |
           echo "Running post-apply validation..."
           LB_URL=$(terraform output -raw lb_url)
-          timeout 300s bash << 'EOF'
+          timeout 300s bash << EOF
             until curl -s "$LB_URL" > /dev/null; do
               echo "Waiting for load balancer to become available at $LB_URL..."
               sleep 10
@@ -116,7 +116,7 @@ jobs:
               sleep 10
             done
             echo "Redirection to /builder confirmed at $LB_URL."
-            until curl -s "${LB_URL}builder" | grep title | grep -q Budibase; do
+            until curl -s "${LB_URL}builder" --compressed | grep title | grep -q Budibase; do
               echo "Waiting for Budibase builder to be available at ${LB_URL}builder..."
               sleep 10
             done
