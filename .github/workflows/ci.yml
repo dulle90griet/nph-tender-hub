@@ -84,19 +84,12 @@ jobs:
             echo "No changes detected. Infrastructure is up-to-date."
           fi
 
-      - name: Debug terraform-plan output
-        run: |
-          echo "The output 'runapply' is: '${{ steps.terraform-plan.outputs.runapply }}'"
-          echo "All outputs from terraform-plan:"
-          echo "${{ toJSON(steps.terraform-plan.outputs) }}"
-
       - name: Terraform apply
         id: terraform-apply
         working-directory: infra
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
         run: |
           terraform apply tfplan
-            echo "$(terraform output -raw lb_url)"
             echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
 
       - name: Clean up Terraform plan file
@@ -117,7 +110,7 @@ jobs:
               elapsed="$(( SECONDS - start_time ))"
               timestamp=""
               if [ "$elapsed" -ge 10 ]; then
-                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss)]"
+                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
               fi
               echo "Waiting for load balancer to become available at $LB_URL ...$timestamp"
               sleep 10
@@ -129,7 +122,7 @@ jobs:
               elapsed="$(( SECONDS - start_time ))"
               timestamp=""
               if [ "$elapsed" -ge 10 ]; then
-                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss)]"
+                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
               fi
               echo "Waiting for redirection to /builder at $LB_URL ...$timestamp"
               sleep 10
@@ -141,7 +134,7 @@ jobs:
               elapsed="$(( SECONDS - start_time ))"
               timestamp=""
               if [ "$elapsed" -ge 10 ]; then
-                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss)]"
+                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
               fi
               echo "Waiting for Budibase builder to be available at ${LB_URL}builder ...$timestamp"
               sleep 10
