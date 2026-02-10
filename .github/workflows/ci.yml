@@ -108,23 +108,45 @@ jobs:
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
         run: |
           echo "Running post-apply validation..."
-          LB_URL="${{ steps.terraform-apply.outputs.lb_url }}"
-          timeout 300s bash << EOF
+          
+          timeout 300s bash -s "${{ steps.terraform-apply.outputs.lb_url }}" << 'EOF'
+            LB_URL="$1"
+
+            start_time="$SECONDS"
             until curl -s "$LB_URL" > /dev/null; do
-              echo "Waiting for load balancer to become available at $LB_URL..."
+              elapsed="$(( SECONDS - start_time ))"
+              timestamp=""
+              if [ "$elapsed" -ge 10 ]; then
+                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss)]"
+              fi
+              echo "Waiting for load balancer to become available at $LB_URL ...$timestamp"
               sleep 10
             done
-            echo "Load balancer available at $LB_URL."
+            echo "Load balancer available at $LB_URL"
+
+            start_time="$SECONDS"
             until curl -s "$LB_URL" | grep -q 'Redirecting to <a href="/builder">/builder</a>'; do
-              echo "Waiting for redirection to /builder at $LB_URL..."
+              elapsed="$(( SECONDS - start_time ))"
+              timestamp=""
+              if [ "$elapsed" -ge 10 ]; then
+                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss)]"
+              fi
+              echo "Waiting for redirection to /builder at $LB_URL ...$timestamp"
               sleep 10
             done
-            echo "Redirection to /builder confirmed at $LB_URL."
+            echo "Redirection to /builder confirmed at $LB_URL"
+
+            start_time="$SECONDS"
             until curl -s "${LB_URL}builder" --compressed | grep title | grep -q Budibase; do
-              echo "Waiting for Budibase builder to be available at ${LB_URL}builder..."
+              elapsed="$(( SECONDS - start_time ))"
+              timestamp=""
+              if [ "$elapsed" -ge 10 ]; then
+                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss)]"
+              fi
+              echo "Waiting for Budibase builder to be available at ${LB_URL}builder ...$timestamp"
               sleep 10
             done
-            echo "Budibase builder is available at ${LB_URL}builder."
+            echo "Budibase builder is available at ${LB_URL}builder"
           EOF
 
       - name: Terraform destroy
