@@ -105,7 +105,7 @@ jobs:
         run: |
           echo "Running post-apply validation..."
           LB_URL=$(terraform output -raw lb_url)
-          timeout 300s bash -c '
+          timeout 300s bash << 'EOF'
             until curl -s "$LB_URL" > /dev/null; do
               echo "Waiting for load balancer to become available at $LB_URL..."
               sleep 10
@@ -121,7 +121,7 @@ jobs:
               sleep 10
             done
             echo "Budibase builder is available at ${LB_URL}builder."
-          '
+          EOF
 
       - name: Terraform destroy
         working-directory: infra
