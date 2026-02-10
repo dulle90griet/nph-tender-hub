@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 jobs:
-  terraform-tests:
+  terraform-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
     steps:
@@ -150,3 +150,37 @@ jobs:
         working-directory: infra
         if: ${{ always() && steps.terraform-plan.outputs.runapply == 'true' }}
         run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
+
+  generate-manifest:
+    runs-on: ubuntu-latest
+    needs: terraform-test-and-deploy
+    steps:
+      - name: List changes
+        id: list-changes
+        run: |
+          # get list of changed files between branch base and current commit
+          CHANGES="$(git show --name-only --pretty="" ${{ github.event.before }}..${{ github.sha }})"
+
+          # extract top-level directories from changed files and get unique list
+          CHANGES="$(echo "$CHANGES" | grep -o '^[^/]*/') | sort -u)"
+          echo "Changes detected in the following directories:\n$CHANGES"
+
+          # output key change values for use in later steps
+          terraform_changed=false
+          if echo "$CHANGES" | grep -q infra; then
+            terraform_changed=true
+          fi
+          echo "terraform_changed=$terraform_changed" >> $GITHUB_OUTPUT
+
+
+    # get latest manifest ID from SSM Parameter Store
+
+    # if no existing manifest, generate it from scratch
+
+    # if manifest exists, fetch it and generated updated version
+    # (terraform version number is the short git commit hash)
+
+    # store new manifest in S3 named with commit hash
+
+    # store new manifest ID in SSM Parameter Store
+
