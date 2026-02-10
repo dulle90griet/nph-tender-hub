@@ -20,7 +20,7 @@ jobs:
     #       aws-secret-access-key:
     #         ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     #       aws-region:
-    #         $AWS_REGION
+    #         ${{ vars.AWS_REGION }}
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -30,12 +30,21 @@ jobs:
         run: |
           mkdir -p envs/stage
           cat > envs/stage/backend.hcl <<EOF
-          bucket = "${{ BUCKET }}"
-          key    = "${{ KEY }}"
-          region = "${{ AWS_REGION }}"
+          bucket = "${{ vars.BUCKET }}"
+          key    = "${{ vars.KEY }}"
+          region = "${{ vars.AWS_REGION }}"
           EOF
           cat > envs/stage/terraform.tfvars <<EOF
           ENVIRONMENT = ${{ github.environment }}
+          EOF
+          cat > global.auto.tfvars <<EOF
+          AWS_REGION         = "${{ vars.AWS_REGION }}"
+          IAM_USER           = "${{ secrets.IAM_USER }}"
+          REPO_NAME          = "${{ github.repository }}"
+          PREFIX             = "${{ vars.PREFIX }}"
+          CLIENT             = "${{ vars.CLIENT }}"
+          PROJECT            = "${{ vars.PROJECT }}"
+          BUDIBASE_IMAGE_URL = "${{ secrets.BUDIBASE_IMAGE_URL }}"
           EOF
 
       - name: Initialize Terraform
