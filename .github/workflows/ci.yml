@@ -173,8 +173,9 @@ jobs:
         id: list-changes
         run: |
           # get list of changed files between branch base and current commit
-          git fetch origin main
-          CHANGES="$(git diff --name-only origin/main...HEAD)"
+          # git fetch origin main
+          echo "Fetching latest changes from ${{ github.event.pull_request.base.sha }} to compare with current branch..."
+          CHANGES="$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD)"
 
           # extract top-level directories from changed files and get unique list
           CHANGES="$(echo "$CHANGES" | grep -o '^[^/]*/') | sort -u)"
