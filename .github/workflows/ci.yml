@@ -32,8 +32,8 @@ jobs:
         run: |
           mkdir -p envs/stage
           cat > envs/stage/backend.hcl <<EOF
-          bucket = "${{ vars.BUCKET }}"
-          key    = "${{ vars.KEY }}"
+          bucket = "${{ vars.STATE_BUCKET }}"
+          key    = "${{ vars.STATE_KEY }}"
           region = "${{ vars.AWS_REGION }}"
           EOF
           cat > envs/stage/terraform.tfvars <<EOF
