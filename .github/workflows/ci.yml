@@ -220,27 +220,20 @@ jobs:
           CHANGES="$(echo "$CHANGES" | grep -o '^[^/]*/' | sort -u)"
           printf "Changes detected in the following directories:\n%s\n" "$CHANGES"
 
-          CHANGES_EXIST_TO_PROCESS=false
-
           # output key change values for use in later steps
           if echo "$CHANGES" | grep -q infra; then
             TERRAFORM_CHANGED=true
-            CHANGES_EXIST_TO_PROCESS=true
             echo "Terraform changes detected."
           else
             TERRAFORM_CHANGED=false
             echo "No changes detected to Terraform."
           fi
-          echo "changes_exist_to_process=$CHANGES_EXIST_TO_PROCESS" >> $GITHUB_OUTPUT
           echo "terraform_changed=$TERRAFORM_CHANGED" >> $GITHUB_OUTPUT
         
       - name: Read manifest
         id: read-manifest
-        # if: ${{ steps.fetch-manifest-id.outcome == 'success' }}
-        if: ${{ steps.list-changes.outputs.changes_exist_to_process == 'true' }}
         run: |
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
-          # MANIFEST_ID="${{ steps.fetch-manifest-id.outputs.manifest_id }}"
           MANIFEST_ID="$(git rev-parse --short "${{ github.event.pull_request.base.sha }}")"
 
           echo "Fetching manifest with ID $MANIFEST_ID from S3..."
