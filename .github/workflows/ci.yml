@@ -178,7 +178,7 @@ jobs:
           CHANGES="$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD)"
 
           # extract top-level directories from changed files and get unique list
-          CHANGES="$(echo "$CHANGES" | grep -o '^[^/]*/') | sort -u)"
+          CHANGES="$(echo "$CHANGES" | grep -o '^[^/]*/' | sort -u)"
           echo "Changes detected in the following directories:\n$CHANGES"
 
           CHANGES_EXIST_TO_PROCESS=false
