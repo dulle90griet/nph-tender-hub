@@ -19,7 +19,7 @@ jobs:
       - name: Check for intervening merges
         id: check-merges
         # Check for other merges only if this is a post-merge run
-        if: ${{ github.event.pull_request.merged == 'true' }}
+        if: ${{ github.event.pull_request.merged == true }}
         run: |
           git fetch origin main
           LATEST_MAIN=$(git rev-parse origin/main)
@@ -34,7 +34,7 @@ jobs:
         id: configure-aws
         # Continue only if this is a pre-merge run OR post-merge run with other merges
         if: |
-          ${{ github.event.pull_request.merged == 'false' ||
+          ${{ github.event.pull_request.merged == false ||
           steps.check-merges.outputs.other_merges == 'true' }}
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
@@ -188,7 +188,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: stage
     needs: terraform-test-and-deploy
-    if: ${{ github.event.pull_request.merged == 'true' }}
+    if: ${{ github.event.pull_request.merged == true }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
