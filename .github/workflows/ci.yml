@@ -12,19 +12,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-        # with:
-        #   # Ensure unshallow fetch to allow for merge-base checks
-        #   fetch-depth: 0 
+        with:
+          # Ensure unshallow fetch to allow for merge-base checks
+          fetch-depth: 0 
 
       - name: Check for intervening merges
         id: check-merges
         # Check for other merges only if this is a post-merge run
         if: ${{ github.event.pull_request.merged == true }}
         run: |
-          git fetch origin main
-          LATEST_MAIN=$(git rev-parse origin/main)
+          TOTAL_REVS=$(git rev-list \
+            --count ${{ github.event.pull_request.base.sha }}..${{ github.sha }})
+          BRANCH_REVS=$(git rev-list \
+            --count ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
 
-          if [ "$LATEST_MAIN" != "${{ github.event.pull_request.base.sha }}" ]; then
+          if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
             echo "other_merges=true" >> $GITHUB_OUTPUT
           else
             echo "other_merges=false" >> $GITHUB_OUTPUT
