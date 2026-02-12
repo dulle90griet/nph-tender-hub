@@ -195,7 +195,7 @@ jobs:
         
       - name: Read manifest
         id: read-manifest
-        needs: fetch-manifest-id
+        if: ${{ steps.fetch-manifest-id.outcome == 'success' }}
         run: |
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
           MANIFEST_ID="${{ steps.fetch-manifest-id.outputs.manifest_id }}"
@@ -209,7 +209,7 @@ jobs:
       
       - name: Update and re-upload manifest
         id: update-manifest
-        needs: read-manifest
+        if: ${{ steps.read-manifest.outcome == 'success' }}
         run: |
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
@@ -227,7 +227,7 @@ jobs:
           echo "Manifest uploaded successfully."
       
       - name: Update manifest ID tracking parameter
-        needs: update-manifest
+        if: ${{ steps.update-manifest.outcome == 'success' }}
         run: |
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
