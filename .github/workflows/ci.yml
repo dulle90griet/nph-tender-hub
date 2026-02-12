@@ -173,7 +173,7 @@ jobs:
         id: list-changes
         run: |
           # get list of changed files between branch base and current commit
-          CHANGES="$(git show --name-only --pretty="" ${{ github.event.before }}..${{ github.sha }})"
+          CHANGES="$(git diff --name-only --pretty="" origin/main...HEAD)"
 
           # extract top-level directories from changed files and get unique list
           CHANGES="$(echo "$CHANGES" | grep -o '^[^/]*/') | sort -u)"
