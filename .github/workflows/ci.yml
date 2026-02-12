@@ -32,8 +32,8 @@ jobs:
         run: |
           mkdir -p envs/stage
           cat > envs/stage/backend.hcl <<EOF
-          bucket = "${{ vars.BUCKET }}"
-          key    = "${{ vars.KEY }}"
+          bucket = "${{ vars.STATE_BUCKET }}"
+          key    = "${{ vars.STATE_KEY }}"
           region = "${{ vars.AWS_REGION }}"
           EOF
           cat > envs/stage/terraform.tfvars <<EOF
@@ -60,6 +60,10 @@ jobs:
       - name: Format Terraform code
         working-directory: infra
         run: terraform fmt -check
+
+      - name: Use Terraform workspace
+        working-directory: infra
+        run: ./switch_env.sh stage
 
       - name: Terraform plan with check for changes
         id: terraform-plan
