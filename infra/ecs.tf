@@ -1,3 +1,5 @@
+# change for CI test B
+
 locals {
   budibase_container_name = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-container"
   budibase_cluster_name   = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-cluster"
