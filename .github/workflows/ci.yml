@@ -173,7 +173,7 @@ jobs:
         id: list-changes
         run: |
           # get list of changed files between branch base and current commit
-          # git fetch origin main
+          git fetch origin main "${{ github.event.pull_request.base.sha }}"
           echo "Fetching latest changes from ${{ github.event.pull_request.base.sha }} to compare with current branch..."
           CHANGES="$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD)"
 
