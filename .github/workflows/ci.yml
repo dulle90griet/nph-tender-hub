@@ -233,20 +233,6 @@ jobs:
           fi
           echo "changes_exist_to_process=$CHANGES_EXIST_TO_PROCESS" >> $GITHUB_OUTPUT
           echo "terraform_changed=$TERRAFORM_CHANGED" >> $GITHUB_OUTPUT
-
-      # - name: Fetch latest manifest ID
-      #   id: fetch-manifest-id
-      #   if: ${{ steps.list-changes.outputs.changes_exist_to_process == 'true' }}
-      #   run: |
-      #     echo "Fetching latest manifest ID from SSM parameter ${SSM_PARAM_NAME_MANIFEST_ID}..."
-      #     MANIFEST_ID="$(aws ssm get-parameter \
-      #       --name "${{ vars.SSM_PARAM_NAME_MANIFEST_ID }}" \
-      #       --region "${{ vars.AWS_REGION }}" \
-      #       --query "Parameter.Value" \
-      #       --output text)"
-      #     echo "Latest manifest ID: $MANIFEST_ID"
-
-      #     echo "manifest_id=$MANIFEST_ID" >> $GITHUB_OUTPUT
         
       - name: Read manifest
         id: read-manifest
