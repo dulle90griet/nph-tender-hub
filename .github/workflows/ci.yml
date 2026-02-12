@@ -9,6 +9,8 @@ jobs:
   terraform-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
+    concurrency:
+      group: deploy-to-stage
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
