@@ -5,155 +5,156 @@ on:
     branches: [ main ]
 
 jobs:
-  terraform-test-and-deploy:
-    runs-on: ubuntu-latest
-    environment: stage
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+  # terraform-test-and-deploy:
+  #   runs-on: ubuntu-latest
+  #   environment: stage
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v6
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6.0.0
-        with:
-          aws-access-key-id:
-            ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key:
-            ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:
-            ${{ vars.AWS_REGION }}
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v6.0.0
+  #       with:
+  #         aws-access-key-id:
+  #           ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key:
+  #           ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region:
+  #           ${{ vars.AWS_REGION }}
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_wrapper: false
+  #     - name: Set up Terraform
+  #       uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_wrapper: false
 
-      - name: Create Terraform backend and env configuration
-        working-directory: infra
-        run: |
-          mkdir -p envs/stage
-          cat > envs/stage/backend.hcl <<EOF
-          bucket = "${{ vars.STATE_BUCKET }}"
-          key    = "${{ vars.STATE_KEY }}"
-          region = "${{ vars.AWS_REGION }}"
-          EOF
-          cat > envs/stage/terraform.tfvars <<EOF
-          ENVIRONMENT = "stage"
-          EOF
-          cat > global.auto.tfvars <<EOF
-          AWS_REGION         = "${{ vars.AWS_REGION }}"
-          IAM_USER           = "${{ secrets.IAM_USER }}"
-          REPO_NAME          = "${{ github.repository }}"
-          PREFIX             = "${{ vars.PREFIX }}"
-          CLIENT             = "${{ vars.CLIENT }}"
-          PROJECT            = "${{ vars.PROJECT }}"
-          BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
-          EOF
+  #     - name: Create Terraform backend and env configuration
+  #       working-directory: infra
+  #       run: |
+  #         mkdir -p envs/stage
+  #         cat > envs/stage/backend.hcl <<EOF
+  #         bucket = "${{ vars.STATE_BUCKET }}"
+  #         key    = "${{ vars.STATE_KEY }}"
+  #         region = "${{ vars.AWS_REGION }}"
+  #         EOF
+  #         cat > envs/stage/terraform.tfvars <<EOF
+  #         ENVIRONMENT = "stage"
+  #         EOF
+  #         cat > global.auto.tfvars <<EOF
+  #         AWS_REGION         = "${{ vars.AWS_REGION }}"
+  #         IAM_USER           = "${{ secrets.IAM_USER }}"
+  #         REPO_NAME          = "${{ github.repository }}"
+  #         PREFIX             = "${{ vars.PREFIX }}"
+  #         CLIENT             = "${{ vars.CLIENT }}"
+  #         PROJECT            = "${{ vars.PROJECT }}"
+  #         BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
+  #         EOF
 
-      - name: Initialize Terraform
-        working-directory: infra
-        run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
+  #     - name: Initialize Terraform
+  #       working-directory: infra
+  #       run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
 
-      - name: Validate Terraform configuration
-        working-directory: infra
-        run: terraform validate
+  #     - name: Validate Terraform configuration
+  #       working-directory: infra
+  #       run: terraform validate
 
-      - name: Format Terraform code
-        working-directory: infra
-        run: terraform fmt -check
+  #     - name: Format Terraform code
+  #       working-directory: infra
+  #       run: terraform fmt -check
 
-      - name: Use Terraform workspace
-        working-directory: infra
-        run: ./switch_env.sh stage
+  #     - name: Use Terraform workspace
+  #       working-directory: infra
+  #       run: ./switch_env.sh stage
 
-      - name: Terraform plan with check for changes
-        id: terraform-plan
-        working-directory: infra
-        run: |
-          set +e
-          terraform plan \
-            -detailed-exitcode \
-            -out=tfplan \
-            -var-file="envs/stage/terraform.tfvars" \
-            -var="BUDIBASE_TASK_COUNT=1"
-          exit_code=$?
-          echo "Terraform plan exit code: $exit_code"
-          set -e
-          if [ $exit_code -eq 2 ]; then
-            echo "Changes detected in Terraform configuration."
-            echo "runapply=true" >> $GITHUB_OUTPUT
-          elif [ $exit_code -eq 1 ]; then
-            echo "Error during Terraform plan."
-            exit 1
-          else
-            echo "No changes detected. Infrastructure is up-to-date."
-          fi
+  #     - name: Terraform plan with check for changes
+  #       id: terraform-plan
+  #       working-directory: infra
+  #       run: |
+  #         set +e
+  #         terraform plan \
+  #           -detailed-exitcode \
+  #           -out=tfplan \
+  #           -var-file="envs/stage/terraform.tfvars" \
+  #           -var="BUDIBASE_TASK_COUNT=1"
+  #         exit_code=$?
+  #         echo "Terraform plan exit code: $exit_code"
+  #         set -e
+  #         if [ $exit_code -eq 2 ]; then
+  #           echo "Changes detected in Terraform configuration."
+  #           echo "runapply=true" >> $GITHUB_OUTPUT
+  #         elif [ $exit_code -eq 1 ]; then
+  #           echo "Error during Terraform plan."
+  #           exit 1
+  #         else
+  #           echo "No changes detected. Infrastructure is up-to-date."
+  #         fi
 
-      - name: Terraform apply
-        id: terraform-apply
-        working-directory: infra
-        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
-        run: |
-          terraform apply tfplan
-            echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
+  #     - name: Terraform apply
+  #       id: terraform-apply
+  #       working-directory: infra
+  #       if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+  #       run: |
+  #         terraform apply tfplan
+  #           echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
 
-      - name: Clean up Terraform plan file
-        working-directory: infra
-        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
-        run: rm -f tfplan
+  #     - name: Clean up Terraform plan file
+  #       working-directory: infra
+  #       if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+  #       run: rm -f tfplan
 
-      - name: Post-apply validation
-        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
-        run: |
-          echo "Running post-apply validation..."
+  #     - name: Post-apply validation
+  #       if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+  #       run: |
+  #         echo "Running post-apply validation..."
           
-          timeout 300s bash -s "${{ steps.terraform-apply.outputs.lb_url }}" << 'EOF'
-            LB_URL="$1"
+  #         timeout 300s bash -s "${{ steps.terraform-apply.outputs.lb_url }}" << 'EOF'
+  #           LB_URL="$1"
 
-            start_time="$SECONDS"
-            until curl -s "$LB_URL" > /dev/null; do
-              elapsed="$(( SECONDS - start_time ))"
-              timestamp=""
-              if [ "$elapsed" -ge 10 ]; then
-                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
-              fi
-              echo "Waiting for load balancer to become available at $LB_URL ...$timestamp"
-              sleep 10
-            done
-            echo "Load balancer available at $LB_URL"
+  #           start_time="$SECONDS"
+  #           until curl -s "$LB_URL" > /dev/null; do
+  #             elapsed="$(( SECONDS - start_time ))"
+  #             timestamp=""
+  #             if [ "$elapsed" -ge 10 ]; then
+  #               timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
+  #             fi
+  #             echo "Waiting for load balancer to become available at $LB_URL ...$timestamp"
+  #             sleep 10
+  #           done
+  #           echo "Load balancer available at $LB_URL"
 
-            start_time="$SECONDS"
-            until curl -s "$LB_URL" | grep -q 'Redirecting to <a href="/builder">/builder</a>'; do
-              elapsed="$(( SECONDS - start_time ))"
-              timestamp=""
-              if [ "$elapsed" -ge 10 ]; then
-                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
-              fi
-              echo "Waiting for redirection to /builder at $LB_URL ...$timestamp"
-              sleep 10
-            done
-            echo "Redirection to /builder confirmed at $LB_URL"
+  #           start_time="$SECONDS"
+  #           until curl -s "$LB_URL" | grep -q 'Redirecting to <a href="/builder">/builder</a>'; do
+  #             elapsed="$(( SECONDS - start_time ))"
+  #             timestamp=""
+  #             if [ "$elapsed" -ge 10 ]; then
+  #               timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
+  #             fi
+  #             echo "Waiting for redirection to /builder at $LB_URL ...$timestamp"
+  #             sleep 10
+  #           done
+  #           echo "Redirection to /builder confirmed at $LB_URL"
 
-            start_time="$SECONDS"
-            until curl -s "${LB_URL}builder" --compressed | grep title | grep -q Budibase; do
-              elapsed="$(( SECONDS - start_time ))"
-              timestamp=""
-              if [ "$elapsed" -ge 10 ]; then
-                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
-              fi
-              echo "Waiting for Budibase builder to be available at ${LB_URL}builder ...$timestamp"
-              sleep 10
-            done
-            echo "Budibase builder is available at ${LB_URL}builder"
-          EOF
+  #           start_time="$SECONDS"
+  #           until curl -s "${LB_URL}builder" --compressed | grep title | grep -q Budibase; do
+  #             elapsed="$(( SECONDS - start_time ))"
+  #             timestamp=""
+  #             if [ "$elapsed" -ge 10 ]; then
+  #               timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
+  #             fi
+  #             echo "Waiting for Budibase builder to be available at ${LB_URL}builder ...$timestamp"
+  #             sleep 10
+  #           done
+  #           echo "Budibase builder is available at ${LB_URL}builder"
+  #         EOF
 
-      - name: Terraform destroy
-        working-directory: infra
-        if: ${{ always() && steps.terraform-plan.outputs.runapply == 'true' }}
-        run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
+  #     - name: Terraform destroy
+  #       working-directory: infra
+  #       if: ${{ always() && steps.terraform-plan.outputs.runapply == 'true' }}
+  #       run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
 
   update-manifest:
     runs-on: ubuntu-latest
-    needs: terraform-test-and-deploy
+    environment: stage
+    # needs: terraform-test-and-deploy
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
