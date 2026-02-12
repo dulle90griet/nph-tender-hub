@@ -24,7 +24,7 @@ jobs:
           git fetch origin main
           LATEST_MAIN=$(git rev-parse origin/main)
 
-          if [ "$LATEST_MAIN" != "${{ github.event.pull_request.base.sha }}" ];
+          if [ "$LATEST_MAIN" != "${{ github.event.pull_request.base.sha }}" ]; then
             echo "other_merges=true" >> $GITHUB_OUTPUT
           else
             echo "other_merges=false" >> $GITHUB_OUTPUT
