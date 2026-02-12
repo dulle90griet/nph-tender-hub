@@ -179,7 +179,7 @@ jobs:
 
           # extract top-level directories from changed files and get unique list
           CHANGES="$(echo "$CHANGES" | grep -o '^[^/]*/' | sort -u)"
-          echo "Changes detected in the following directories:\n$CHANGES"
+          printf "Changes detected in the following directories:\n%s\n" "$CHANGES"
 
           CHANGES_EXIST_TO_PROCESS=false
 
