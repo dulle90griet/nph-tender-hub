@@ -2,6 +2,7 @@ name: Tender Hub CI Pipeline
 
 on:
   pull_request:
+    types: [ opened, synchronize, reopened, closed ]
     branches: [ main ]
 
 jobs:
@@ -11,8 +12,30 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        # with:
+        #   # Ensure unshallow fetch to allow for merge-base checks
+        #   fetch-depth: 0 
+
+      - name: Check for intervening merges
+        id: check-merges
+        # Check for other merges only if this is a post-merge run
+        if: ${{ github.event.pull_request.merged == 'true' }}
+        run: |
+          git fetch origin main
+          LATEST_MAIN=$(git rev-parse origin/main)
+
+          if [ "$LATEST_MAIN" != "${{ github.event.pull_request.base.sha }}" ];
+            echo "other_merges=true" >> $GITHUB_OUTPUT
+          else
+            echo "other_merges=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Configure AWS credentials
+        id: configure-aws
+        # Continue only if this is a pre-merge run OR post-merge run with other merges
+        if: |
+          ${{ github.event.pull_request.merged == 'false' ||
+          steps.check-merges.outputs.other_merges == 'true' }}
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
           aws-access-key-id:
@@ -23,12 +46,14 @@ jobs:
             ${{ vars.AWS_REGION }}
 
       - name: Set up Terraform
+        if: ${{ steps.configure-aws.outcome == 'success' }}
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_wrapper: false
 
       - name: Create Terraform backend and env configuration
         working-directory: infra
+        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: |
           mkdir -p envs/stage
           cat > envs/stage/backend.hcl <<EOF
@@ -51,23 +76,28 @@ jobs:
 
       - name: Initialize Terraform
         working-directory: infra
+        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
 
       - name: Validate Terraform configuration
         working-directory: infra
+        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: terraform validate
 
       - name: Format Terraform code
         working-directory: infra
+        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: terraform fmt -check
 
       - name: Use Terraform workspace
         working-directory: infra
+        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: ./switch_env.sh stage
 
       - name: Terraform plan with check for changes
         id: terraform-plan
         working-directory: infra
+        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: |
           set +e
           terraform plan \
@@ -148,13 +178,17 @@ jobs:
 
       - name: Terraform destroy
         working-directory: infra
-        if: ${{ always() && steps.terraform-plan.outputs.runapply == 'true' }}
+        if: |
+          ${{ steps.configure-aws.outcome == 'success' &&
+          steps.terraform-plan.outputs.runapply == 'true' && 
+          always() }}
         run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
 
   update-manifest:
     runs-on: ubuntu-latest
     environment: stage
     needs: terraform-test-and-deploy
+    if: ${{ github.event.pull_request.merged == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -173,7 +207,8 @@ jobs:
         id: list-changes
         run: |
           # get list of changed files between branch base and current commit
-          git fetch --unshallow origin main "${{ github.event.pull_request.base.sha }}"
+          # '|| true' protects against error if repo copy is already unshallow
+          git fetch --unshallow origin main "${{ github.event.pull_request.base.sha }}" || true
           echo "Fetching latest changes from ${{ github.event.pull_request.base.sha }} to compare with current branch..."
           CHANGES="$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD)"
 
@@ -195,26 +230,28 @@ jobs:
           echo "changes_exist_to_process=$CHANGES_EXIST_TO_PROCESS" >> $GITHUB_OUTPUT
           echo "terraform_changed=$TERRAFORM_CHANGED" >> $GITHUB_OUTPUT
 
-      - name: Fetch latest manifest ID
-        id: fetch-manifest-id
-        if: ${{ steps.list-changes.outputs.changes_exist_to_process == 'true' }}
-        run: |
-          echo "Fetching latest manifest ID from SSM parameter ${SSM_PARAM_NAME_MANIFEST_ID}..."
-          MANIFEST_ID="$(aws ssm get-parameter \
-            --name "${{ vars.SSM_PARAM_NAME_MANIFEST_ID }}" \
-            --region "${{ vars.AWS_REGION }}" \
-            --query "Parameter.Value" \
-            --output text)"
-          echo "Latest manifest ID: $MANIFEST_ID"
+      # - name: Fetch latest manifest ID
+      #   id: fetch-manifest-id
+      #   if: ${{ steps.list-changes.outputs.changes_exist_to_process == 'true' }}
+      #   run: |
+      #     echo "Fetching latest manifest ID from SSM parameter ${SSM_PARAM_NAME_MANIFEST_ID}..."
+      #     MANIFEST_ID="$(aws ssm get-parameter \
+      #       --name "${{ vars.SSM_PARAM_NAME_MANIFEST_ID }}" \
+      #       --region "${{ vars.AWS_REGION }}" \
+      #       --query "Parameter.Value" \
+      #       --output text)"
+      #     echo "Latest manifest ID: $MANIFEST_ID"
 
-          echo "manifest_id=$MANIFEST_ID" >> $GITHUB_OUTPUT
+      #     echo "manifest_id=$MANIFEST_ID" >> $GITHUB_OUTPUT
         
       - name: Read manifest
         id: read-manifest
-        if: ${{ steps.fetch-manifest-id.outcome == 'success' }}
+        # if: ${{ steps.fetch-manifest-id.outcome == 'success' }}
+        if: ${{ steps.list-changes.outputs.changes_exist_to_process == 'true' }}
         run: |
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
-          MANIFEST_ID="${{ steps.fetch-manifest-id.outputs.manifest_id }}"
+          # MANIFEST_ID="${{ steps.fetch-manifest-id.outputs.manifest_id }}"
+          MANIFEST_ID="$(git rev-parse --short "${{ github.event.pull_request.base.sha }}")"
 
           echo "Fetching manifest with ID $MANIFEST_ID from S3..."
           aws s3 cp \
@@ -242,7 +279,7 @@ jobs:
             "s3://${{ vars.MANIFEST_BUCKET }}/${SHORT_SHA}.json"
           echo "Manifest uploaded successfully."
       
-      - name: Update manifest ID tracking parameter
+      - name: Update manifest ID fallback tracking parameter
         if: ${{ steps.update-manifest.outcome == 'success' }}
         run: |
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
