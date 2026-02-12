@@ -24,7 +24,7 @@ jobs:
           git fetch origin main
           LATEST_MAIN=$(git rev-parse origin/main)
 
-          if [ "$LATEST_MAIN" != "${{ github.event.pull_request.base.sha }}" ];
+          if [ "$LATEST_MAIN" != "${{ github.event.pull_request.base.sha }}" ]; then
             echo "other_merges=true" >> $GITHUB_OUTPUT
           else
             echo "other_merges=false" >> $GITHUB_OUTPUT
@@ -284,7 +284,7 @@ jobs:
         run: |
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-          echo "Updating SSM parameter ${SSM_PARAM_NAME_MANIFEST_ID} with new manifest ID $SHORT_SHA..."
+          echo "Updating SSM parameter ${{ vars.SSM_PARAM_NAME_MANIFEST_ID }} with new manifest ID $SHORT_SHA..."
           aws ssm put-parameter \
             --region "${{ vars.AWS_REGION }}" \
             --name "${{ vars.SSM_PARAM_NAME_MANIFEST_ID }}" \
