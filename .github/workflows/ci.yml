@@ -151,7 +151,7 @@ jobs:
         if: ${{ always() && steps.terraform-plan.outputs.runapply == 'true' }}
         run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
 
-  generate-manifest:
+  update-manifest:
     runs-on: ubuntu-latest
     needs: terraform-test-and-deploy
     steps:
@@ -165,22 +165,76 @@ jobs:
           CHANGES="$(echo "$CHANGES" | grep -o '^[^/]*/') | sort -u)"
           echo "Changes detected in the following directories:\n$CHANGES"
 
+          CHANGES_EXIST_TO_PROCESS=false
+
           # output key change values for use in later steps
-          terraform_changed=false
           if echo "$CHANGES" | grep -q infra; then
-            terraform_changed=true
+            TERRAFORM_CHANGED=true
+            CHANGES_EXIST_TO_PROCESS=true
+            echo "Terraform changes detected."
+          else
+            TERRAFORM_CHANGED=false
+            echo "No changes detected to Terraform."
           fi
-          echo "terraform_changed=$terraform_changed" >> $GITHUB_OUTPUT
+          echo "changes_exist_to_process=$CHANGES_EXIST_TO_PROCESS" >> $GITHUB_OUTPUT
+          echo "terraform_changed=$TERRAFORM_CHANGED" >> $GITHUB_OUTPUT
 
+      - name: Fetch latest manifest ID
+        id: fetch-manifest-id
+        if: ${{ steps.list-changes.outputs.changes_exist_to_process == 'true' }}
+        run: |
+          echo "Fetching latest manifest ID from SSM parameter ${SSM_PARAM_NAME_MANIFEST_ID}..."
+          MANIFEST_ID="$(aws ssm get-parameter \
+            --name "${{ vars.SSM_PARAM_NAME_MANIFEST_ID }}" \
+            --region "${{ vars.AWS_REGION }}" \
+            --query "Parameter.Value" \
+            --output text)"
+          echo "Latest manifest ID: $MANIFEST_ID"
 
-    # get latest manifest ID from SSM Parameter Store
+          echo "manifest_id=$MANIFEST_ID" >> $GITHUB_OUTPUT
+        
+      - name: Read manifest
+        id: read-manifest
+        needs: fetch-manifest-id
+        run: |
+          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
+          MANIFEST_ID="${{ steps.fetch-manifest-id.outputs.manifest_id }}"
 
-    # if no existing manifest, generate it from scratch
+          echo "Fetching manifest with ID $MANIFEST_ID from S3..."
+          aws s3 cp \
+            --region "${{ vars.AWS_REGION }}" \
+            "s3://${{ vars.MANIFEST_BUCKET }}/${MANIFEST_ID}.json" \
+            manifest.json
+          echo "Manifest fetched successfully."
+      
+      - name: Update and re-upload manifest
+        id: update-manifest
+        needs: read-manifest
+        run: |
+          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-    # if manifest exists, fetch it and generated updated version
-    # (terraform version number is the short git commit hash)
+          if "${{ steps.list-changes.outputs.terraform_changed }}"; then
+            jq '.Latest.Terraform = "'$SHORT_SHA'"' manifest.json > manifest.json.tmp \
+              && mv manifest.json.tmp manifest.json
+            echo "Updated manifest with new Terraform version: $SHORT_SHA"
+          fi
 
-    # store new manifest in S3 named with commit hash
+          echo "Uploading updated manifest with ID $SHORT_SHA to S3..."
+          aws s3 cp \
+            --region "${{ vars.AWS_REGION }}" \
+            manifest.json \
+            "s3://${{ vars.MANIFEST_BUCKET }}/${SHORT_SHA}.json"
+          echo "Manifest uploaded successfully."
+      
+      - name: Update manifest ID tracking parameter
+        needs: update-manifest
+        run: |
+          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-    # store new manifest ID in SSM Parameter Store
-
+          echo "Updating SSM parameter ${SSM_PARAM_NAME_MANIFEST_ID} with new manifest ID $SHORT_SHA..."
+          aws ssm put-parameter \
+            --region "${{ vars.AWS_REGION }}" \
+            --name "${{ vars.SSM_PARAM_NAME_MANIFEST_ID }}" \
+            --value "$SHORT_SHA" \
+            --overwrite
+          echo "SSM parameter updated successfully."
