@@ -59,6 +59,7 @@ jobs:
         working-directory: infra
         if: ${{ steps.configure-aws.outcome == 'success' }}
         run: |
+          # Create backend
           mkdir -p envs/stage
           cat > envs/stage/backend.hcl <<EOF
           bucket = "${{ vars.STATE_BUCKET }}"
@@ -68,16 +69,19 @@ jobs:
           cat > envs/stage/terraform.tfvars <<EOF
           ENVIRONMENT = "stage"
           EOF
+          
+          # Create global .tfvars file
+          # For REPO_NAME, sed strips "user-name/repo-name" to just "repo-name"
           cat > global.auto.tfvars <<EOF
           AWS_REGION         = "${{ vars.AWS_REGION }}"
           IAM_USER           = "${{ secrets.IAM_USER }}"
-          # strip "user-name/repo-name" to just "repo-name"
           REPO_NAME          = "$(echo "${{ github.repository }}" | sed -E "s/.+\///g")"
           PREFIX             = "${{ vars.PREFIX }}"
           CLIENT             = "${{ vars.CLIENT }}"
           PROJECT            = "${{ vars.PROJECT }}"
           BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
           EOF
+          
 
       - name: Initialize Terraform
         working-directory: infra
