@@ -190,11 +190,13 @@ jobs:
       
       - name: Report deployment status to GitHub
         if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Fetch the deployment ID for this commit
           DEPLOYMENT_ID=$(gh api \
             -H "Accept: application/vnd.github+json" \
-            /repos/${{ github.repository }}/deployments?environment=stage&sha=${{ github.sha }} \
+            "/repos/${{ github.repository }}/deployments?environment=stage&sha=${{ github.sha }}" \
             --jq '.[0].id')
 
           if [ -n "$DEPLOYMENT_ID" ] && [ "$DEPLOYMENT_ID" != "null" ]; then
@@ -202,7 +204,7 @@ jobs:
             gh api \
               -X POST \
               -H "Accept: application/vnd.github+json" \
-              repos/${{ github.repository }}/deployments/$DEPLOYMENT_ID/statuses \
+              "repos/${{ github.repository }}/deployments/$DEPLOYMENT_ID/statuses" \
               -f state='success' \
               -f environment='stage' \
               -f environment_url='https://github.com//${{ github.repository_owner }}/${{ github.repository }}/deployments/stage' \
