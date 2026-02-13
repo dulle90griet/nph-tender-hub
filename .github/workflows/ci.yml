@@ -187,6 +187,31 @@ jobs:
           steps.terraform-plan.outputs.runapply == 'true' && 
           always() }}
         run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
+      
+      - name: Report deployment status to GitHub
+        if: success()
+        run: |
+          # Fetch the deployment ID for this commit
+          DEPLOYMENT_ID=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/deployments?environment=stage&sha=${{ github.sha }} \
+            --jq '.[0].id')
+
+          if [ -n "$DEPLOYMENT_ID" ] && [ "$DEPLOYMENT_ID" != "null" ]; then
+            # Provided deployment ID isn't empty or null, post status "success"
+            gh api \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              repos/${{ github.repository }}/deployments/$DEPLOYMENT_ID/statuses \
+              -f state='success' \
+              -f environment='stage' \
+              -f environment_url='https://github.com//${{ github.repository_owner }}/${{ github.repository }}/deployments/stage' \
+              -f description='Deployment verified and ready for merge'
+          else
+            # Deployment ID is empty or null: alert the user and fail
+            echo "No deployment found for commit ${{ github.sha }}"
+            exit 1
+          fi
 
   update-manifest:
     runs-on: ubuntu-latest
