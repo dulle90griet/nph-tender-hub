@@ -222,5 +222,3 @@ resource "aws_ecs_service" "budibase_ecs_service" {
     target_group_arn = aws_lb_target_group.budibase_alb_target_group.arn
   }
 }
-
-# change for CI test A
