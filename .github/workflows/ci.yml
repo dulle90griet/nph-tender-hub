@@ -71,7 +71,8 @@ jobs:
           cat > global.auto.tfvars <<EOF
           AWS_REGION         = "${{ vars.AWS_REGION }}"
           IAM_USER           = "${{ secrets.IAM_USER }}"
-          REPO_NAME          = "${{ github.repository }}"
+          # strip "user-name/repo-name" to just "repo-name"
+          REPO_NAME          = "$(echo "${{ github.repository }}" | sed -E "s/.+\///g")"
           PREFIX             = "${{ vars.PREFIX }}"
           CLIENT             = "${{ vars.CLIENT }}"
           PROJECT            = "${{ vars.PROJECT }}"
@@ -196,7 +197,7 @@ jobs:
           # Fetch the deployment ID for this commit
           DEPLOYMENT_ID=$(gh api \
             -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/deployments?environment=stage&sha=${{ github.sha }}" \
+            "/repos/${{ github.repository }}/deployments?environment=stage&sha=${{ github.event.pull_request.head.sha}}" \
             --jq '.[0].id')
 
           if [ -n "$DEPLOYMENT_ID" ] && [ "$DEPLOYMENT_ID" != "null" ]; then
