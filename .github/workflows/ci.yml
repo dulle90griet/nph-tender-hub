@@ -11,6 +11,8 @@ jobs:
     environment: stage
     concurrency:
       group: deploy-to-stage
+    permissions: 
+      deployments: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -59,6 +61,7 @@ jobs:
         working-directory: infra
         if: ${{ steps.configure-aws.outcome == 'success' }}
         run: |
+          # Create backend
           mkdir -p envs/stage
           cat > envs/stage/backend.hcl <<EOF
           bucket = "${{ vars.STATE_BUCKET }}"
@@ -68,15 +71,19 @@ jobs:
           cat > envs/stage/terraform.tfvars <<EOF
           ENVIRONMENT = "stage"
           EOF
+          
+          # Create global .tfvars file
+          # For REPO_NAME, sed strips "user-name/repo-name" to just "repo-name"
           cat > global.auto.tfvars <<EOF
           AWS_REGION         = "${{ vars.AWS_REGION }}"
           IAM_USER           = "${{ secrets.IAM_USER }}"
-          REPO_NAME          = "${{ github.repository }}"
+          REPO_NAME          = "$(echo "${{ github.repository }}" | sed -E "s/.+\///g")"
           PREFIX             = "${{ vars.PREFIX }}"
           CLIENT             = "${{ vars.CLIENT }}"
           PROJECT            = "${{ vars.PROJECT }}"
           BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
           EOF
+          
 
       - name: Initialize Terraform
         working-directory: infra
@@ -187,6 +194,33 @@ jobs:
           steps.terraform-plan.outputs.runapply == 'true' && 
           always() }}
         run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
+      
+      - name: Report deployment status to GitHub
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Fetch the deployment ID for this commit
+          DEPLOYMENT_ID=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/deployments?environment=stage&sha=${{ github.event.pull_request.head.sha}}" \
+            --jq '.[0].id')
+
+          if [ -n "$DEPLOYMENT_ID" ] && [ "$DEPLOYMENT_ID" != "null" ]; then
+            # Provided deployment ID isn't empty or null, post status "success"
+            gh api \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              "repos/${{ github.repository }}/deployments/$DEPLOYMENT_ID/statuses" \
+              -f state='success' \
+              -f environment='stage' \
+              -f environment_url='https://github.com//${{ github.repository_owner }}/${{ github.repository }}/deployments/stage' \
+              -f description='Deployment verified and ready for merge'
+          else
+            # Deployment ID is empty or null: alert the user and fail
+            echo "No deployment found for commit ${{ github.sha }}"
+            exit 1
+          fi
 
   update-manifest:
     runs-on: ubuntu-latest
