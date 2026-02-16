@@ -71,7 +71,26 @@ jobs:
             >> $GITHUB_OUTPUT
           echo "lambda_destroy_instance_changed=$LAMBDA_DESTROY_INSTANCE_CHANGED" \
             >> $GITHUB_OUTPUT
-  
+ 
+  python-test-and-deploy:
+    runs-on: ubuntu-latest
+    needs: list-changes
+    if: needs.list-changes.outputs.python_changes_exist == true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check linting with ruff
+        uses: astral-sh/ruff-action@v3
+        with:
+          src: >-
+            ./src
+            ./test
+
+      - name: Check formatting with ruff
+        run: ruff format --check
+          
+
   terraform-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
