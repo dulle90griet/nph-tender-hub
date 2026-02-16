@@ -6,6 +6,72 @@ on:
     branches: [ main ]
 
 jobs:
+  list-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      terraform_changed: ${{ steps.list-changes.outputs.terraform_changed }}
+      python_changes_exist: ${{ steps.list-changes.outputs.python_changes_exist }}
+      lambda_create_instance_changed: ${{ steps.list-changes.outputs.lambda_create_instance_changed }}
+      lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: List changes
+        id: list-changes
+        run: |
+          # get list of changed files between branch base and current commit
+          # '|| true' protects against error if repo copy is already unshallow
+          git fetch --unshallow origin main "${{ github.event.pull_request.base.sha }}" || true
+          echo "Fetching latest changes from ${{ github.event.pull_request.base.sha }} to compare with current branch..."
+          CHANGES="$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD)"
+
+          # extract top-level directories from changed files and get unique list
+          CHANGED_DIRS="$(echo "$CHANGES" | grep -o '^[^/]*/' | sort -u)"
+          printf "Changes detected in the following directories:\n%s\n" "$CHANGES"
+
+          
+          # output key change values for use in later steps
+          if echo "$CHANGED_DIRS" | grep -q "infra"; then
+            TERRAFORM_CHANGED=true
+            echo "Terraform changes detected."
+          else
+            TERRAFORM_CHANGED=false
+            echo "No changes detected to Terraform."
+          fi
+          
+          if echo "$CHANGED_DIRS" | grep -q "src"; then
+            PYTHON_CHANGES_EXIST=true
+            echo "Changes to Python code detected."
+            
+            # extract Python files under src/ directory from changed list
+            CHANGED_PYTHON="$(echo "$CHANGES" | grep '^src/.*.py | xargs -L 1 basename')
+
+            if echo "$CHANGED_PYTHON" | grep -q "create_budibase_instance.py"; then
+              LAMBDA_CREATE_INSTANCE_CHANGED=true
+              echo "Lambda function create_budibase_instance changed."
+            else
+              LAMBDA_CREATE_INSTANCE_CHANGED=false
+            fi
+
+            if echo "$CHANGED_PYTHON" | grep -q "destroy_budibase_instance.py"; then
+              LAMBDA_DESTROY_INSTANCE_CHANGED=true
+              echo "Lambda function destroy_budibase_instance changed."
+            else
+              LAMBDA_DESTROY_INSTANCE_CHANGED=false
+            fi
+          else
+            PYTHON_CHANGES_EXIST=false
+            echo "No changes detected to Python code."
+          fi
+          
+          echo "terraform_changed=$TERRAFORM_CHANGED" >> $GITHUB_OUTPUT
+          echo "python_changes_exist=$PYTHON_CHANGES_EXIST" >> $GITHUB_OUTPUT
+          echo "lambda_create_instance_changed=$LAMBDA_CREATE_INSTANCE_CHANGED" \
+            >> $GITHUB_OUTPUT
+          echo "lambda_destroy_instance_changed=$LAMBDA_DESTROY_INSTANCE_CHANGED" \
+            >> $GITHUB_OUTPUT
+  
   terraform-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
