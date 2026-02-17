@@ -8,6 +8,7 @@ on:
 jobs:
   list-and-read:
     runs-on: ubuntu-latest
+    environment: stage
     outputs:
       terraform_changed: ${{ steps.list-changes.outputs.terraform_changed }}
       python_changes_exist: ${{ steps.list-changes.outputs.python_changes_exist }}
@@ -105,6 +106,7 @@ jobs:
  
   python-test-and-deploy:
     runs-on: ubuntu-latest
+    environment: stage
     needs: list-and-read
     if: needs.list-and-read.outputs.python_changes_exist == true
     steps:
