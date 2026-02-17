@@ -34,7 +34,7 @@ jobs:
 
           # extract top-level directories from changed files and get unique list
           CHANGED_DIRS="$(echo "$CHANGES" | grep -o '^[^/]*/' | sort -u)"
-          printf "Changes detected in the following directories:\n%s\n" "$CHANGES"
+          printf "Changes detected in the following directories:\n%s\n" "$CHANGED_DIRS"
 
           
           # output key change values for use in later steps
@@ -51,7 +51,7 @@ jobs:
             echo "Changes to Python code detected."
             
             # extract Python files under src/ directory from changed list
-            CHANGED_PYTHON="$(echo "$CHANGES" | grep '^src/.*.py | xargs -L 1 basename')
+            CHANGED_PYTHON="$(echo "$CHANGES" | grep '^src/.*.py' | xargs -L 1 basename)"
 
             if echo "$CHANGED_PYTHON" | grep -q "create_budibase_instance.py"; then
               LAMBDA_CREATE_INSTANCE_CHANGED=true
@@ -89,7 +89,7 @@ jobs:
           echo "Fetching manifest with id $MANIFEST_ID from S3..."
           aws s3 cp \
             --region "${{ vars.AWS_REGION }}" \
-            "s3://${{ vars.MANIFEST_BUCKET }}"/${MANIFEST_ID}.json" \
+            "s3://${{ vars.MANIFEST_BUCKET }}/${MANIFEST_ID}.json" \
             manifest.json
           echo "Manifest fetched successfully."
 
