@@ -130,14 +130,14 @@ jobs:
             mkdir -p packages/lambdas/ && \
             zip src/create_budibase_instance.py packages/lambdas/create_budibase_instance.zip && \
             cp packages/lambdas/create_budibase_instance.zip \
-              s3://${{ env.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
+              s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
           fi
 
           if "$${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}"; then
             mkdir -p packages/lambdas/ && \
             zip src/destroy_budibase_instance.py packages/lambdas/destroy_budibase_instance.zip && \
             cp src/destroy_budibase_instance.py \
-              s3://${{ env.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.py
+              s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.py
           fi
 
   terraform-test-and-deploy:
