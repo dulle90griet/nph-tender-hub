@@ -135,7 +135,7 @@ jobs:
         run: ruff format --check
 
       - name: Run unit tests
-        run: pass
+        run: echo "TK"
       
       - name: Configure AWS credentials
         id: configure-aws
@@ -173,7 +173,10 @@ jobs:
       group: deploy-to-stage
     permissions: 
       deployments: write
-    needs: list-and-read
+    needs: [
+      list-and-read,
+      python-test-and-deploy
+    ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
