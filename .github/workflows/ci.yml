@@ -119,7 +119,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: stage
     needs: list-and-read
-    if: needs.list-and-read.outputs.python_changes_exist == true
+    if: ${{ needs.list-and-read.outputs.python_changes_exist == true }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
