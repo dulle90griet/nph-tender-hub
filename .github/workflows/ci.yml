@@ -149,7 +149,7 @@ jobs:
       - name: Upload changed code to S3
         run: |
           # Ensure errors occurring in 'if' blocks are propagated
-          set -euo pipefail
+          set -e
 
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
