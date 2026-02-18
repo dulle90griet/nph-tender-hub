@@ -264,28 +264,12 @@ jobs:
           # Ensure unshallow fetch to allow for merge-base checks
           fetch-depth: 0 
 
-      - name: Check for intervening merges
-        id: check-merges
-        # Check for other merges only if this is a post-merge run
-        if: ${{ github.event.pull_request.merged == true }}
-        run: |
-          TOTAL_REVS=$(git rev-list \
-            --count ${{ github.event.pull_request.base.sha }}..${{ github.sha }})
-          BRANCH_REVS=$(git rev-list \
-            --count ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
-
-          if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
-            echo "other_merges=true" >> $GITHUB_OUTPUT
-          else
-            echo "other_merges=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Configure AWS credentials
         id: configure-aws
         # Continue only if this is a pre-merge run OR post-merge run with other merges
         if: |
           ${{ github.event.pull_request.merged == false ||
-          steps.check-merges.outputs.other_merges == 'true' }}
+          needs.pre-checks.outputs.other_merges == 'true' }}
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
           aws-access-key-id:
