@@ -6,25 +6,46 @@ on:
     branches: [ main ]
 
 jobs:
-  list-and-read:
+  pre-checks:
     runs-on: ubuntu-latest
     environment: stage
     outputs:
+      other_merges: ${{ steps.check-merges.outputs.other_merges }}
+
       terraform_changed: ${{ steps.list-changes.outputs.terraform_changed }}
       python_changes_exist: ${{ steps.list-changes.outputs.python_changes_exist }}
 
       lambda_create_instance_changed: ${{ steps.list-changes.outputs.lambda_create_instance_changed }}
-      lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}
-      
-      # terraform_version: ${{ steps.read-manifest.outputs.terraform_version }}
-      # lambda_create_instance_version: ${{ steps.read-manifest.outputs.lambda_create_instance_version }}
-      # lambda_destroy_instance_version: ${{ steps.read-manifest.outputs.lambda_destroy_instance_version }}
+      lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}      
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # Ensure unshallow fetch to allow for merge-base checks
+          fetch-depth: 0 
+
+      - name: Check for intervening merges
+        id: check-merges
+        # Check for other merges only if this is a post-merge run
+        if: ${{ github.event.pull_request.merged == true }}
+        run: |
+          TOTAL_REVS=$(git rev-list \
+            --count ${{ github.event.pull_request.base.sha }}..${{ github.sha }})
+          BRANCH_REVS=$(git rev-list \
+            --count ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+
+          if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
+            echo "other_merges=true" >> $GITHUB_OUTPUT
+          else
+            echo "other_merges=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: List changes
         id: list-changes
+        # Continue only if this is a pre-merge run OR post-merge run with other merges
+        if: |
+          ${{ github.event.pull_request.merged == false ||
+          steps.check-merges.outputs.other_merges == 'true' }}
         run: |
           # get list of changed files between branch base and current commit
           # '|| true' protects against error if repo copy is already unshallow
@@ -116,8 +137,8 @@ jobs:
   python-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
-    needs: list-and-read
-    if: ${{ needs.list-and-read.outputs.python_changes_exist == 'true' }}
+    needs: pre-checks
+    if: ${{ needs.pre-checks.outputs.python_changes_exist == 'true' }}
     outputs:
       upload_artefacts_outcome: ${{ steps.upload-code-artefacts.outcome }}
     steps:
@@ -156,14 +177,14 @@ jobs:
 
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/create_budibase_instance.zip src/create_budibase_instance.py
             aws s3 cp packages/lambdas/create_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
           fi
 
-          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
             aws s3 cp packages/lambdas/destroy_budibase_instance.zip \
@@ -178,7 +199,7 @@ jobs:
     permissions: 
       deployments: write
     needs: [
-      list-and-read,
+      pre-checks,
       python-test-and-deploy
     ]
     steps:
@@ -240,7 +261,7 @@ jobs:
 
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             LAMBDA_CREATE_SERVICE_VERSION="$SHORT_SHA"
           else
             LAMBDA_CREATE_SERVICE_VERSION="$(
@@ -248,7 +269,7 @@ jobs:
             )"
           fi
 
-          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA"
           else
             LAMBDA_DESTROY_SERVICE_VERSION="$(
@@ -427,7 +448,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: stage
     needs: [
-      list-and-read,
+      pre-checks,
       python-test-and-deploy,
       terraform-test-and-deploy
     ]
@@ -454,12 +475,12 @@ jobs:
           
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             aws s3 rm s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
           fi
           echo "Removed artefact /create_budibase_instance/$SHORT_SHA.zip"
 
-          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             aws s3 rm s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.zip
           fi
           echo "Removed artefact /destroy_budibase_instance/$SHORT_SHA.zip"
@@ -468,7 +489,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: stage
     needs: [
-      list-and-read,
+      pre-checks,
       python-test-and-deploy,
       terraform-test-and-deploy
     ]
@@ -503,19 +524,19 @@ jobs:
 
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-          if [[ "${{ needs.list-and-read.outputs.terraform_changed }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.terraform_changed }}" == "true" ]]; then
             jq '.Latest.Terraform = "'$SHORT_SHA'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new Terraform version: $SHORT_SHA"
           fi
 
-          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             jq '.Latest.Python.create_budibase_instance = "'$SHORT_SHA'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new create_budibase_instance Lambda version: $SHORT_SHA"
           fi
 
-          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             jq '.Latest.Python.destroy_budibase_instance = "'$SHORT_SHA'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new destroy_budibase_instance Lambda version: $SHORT_SHA"
