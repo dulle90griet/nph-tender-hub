@@ -22,9 +22,9 @@ jobs:
       lambda_create_instance_changed: ${{ steps.list-changes.outputs.lambda_create_instance_changed }}
       lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}
 
-      short_sha_branch_base: ${{ steps.short-shas.outputs.short_sha_branch_base }}
-      short_sha_branch_head: ${{ steps.short-shas.outputs.short_sha_branch_head }}
-      short_sha_merge: ${{ steps.short-shas.outputs.short_sha_merge }}
+      short_sha_base: ${{ steps.manifest-and-shas.outputs.short_sha_base }}
+      short_sha_branch_head: ${{ steps.manifest-and-shas.outputs.short_sha_branch_head }}
+      short_sha_merge: ${{ steps.manifest-and-shas.outputs.short_sha_merge }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -32,15 +32,94 @@ jobs:
           # Ensure unshallow fetch to allow for merge-base checks
           fetch-depth: 0 
 
+      - name: Configure AWS credentials
+        id: configure-aws
+        uses: aws-actions/configure-aws-credentials@v6.0.0
+        with:
+          aws-access-key-id:
+            ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key:
+            ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:
+            ${{ vars.AWS_REGION }}
+
+      - name: Fetch base manifest and generate SHAs
+        id: manifest-and-shas
+        run: |
+          # Generate short SHAs
+          SHORT_SHA_BASE="$(git rev-parse --short "${{ github.event.pull_request.base.sha }}")"
+          SHORT_SHA_BRANCH_HEAD="$(git rev-parse --short "${{ github.event.pull_request.head.sha }}")"
+          SHORT_SHA_MERGE="$(git rev-parse --short "${{ github.sha }}")"
+
+          # Print SHAs to log for reference
+          printf "Branch base SHA: %s\nBranch head SHA: %s\nCandidate/actual merge SHA: %s\n" \
+            "$SHORT_SHA_BASE" "$SHORT_SHA_BRANCH_HEAD" "$SHORT_SHA_MERGE"
+
+          # Try to fetch base manifest
+          echo "Fetching manifest with id $SHORT_SHA_BASE from S3..."
+          set +e
+          aws s3 cp \
+            --region "${{ vars.AWS_REGION }}" \
+            "s3://${{ vars.MANIFEST_BUCKET }}/${SHORT_SHA_BASE}.json" \
+            manifest.json
+          EXIT_CODE="$?"
+          set -e
+
+          if [ $EXIT_CODE -eq 1 ]; then
+            echo "Manifest not found. Falling back on SSM value..."
+            SSM_MANIFEST_ID="$(
+              aws ssm get-parameter \
+                --region "${{ vars.AWS_REGION }}" \
+                --name "${{ vars.SSM_PARAM_NAME_MANIFEST_ID }}" \
+                | jq -r '.Parameter.Value'
+            )"
+            echo "Fetching manifest with id $SSM_MANIFEST_ID from S3..."
+            aws s3 cp \
+              --region "${{ vars.AWS_REGION }}" \
+              "s3://${{ vars.MANIFEST_BUCKET }}/${SSM_MANIFEST_ID}.json" \
+              manifest.json
+            echo "Manifest fetched successfully."
+
+            # Update our working base SHA to whichever is older
+            if git merge-base --is-ancestor "$SSM_MANIFEST_ID" "$SHORT_SHA_BASE"; then
+              echo "SSM's $SSM_MANIFEST_ID is an ancestor of branch base $SHORT_SHA_BASE." \
+                "Checks will continue with amended base SHA $SSM_MANIFEST_ID."
+              SHORT_SHA_BASE="$SSM_MANIFEST_ID"
+            else
+              echo "Branch base $SHORT_SHA_BASE is an ancestor of SSM's $SSM_MANIFEST_ID." \
+                "Checks will continue with existing base SHA."
+            fi
+          else
+            echo "Manifest fetched successfully."
+          fi
+
+          # Output final SHAs for use throughout workflow
+          echo "short_sha_base=$SHORT_SHA_BASE" >> $GITHUB_OUTPUT
+          echo "short_sha_branch_head=$SHORT_SHA_BRANCH_HEAD" >> $GITHUB_OUTPUT
+          echo "short_sha_merge=$SHORT_SHA_MERGE" >> $GITHUB_OUTPUT
+
+      - name: Upload manifest artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-manifest-${{ github.run_id }}
+          path: manifest.json
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Check for intervening merges
         id: check-merges
         # Check for other merges only if this is a post-merge run
         if: ${{ github.event.pull_request.merged == true }}
         run: |
+          SHORT_SHA_BASE="${{ steps.manifest-and-shas.outputs.short_sha_base }}"
+          LONG_SHA_BASE="$(git rev-parse "$SHORT_SHA_BASE")"
+
+          git fetch origin main "$LONG_SHA_BASE"
+
           TOTAL_REVS=$(git rev-list \
-            --count ${{ github.event.pull_request.base.sha }}..${{ github.sha }})
+            --count $LONG_SHA_BASE..${{ github.sha }})
           BRANCH_REVS=$(git rev-list \
-            --count ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+            --count $LONG_SHA_BASE..${{ github.event.pull_request.head.sha }})
 
           if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
             echo "other_merges=true" >> $GITHUB_OUTPUT
@@ -55,11 +134,13 @@ jobs:
           ${{ github.event.pull_request.merged == false ||
           steps.check-merges.outputs.other_merges == 'true' }}
         run: |
-          # get list of changed files between branch base and current commit
-          git fetch origin main "${{ github.event.pull_request.base.sha }}"
-          echo "Fetching latest changes from ${{ github.event.pull_request.base.sha }}" \
+          # get list of changed files between branch base (or fallback manifest) and current commit
+          SHORT_SHA_BASE="${{ steps.manifest-and-shas.outputs.short_sha_base }}"
+          LONG_SHA_BASE="$(git rev-parse "$SHORT_SHA_BASE")"
+
+          echo "Fetching latest changes from $SHORT_SHA_BASE" \
             "to compare with current branch..."
-          CHANGES="$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD)"
+          CHANGES="$(git diff --name-only "$LONG_SHA_BASE"...HEAD)"
 
           # extract top-level directories from changed files and get unique list
           CHANGED_DIRS="$(echo "$CHANGES" | grep -o '^[^/]*/' | sort -u)"
@@ -106,54 +187,7 @@ jobs:
             >> $GITHUB_OUTPUT
           echo "lambda_destroy_instance_changed=$LAMBDA_DESTROY_INSTANCE_CHANGED" \
             >> $GITHUB_OUTPUT
-      
-      - name: Generate short SHAs
-        id: short-shas
-        if: ${{ steps.list-changes.outcome == 'success' }}
-        run: |
-          SHORT_SHA_BRANCH_BASE="$(git rev-parse --short "${{ github.event.pull_request.base.sha }}")"
-          SHORT_SHA_BRANCH_HEAD="$(git rev-parse --short "${{ github.event.pull_request.head.sha }}")"
-          SHORT_SHA_MERGE="$(git rev-parse --short "${{ github.sha }}")"
 
-          # Print SHAs to log for reference
-          printf "Branch base SHA: %s\nBranch head SHA: %s\nCandidate/actual merge SHA: %s\n" \
-            "$SHORT_SHA_BRANCH_BASE" "$SHORT_SHA_BRANCH_HEAD" "$SHORT_SHA_MERGE"
-
-          echo "short_sha_branch_base=$SHORT_SHA_BRANCH_BASE" >> $GITHUB_OUTPUT
-          echo "short_sha_branch_head=$SHORT_SHA_BRANCH_HEAD" >> $GITHUB_OUTPUT
-          echo "short_sha_merge=$SHORT_SHA_MERGE" >> $GITHUB_OUTPUT
-
-      - name: Configure AWS credentials
-        id: configure-aws
-        uses: aws-actions/configure-aws-credentials@v6.0.0
-        with:
-          aws-access-key-id:
-            ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key:
-            ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:
-            ${{ vars.AWS_REGION }}
-
-      - name: Fetch base manifest
-        id: fetch-manifest
-        run: |
-          MANIFEST_ID="${{ steps.short-shas.outputs.short_sha_branch_base }}"
-
-          echo "Fetching manifest with id $MANIFEST_ID from S3..."
-          aws s3 cp \
-            --region "${{ vars.AWS_REGION }}" \
-            "s3://${{ vars.MANIFEST_BUCKET }}/${MANIFEST_ID}.json" \
-            manifest.json
-          echo "Manifest fetched successfully."
-
-      - name: Upload manifest artefact
-        uses: actions/upload-artifact@v4
-        with:
-          name: base-manifest-${{ github.run_id }}
-          path: manifest.json
-          if-no-files-found: error
-          retention-days: 1
- 
   python-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
@@ -233,28 +267,12 @@ jobs:
           # Ensure unshallow fetch to allow for merge-base checks
           fetch-depth: 0 
 
-      - name: Check for intervening merges
-        id: check-merges
-        # Check for other merges only if this is a post-merge run
-        if: ${{ github.event.pull_request.merged == true }}
-        run: |
-          TOTAL_REVS=$(git rev-list \
-            --count ${{ github.event.pull_request.base.sha }}..${{ github.sha }})
-          BRANCH_REVS=$(git rev-list \
-            --count ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
-
-          if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
-            echo "other_merges=true" >> $GITHUB_OUTPUT
-          else
-            echo "other_merges=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Configure AWS credentials
         id: configure-aws
         # Continue only if this is a pre-merge run OR post-merge run with other merges
         if: |
           ${{ github.event.pull_request.merged == false ||
-          steps.check-merges.outputs.other_merges == 'true' }}
+          needs.pre-checks.outputs.other_merges == 'true' }}
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
           aws-access-key-id:
@@ -282,7 +300,9 @@ jobs:
         run: |
           # Determine Lambda code versions for deployment
 
-          if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
+          if [[ "${{ github.event.pull_request.merged }}" == "true" ]] && \
+             [[ "${{ needs.pre-checks.outputs.other_merges }}" == "true" ]]
+          then
             SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_merge }}"
           else
             SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
@@ -295,6 +315,7 @@ jobs:
               jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
             )"
           fi
+          echo "Deploying create_service Lambda code version: $LAMBDA_CREATE_SERVICE_VERSION"
 
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA_CODE"
@@ -303,15 +324,17 @@ jobs:
               jq -r '.Latest.Python.destroy_budibase_instance' ../manifest.json
             )"
           fi
+          echo "Deploying destroy_service Lambda code version: $LAMBDA_DESTROY_SERVICE_VERSION"
 
           # Create backend 
-          
+
           mkdir -p envs/stage
           cat > envs/stage/backend.hcl <<EOF
           region      = "${{ vars.AWS_REGION }}"
           bucket      = "${{ vars.STATE_BUCKET }}"
           key         = "${{ vars.STATE_KEY }}"
           EOF
+          echo "envs/stage/backend.hcl generated."
 
           cat > envs/stage/terraform.tfvars <<EOF
           ENVIRONMENT = "stage"
@@ -320,6 +343,7 @@ jobs:
           LAMBDA_CREATE_SERVICE_VERSION  = "$LAMBDA_CREATE_SERVICE_VERSION"
           LAMBDA_DESTROY_SERVICE_VERSION = "$LAMBDA_DESTROY_SERVICE_VERSION" 
           EOF
+          echo "envs/stage/terraform.tfvars generated."
           
           # Create global .tfvars file
           # For REPO_NAME, sed strips "user-name/repo-name" to just "repo-name"
@@ -333,6 +357,7 @@ jobs:
           PROJECT            = "${{ vars.PROJECT }}"
           BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
           EOF
+          echo "global.auto.tfvars generated."
 
       - name: Initialize Terraform
         working-directory: infra
@@ -365,13 +390,13 @@ jobs:
             -out=tfplan \
             -var-file="envs/stage/terraform.tfvars" \
             -var="BUDIBASE_TASK_COUNT=1"
-          exit_code=$?
+          EXIT_CODE="$?"
           set -e
 
-          if [ $exit_code -eq 2 ]; then
+          if [ $EXIT_CODE -eq 2 ]; then
             echo "Changes detected in Terraform configuration."
             echo "runapply=true" >> $GITHUB_OUTPUT
-          elif [ $exit_code -eq 1 ]; then
+          elif [ $EXIT_CODE -eq 1 ]; then
             echo "Error during Terraform plan."
             exit 1
           else
@@ -557,7 +582,7 @@ jobs:
 
           SHORT_SHA_TF="$SHORT_SHA_MERGE"
 
-          if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
+          if [[ "${{ needs.pre-checks.outputs.other_merges }}" == "true" ]]; then
             SHORT_SHA_CODE="$SHORT_SHA_MERGE"
           else
             SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
@@ -591,12 +616,12 @@ jobs:
       - name: Update manifest ID fallback tracking parameter
         if: ${{ steps.update-manifest.outcome == 'success' }}
         run: |
-          SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_merge }}"
+          SHORT_SHA_MERGE="${{ needs.pre-checks.outputs.short_sha_merge }}"
 
           echo "Updating SSM parameter ${{ vars.SSM_PARAM_NAME_MANIFEST_ID }} with new manifest ID $SHORT_SHA..."
           aws ssm put-parameter \
             --region "${{ vars.AWS_REGION }}" \
             --name "${{ vars.SSM_PARAM_NAME_MANIFEST_ID }}" \
-            --value "$SHORT_SHA" \
+            --value "$SHORT_SHA_MERGE" \
             --overwrite
           echo "SSM parameter updated successfully."
