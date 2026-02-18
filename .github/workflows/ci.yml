@@ -381,6 +381,8 @@ jobs:
             echo "No changes detected. Infrastructure is up-to-date."
           fi
 
+          exit 1
+
       - name: Terraform apply
         id: terraform-apply
         working-directory: infra
