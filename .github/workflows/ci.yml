@@ -136,9 +136,6 @@ jobs:
 
       - name: Fetch base manifest
         id: fetch-manifest
-        if: >
-          ${{ steps.list-changes.outputs.terraform_changed ||
-          steps.list-changes.outputs.python_changes_exist }}
         run: |
           MANIFEST_ID="${{ steps.short-shas.outputs.short_sha_branch_base }}"
 
