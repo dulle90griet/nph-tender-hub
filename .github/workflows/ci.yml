@@ -157,7 +157,7 @@ jobs:
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/create_budibase_instance.zip src/create_budibase_instance.py
             echo "Contents of packages/lambdas/:\n$(ls packages/lambdas/)"
-            cp packages/lambdas/create_budibase_instance.zip \
+            aws s3 cp packages/lambdas/create_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
           fi
 
@@ -165,7 +165,7 @@ jobs:
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
             echo "Contents of packages/lambdas/:\n$(ls packages/lambdas/)"
-            cp packages/lambdas/destroy_budibase_instance.zip \
+            aws s3 cp packages/lambdas/destroy_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.zip
           fi
 
