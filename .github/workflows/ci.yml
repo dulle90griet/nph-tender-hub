@@ -88,6 +88,7 @@ jobs:
             else
               echo "Branch base $SHORT_SHA_BASE is an ancestor of SSM's $SSM_MANIFEST_ID." \
                 "Checks will continue with existing base SHA."
+            fi
           else
             echo "Manifest fetched successfully."
           fi
