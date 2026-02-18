@@ -16,6 +16,4 @@ def lambda_handler(event, context):
 
     result = create_budibase_instance(ecs_client)
 
-    print("A trivial change")
-
     return {"statusCode": 200, "body": json.dumps(result, default=str)}
