@@ -351,6 +351,7 @@ jobs:
           PROJECT            = "${{ vars.PROJECT }}"
           BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
           EOF
+          echo "global.auto.tfvars generated."
 
       - name: Initialize Terraform
         working-directory: infra
