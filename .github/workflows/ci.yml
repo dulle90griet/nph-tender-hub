@@ -105,8 +105,6 @@ jobs:
             manifest.json
           echo "Manifest fetched successfully."
 
-          echo "Current dir: $(pwd)\nCONTENTS:\n$(ls)"
-
       - name: Upload manifest artefact
         uses: actions/upload-artifact@v4
         with:
@@ -158,6 +156,7 @@ jobs:
           if "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}"; then
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/create_budibase_instance.zip src/create_budibase_instance.py
+            echo "Contents of packages/lambdas/:\n$(ls packages/lambdas/)"
             cp packages/lambdas/create_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
           fi
@@ -165,8 +164,9 @@ jobs:
           if "$${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}"; then
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
-            cp src/destroy_budibase_instance.py \
-              s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.py
+            echo "Contents of packages/lambdas/:\n$(ls packages/lambdas/)"
+            cp packages/lambdas/destroy_budibase_instance.zip \
+              s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.zip
           fi
 
   terraform-test-and-deploy:
