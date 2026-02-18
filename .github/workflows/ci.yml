@@ -218,9 +218,6 @@ jobs:
               s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
           fi
 
-      - name: Failtest
-        run: exit 1
-
   terraform-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
