@@ -112,10 +112,14 @@ jobs:
         if: ${{ github.event.pull_request.merged == true }}
         run: |
           SHORT_SHA_BASE="${{ steps.manifest-and-shas.outputs.short_sha_base }}"
+          LONG_SHA_BASE="$(git rev-parse "$SHORT_SHA_BASE")"
+
+          git fetch origin main "$LONG_SHA_BASE"
+
           TOTAL_REVS=$(git rev-list \
-            --count $SHORT_SHA_BASE..${{ github.sha }})
+            --count $LONG_SHA_BASE..${{ github.sha }})
           BRANCH_REVS=$(git rev-list \
-            --count $SHORT_SHA_BASE..${{ github.event.pull_request.head.sha }})
+            --count $LONG_SHA_BASE..${{ github.event.pull_request.head.sha }})
 
           if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
             echo "other_merges=true" >> $GITHUB_OUTPUT
@@ -132,10 +136,11 @@ jobs:
         run: |
           # get list of changed files between branch base (or fallback manifest) and current commit
           SHORT_SHA_BASE="${{ steps.manifest-and-shas.outputs.short_sha_base }}"
-          git fetch origin main "$SHORT_SHA_BASE"
+          LONG_SHA_BASE="$(git rev-parse "$SHORT_SHA_BASE")"
+
           echo "Fetching latest changes from $SHORT_SHA_BASE" \
             "to compare with current branch..."
-          CHANGES="$(git diff --name-only "$SHORT_SHA_BASE"...HEAD)"
+          CHANGES="$(git diff --name-only "$LONG_SHA_BASE"...HEAD)"
 
           # extract top-level directories from changed files and get unique list
           CHANGED_DIRS="$(echo "$CHANGES" | grep -o '^[^/]*/' | sort -u)"
