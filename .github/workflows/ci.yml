@@ -192,23 +192,23 @@ jobs:
           set -e
 
           if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
-            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_merge }}"
+            SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_merge }}"
           else
-            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
+            SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/create_budibase_instance.zip src/create_budibase_instance.py
             aws s3 cp packages/lambdas/create_budibase_instance.zip \
-              s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
+              s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA_CODE.zip
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
             aws s3 cp packages/lambdas/destroy_budibase_instance.zip \
-              s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.zip
+              s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
           fi
 
   terraform-test-and-deploy:
@@ -280,13 +280,13 @@ jobs:
           # Determine Lambda code versions for deployment
 
           if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
-            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_merge }}"
+            SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_merge }}"
           else
-            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
+            SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
-            LAMBDA_CREATE_SERVICE_VERSION="$SHORT_SHA"
+            LAMBDA_CREATE_SERVICE_VERSION="$SHORT_SHA_CODE"
           else
             LAMBDA_CREATE_SERVICE_VERSION="$(
               jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
@@ -294,7 +294,7 @@ jobs:
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
-            LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA"
+            LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA_CODE"
           else
             LAMBDA_DESTROY_SERVICE_VERSION="$(
               jq -r '.Latest.Python.destroy_budibase_instance' ../manifest.json
@@ -363,7 +363,7 @@ jobs:
             -var-file="envs/stage/terraform.tfvars" \
             -var="BUDIBASE_TASK_COUNT=1"
           exit_code=$?
-          echo "Terraform plan exit code: $exit_code"
+          # echo "Terraform plan exit code: $exit_code"
           set -e
           if [ $exit_code -eq 2 ]; then
             echo "Changes detected in Terraform configuration."
@@ -498,20 +498,20 @@ jobs:
           set -e
           
           if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
-            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_merge }}"
+            SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_merge }}"
           else
-            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
+            SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
-            aws s3 rm s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
+            aws s3 rm s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA_CODE.zip
           fi
-          echo "Removed artefact /create_budibase_instance/$SHORT_SHA.zip"
+          echo "Removed artefact /create_budibase_instance/$SHORT_SHA_CODE.zip"
 
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
-            aws s3 rm s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.zip
+            aws s3 rm s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
           fi
-          echo "Removed artefact /destroy_budibase_instance/$SHORT_SHA.zip"
+          echo "Removed artefact /destroy_budibase_instance/$SHORT_SHA_CODE.zip"
 
   update-manifest:
     runs-on: ubuntu-latest
