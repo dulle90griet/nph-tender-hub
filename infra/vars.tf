@@ -48,6 +48,20 @@ variable "BUDIBASE_IMAGE_URL" {
   description = "The URL of the Budibase image to use for the ECS container"
 }
 
+variable "CODE_BUCKET" {
+  type        = string
+  description = "The name of the S3 bucket containing code for Lambdas, etc."
+}
+
+variable "LAMBDA_CREATE_SERVICE_VERSION" {
+  type        = string
+  description = "The version of the create_budibase_service Lambda code to deploy"
+}
+
+variable "LAMBDA_DESTROY_SERVICE_VERSION" {
+  type        = string
+  description = "The version of the destroy_budibase_service Lambda code to deploy"
+}
 
 # Variables hardcoded here
 

@@ -1,5 +1,7 @@
-import os, pytest, boto3, json
-from pprint import pprint
+import os
+import pytest
+import boto3
+import json
 from moto import mock_aws
 from unittest.mock import patch
 from src.create_budibase_instance import create_budibase_instance, lambda_handler
@@ -30,50 +32,53 @@ def ecs_client(aws_credentials, env_vars):
 
 @pytest.fixture(scope="function")
 def ecs_with_cluster(ecs_client):
-    ecs_client.create_cluster(
-        clusterName = os.environ["TARGET_CLUSTER_NAME"]
-    )
+    ecs_client.create_cluster(clusterName=os.environ["TARGET_CLUSTER_NAME"])
     ecs_client.create_service(
-        cluster = os.environ["TARGET_CLUSTER_NAME"],
-        serviceName = os.environ["TARGET_SERVICE_NAME"],
-        desiredCount = 0
+        cluster=os.environ["TARGET_CLUSTER_NAME"],
+        serviceName=os.environ["TARGET_SERVICE_NAME"],
+        desiredCount=0,
     )
     yield ecs_client
 
 
 class TestCreateBudibaseInstanceFunction:
-    """ Unit tests for the create_budibase_instance() function. """
+    """Unit tests for the create_budibase_instance() function."""
 
     def test_service_desired_count_set_to_1(self, ecs_with_cluster):
         create_budibase_instance(ecs_with_cluster)
         result = ecs_with_cluster.describe_services(
-            cluster = os.environ["TARGET_CLUSTER_NAME"],
-            services = [os.environ["TARGET_SERVICE_NAME"]]
+            cluster=os.environ["TARGET_CLUSTER_NAME"],
+            services=[os.environ["TARGET_SERVICE_NAME"]],
         )
-        assert (result["services"][0]["desiredCount"] == 1
-                or result["services"][0]["pendingCount"] == 1)
-
+        assert (
+            result["services"][0]["desiredCount"] == 1
+            or result["services"][0]["pendingCount"] == 1
+        )
 
     def test_running_count_increases_from_0_to_1(self, ecs_with_cluster):
         result = ecs_with_cluster.describe_services(
-            cluster = os.environ["TARGET_CLUSTER_NAME"],
-            services = [os.environ["TARGET_SERVICE_NAME"]]
+            cluster=os.environ["TARGET_CLUSTER_NAME"],
+            services=[os.environ["TARGET_SERVICE_NAME"]],
         )
-        assert (result["services"][0]["runningCount"] == 0
-                and result["services"][0]["pendingCount"] == 0)
+        assert (
+            result["services"][0]["runningCount"] == 0
+            and result["services"][0]["pendingCount"] == 0
+        )
 
         create_budibase_instance(ecs_with_cluster)
 
         result = ecs_with_cluster.describe_services(
-            cluster = os.environ["TARGET_CLUSTER_NAME"],
-            services = [os.environ["TARGET_SERVICE_NAME"]]
+            cluster=os.environ["TARGET_CLUSTER_NAME"],
+            services=[os.environ["TARGET_SERVICE_NAME"]],
         )
-        assert (result["services"][0]["desiredCount"] == 1
-                or result["services"][0]["pendingCount"] == 1)
+        assert (
+            result["services"][0]["desiredCount"] == 1
+            or result["services"][0]["pendingCount"] == 1
+        )
 
 
 class TestCreateBudibaseInstanceLambdaHandler:
-    """ Unit tests for the Lambda handler. """
+    """Unit tests for the Lambda handler."""
 
     @patch("src.create_budibase_instance.create_budibase_instance")
     @patch("src.create_budibase_instance.boto3.client")
@@ -82,7 +87,7 @@ class TestCreateBudibaseInstanceLambdaHandler:
         mock_boto3_client,
         mock_create_budibase_instance,
         aws_credentials,
-        env_vars
+        env_vars,
     ):
         mock_create_budibase_instance.return_value = {}
 
@@ -90,16 +95,13 @@ class TestCreateBudibaseInstanceLambdaHandler:
 
         mock_create_budibase_instance.assert_called_once()
 
-
     @patch("src.create_budibase_instance.boto3.client")
     def test_lambda_handler_returns_status_code_and_json_string(
-        self,
-        mock_boto3_client,
-        ecs_with_cluster
+        self, mock_boto3_client, ecs_with_cluster
     ):
         mock_boto3_client.return_value = ecs_with_cluster
 
         result = lambda_handler({}, object())
 
         assert result["statusCode"] == 200
-        body_json = json.loads(result["body"])
+        json.loads(result["body"])

@@ -6,6 +6,167 @@ on:
     branches: [ main ]
 
 jobs:
+  list-and-read:
+    runs-on: ubuntu-latest
+    environment: stage
+    outputs:
+      terraform_changed: ${{ steps.list-changes.outputs.terraform_changed }}
+      python_changes_exist: ${{ steps.list-changes.outputs.python_changes_exist }}
+
+      lambda_create_instance_changed: ${{ steps.list-changes.outputs.lambda_create_instance_changed }}
+      lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}
+      
+      # terraform_version: ${{ steps.read-manifest.outputs.terraform_version }}
+      # lambda_create_instance_version: ${{ steps.read-manifest.outputs.lambda_create_instance_version }}
+      # lambda_destroy_instance_version: ${{ steps.read-manifest.outputs.lambda_destroy_instance_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: List changes
+        id: list-changes
+        run: |
+          # get list of changed files between branch base and current commit
+          # '|| true' protects against error if repo copy is already unshallow
+          git fetch --unshallow origin main "${{ github.event.pull_request.base.sha }}" || true
+          echo "Fetching latest changes from ${{ github.event.pull_request.base.sha }}" \
+            "to compare with current branch..."
+          CHANGES="$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD)"
+
+          # extract top-level directories from changed files and get unique list
+          CHANGED_DIRS="$(echo "$CHANGES" | grep -o '^[^/]*/' | sort -u)"
+          printf "Changes detected in the following directories:\n%s\n" "$CHANGED_DIRS"
+
+          
+          # output key change values for use in later steps
+          if echo "$CHANGED_DIRS" | grep -q "infra"; then
+            TERRAFORM_CHANGED=true
+            echo "Terraform changes detected."
+          else
+            TERRAFORM_CHANGED=false
+            echo "No changes detected to Terraform."
+          fi
+          
+          if echo "$CHANGED_DIRS" | grep -q "src"; then
+            PYTHON_CHANGES_EXIST=true
+            echo "Changes to Python code detected."
+            
+            # extract Python files under src/ directory from changed list
+            CHANGED_PYTHON="$(echo "$CHANGES" | grep '^src/.*.py' | xargs -L 1 basename)"
+
+            if echo "$CHANGED_PYTHON" | grep -q "create_budibase_instance.py"; then
+              LAMBDA_CREATE_INSTANCE_CHANGED=true
+              echo "Lambda function create_budibase_instance changed."
+            else
+              LAMBDA_CREATE_INSTANCE_CHANGED=false
+            fi
+
+            if echo "$CHANGED_PYTHON" | grep -q "destroy_budibase_instance.py"; then
+              LAMBDA_DESTROY_INSTANCE_CHANGED=true
+              echo "Lambda function destroy_budibase_instance changed."
+            else
+              LAMBDA_DESTROY_INSTANCE_CHANGED=false
+            fi
+          else
+            PYTHON_CHANGES_EXIST=false
+            echo "No changes detected to Python code."
+          fi
+          
+          echo "terraform_changed=$TERRAFORM_CHANGED" >> $GITHUB_OUTPUT
+          echo "python_changes_exist=$PYTHON_CHANGES_EXIST" >> $GITHUB_OUTPUT
+          echo "lambda_create_instance_changed=$LAMBDA_CREATE_INSTANCE_CHANGED" \
+            >> $GITHUB_OUTPUT
+          echo "lambda_destroy_instance_changed=$LAMBDA_DESTROY_INSTANCE_CHANGED" \
+            >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        id: configure-aws
+        uses: aws-actions/configure-aws-credentials@v6.0.0
+        with:
+          aws-access-key-id:
+            ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key:
+            ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:
+            ${{ vars.AWS_REGION }}
+
+      - name: Fetch base manifest
+        id: fetch-manifest
+        if: >
+          ${{ steps.list-changes.outputs.terraform_changed ||
+          steps.list-changes.outputs.python_changes_exist }}
+        run: |
+          MANIFEST_ID="$(git rev-parse --short "${{ github.event.pull_request.base.sha }}")"
+
+          echo "Fetching manifest with id $MANIFEST_ID from S3..."
+          aws s3 cp \
+            --region "${{ vars.AWS_REGION }}" \
+            "s3://${{ vars.MANIFEST_BUCKET }}/${MANIFEST_ID}.json" \
+            manifest.json
+          echo "Manifest fetched successfully."
+
+      - name: Upload manifest artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-manifest-${{ github.run_id }}
+          path: manifest.json
+          if-no-files-found: error
+          retention-days: 1
+ 
+  python-test-and-deploy:
+    runs-on: ubuntu-latest
+    environment: stage
+    needs: list-and-read
+    if: ${{ needs.list-and-read.outputs.python_changes_exist == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check linting with ruff
+        uses: astral-sh/ruff-action@v3
+        with:
+          src: >-
+            ./src
+            ./test
+
+      - name: Check formatting with ruff
+        run: ruff format --check
+
+      - name: Run unit tests
+        run: echo "TK"
+      
+      - name: Configure AWS credentials
+        id: configure-aws
+        uses: aws-actions/configure-aws-credentials@v6.0.0
+        with:
+          aws-access-key-id:
+            ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key:
+            ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:
+            ${{ vars.AWS_REGION }}
+
+      - name: Upload changed code to S3
+        run: |
+          # Ensure errors occurring in 'if' blocks are propagated
+          set -e
+
+          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
+
+          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
+            mkdir -p packages/lambdas/
+            zip -j packages/lambdas/create_budibase_instance.zip src/create_budibase_instance.py
+            aws s3 cp packages/lambdas/create_budibase_instance.zip \
+              s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
+          fi
+
+          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
+            mkdir -p packages/lambdas/
+            zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
+            aws s3 cp packages/lambdas/destroy_budibase_instance.zip \
+              s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.zip
+          fi
+
   terraform-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
@@ -13,6 +174,10 @@ jobs:
       group: deploy-to-stage
     permissions: 
       deployments: write
+    needs: [
+      list-and-read,
+      python-test-and-deploy
+    ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -57,23 +222,57 @@ jobs:
         with:
           terraform_wrapper: false
 
+      - name: Download manifest artifact
+        id: download-manifest
+        uses: actions/download-artifact@v5
+        with:
+          name: base-manifest-${{ github.run_id }}
+          path: manifest.json
+
       - name: Create Terraform backend and env configuration
         working-directory: infra
         if: ${{ steps.configure-aws.outcome == 'success' }}
         run: |
-          # Create backend
+          # Determine Lambda code versions for deployment
+
+          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
+
+          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
+            LAMBDA_CREATE_SERVICE_VERSION="$SHORT_SHA"
+          else
+            LAMBDA_CREATE_SERVICE_VERSION="$(
+              jq -r '.Latest.Python.create_budibase_instance' manifest.json
+            )"
+          fi
+
+          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
+            LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA"
+          else
+            LAMBDA_DESTROY_SERVICE_VERSION="$(
+              jq -r '.Latest.Python.destroy_budibase_instance' manifest.json
+            )"
+          fi
+
+          # Create backend 
+          
           mkdir -p envs/stage
           cat > envs/stage/backend.hcl <<EOF
-          bucket = "${{ vars.STATE_BUCKET }}"
-          key    = "${{ vars.STATE_KEY }}"
-          region = "${{ vars.AWS_REGION }}"
+          region      = "${{ vars.AWS_REGION }}"
+          bucket      = "${{ vars.STATE_BUCKET }}"
+          key         = "${{ vars.STATE_KEY }}"
           EOF
+
           cat > envs/stage/terraform.tfvars <<EOF
           ENVIRONMENT = "stage"
+          CODE_BUCKET = "${{ vars.CODE_BUCKET }}"
+
+          LAMBDA_CREATE_SERVICE_VERSION  = "$LAMBDA_CREATE_SERVICE_VERSION"
+          LAMBDA_DESTROY_SERVICE_VERSION = "$LAMBDA_DESTROY_SERVICE_VERSION" 
           EOF
           
           # Create global .tfvars file
           # For REPO_NAME, sed strips "user-name/repo-name" to just "repo-name"
+
           cat > global.auto.tfvars <<EOF
           AWS_REGION         = "${{ vars.AWS_REGION }}"
           IAM_USER           = "${{ secrets.IAM_USER }}"
@@ -83,7 +282,6 @@ jobs:
           PROJECT            = "${{ vars.PROJECT }}"
           BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
           EOF
-          
 
       - name: Initialize Terraform
         working-directory: infra
@@ -225,7 +423,11 @@ jobs:
   update-manifest:
     runs-on: ubuntu-latest
     environment: stage
-    needs: terraform-test-and-deploy
+    needs: [
+      list-and-read,
+      python-test-and-deploy,
+      terraform-test-and-deploy
+    ]
     if: ${{ github.event.pull_request.merged == true }}
     steps:
       - name: Checkout code
@@ -241,53 +443,36 @@ jobs:
           aws-region:
             ${{ vars.AWS_REGION }}
 
-      - name: List changes
-        id: list-changes
-        run: |
-          # get list of changed files between branch base and current commit
-          # '|| true' protects against error if repo copy is already unshallow
-          git fetch --unshallow origin main "${{ github.event.pull_request.base.sha }}" || true
-          echo "Fetching latest changes from ${{ github.event.pull_request.base.sha }} to compare with current branch..."
-          CHANGES="$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD)"
+      - name: Download manifest artifact
+        id: download-manifest
+        uses: actions/download-artifact@v5
+        with:
+          name: base-manifest-${{ github.run_id }}
+          path: manifest.json
 
-          # extract top-level directories from changed files and get unique list
-          CHANGES="$(echo "$CHANGES" | grep -o '^[^/]*/' | sort -u)"
-          printf "Changes detected in the following directories:\n%s\n" "$CHANGES"
-
-          # output key change values for use in later steps
-          if echo "$CHANGES" | grep -q infra; then
-            TERRAFORM_CHANGED=true
-            echo "Terraform changes detected."
-          else
-            TERRAFORM_CHANGED=false
-            echo "No changes detected to Terraform."
-          fi
-          echo "terraform_changed=$TERRAFORM_CHANGED" >> $GITHUB_OUTPUT
-        
-      - name: Read manifest
-        id: read-manifest
-        run: |
-          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
-          MANIFEST_ID="$(git rev-parse --short "${{ github.event.pull_request.base.sha }}")"
-
-          echo "Fetching manifest with ID $MANIFEST_ID from S3..."
-          aws s3 cp \
-            --region "${{ vars.AWS_REGION }}" \
-            "s3://${{ vars.MANIFEST_BUCKET }}/${MANIFEST_ID}.json" \
-            manifest.json
-          echo "Manifest fetched successfully."
-      
-      - name: Update and re-upload manifest
+      - name: Generate and upload manifest
         id: update-manifest
-        if: ${{ steps.read-manifest.outcome == 'success' }}
+        if: ${{ steps.download-manifest.outcome == 'success' }}
         run: |
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-          if "${{ steps.list-changes.outputs.terraform_changed }}"; then
-            jq '.Latest.Terraform = "'$SHORT_SHA'"' manifest.json > manifest.json.tmp \
-              && mv manifest.json.tmp manifest.json
+          if [[ "${{ needs.list-and-read.outputs.terraform_changed }}" == "true" ]]; then
+            jq '.Latest.Terraform = "'$SHORT_SHA'"' manifest.json \
+              > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new Terraform version: $SHORT_SHA"
           fi
+
+          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
+            jq '.Latest.Python.create_budibase_instance = "'$SHORT_SHA'"' manifest.json \
+              > manifest.json.tmp && mv manifest.json.tmp manifest.json
+            echo "Updated manifest with new create_budibase_instance Lambda version: $SHORT_SHA"
+          fi
+
+          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
+            jq '.Latest.Python.destroy_budibase_instance = "'$SHORT_SHA'"' manifest.json \
+              > manifest.json.tmp && mv manifest.json.tmp manifest.json
+            echo "Updated manifest with new destroy_budibase_instance Lambda version: $SHORT_SHA"
+          fi         
 
           echo "Uploading updated manifest with ID $SHORT_SHA to S3..."
           aws s3 cp \
