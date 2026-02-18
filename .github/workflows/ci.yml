@@ -227,7 +227,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: base-manifest-${{ github.run_id }}
-          path: manifest.json
+          # path: manifest.json
 
       - name: Create Terraform backend and env configuration
         working-directory: infra
@@ -448,12 +448,15 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: base-manifest-${{ github.run_id }}
-          path: manifest.json
+          # path: manifest.json
 
       - name: Generate and upload manifest
         id: update-manifest
         if: ${{ steps.download-manifest.outcome == 'success' }}
         run: |
+          # Ensure errors occurring in 'if' blocks are propagated
+          set -e
+
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
           if [[ "${{ needs.list-and-read.outputs.terraform_changed }}" == "true" ]]; then
