@@ -241,7 +241,7 @@ jobs:
             LAMBDA_CREATE_SERVICE_VERSION="$SHORT_SHA"
           else
             LAMBDA_CREATE_SERVICE_VERSION="$(
-              jq -r '.Latest.Python.create_budibase_instance' manifest.json
+              jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
             )"
           fi
 
@@ -249,7 +249,7 @@ jobs:
             LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA"
           else
             LAMBDA_DESTROY_SERVICE_VERSION="$(
-              jq -r '.Latest.Python.destroy_budibase_instance' manifest.json
+              jq -r '.Latest.Python.destroy_budibase_instance' ../manifest.json
             )"
           fi
 
