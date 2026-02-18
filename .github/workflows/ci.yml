@@ -153,19 +153,17 @@ jobs:
 
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-          if "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}"; then
+          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/create_budibase_instance.zip src/create_budibase_instance.py
-            echo "Contents of packages/lambdas/:\n$(ls packages/lambdas/)"
-            aws s3 cp packages/lambdas/create_budibase_instance.zip \
+            cp packages/lambdas/create_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
           fi
 
-          if "$${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}"; then
+          if [[ "$${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
             zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
-            echo "Contents of packages/lambdas/:\n$(ls packages/lambdas/)"
-            aws s3 cp packages/lambdas/destroy_budibase_instance.zip \
+            cp packages/lambdas/destroy_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.zip
           fi
 
@@ -239,7 +237,7 @@ jobs:
 
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-          if "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}"; then
+          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             LAMBDA_CREATE_SERVICE_VERSION="$SHORT_SHA"
           else
             LAMBDA_CREATE_SERVICE_VERSION="$(
@@ -247,7 +245,7 @@ jobs:
             )"
           fi
 
-          if "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}"; then
+          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA"
           else
             LAMBDA_DESTROY_SERVICE_VERSION="$(
@@ -458,19 +456,19 @@ jobs:
         run: |
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
-          if "${{ needs.list-and-read.outputs.terraform_changed }}"; then
+          if [[ "${{ needs.list-and-read.outputs.terraform_changed }}" == "true" ]]; then
             jq '.Latest.Terraform = "'$SHORT_SHA'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new Terraform version: $SHORT_SHA"
           fi
 
-          if "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}"; then
+          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             jq '.Latest.Python.create_budibase_instance = "'$SHORT_SHA'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new create_budibase_instance Lambda version: $SHORT_SHA"
           fi
 
-          if "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}"; then
+          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             jq '.Latest.Python.destroy_budibase_instance = "'$SHORT_SHA'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new destroy_budibase_instance Lambda version: $SHORT_SHA"
