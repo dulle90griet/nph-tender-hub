@@ -9,7 +9,7 @@ jobs:
   pre-checks:
     runs-on: ubuntu-latest
     environment: stage
-    # Skip workflow on PRs closed without being merged
+    # Skip job on PRs closed without being merged
     if: |
       ${{ github.event.action != 'closed' ||
       github.event.pull_request.merged == true }}
@@ -483,7 +483,8 @@ jobs:
       terraform-test-and-deploy
     ]
     if: |
-      ${{ needs.python-test-and-deploy.outputs.upload_artefacts_outcome == 'success' &&
+      ${{ always() &&
+          needs.python-test-and-deploy.outputs.upload_artefacts_outcome == 'success' &&
           ( needs.python-test-and-deploy.result == 'failure' ||
           needs.terraform-test-and-deploy.result == 'failure') }}
     steps:
