@@ -218,6 +218,9 @@ jobs:
               s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
           fi
 
+      - name: Failtest
+        run: exit 1
+
   terraform-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
@@ -381,8 +384,6 @@ jobs:
             echo "No changes detected. Infrastructure is up-to-date."
           fi
 
-          exit 1
-
       - name: Terraform apply
         id: terraform-apply
         working-directory: infra
@@ -514,13 +515,13 @@ jobs:
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             aws s3 rm s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA_CODE.zip
+            echo "Removed artefact /create_budibase_instance/$SHORT_SHA_CODE.zip"
           fi
-          echo "Removed artefact /create_budibase_instance/$SHORT_SHA_CODE.zip"
 
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             aws s3 rm s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
+            echo "Removed artefact /destroy_budibase_instance/$SHORT_SHA_CODE.zip"
           fi
-          echo "Removed artefact /destroy_budibase_instance/$SHORT_SHA_CODE.zip"
 
   update-manifest:
     runs-on: ubuntu-latest
