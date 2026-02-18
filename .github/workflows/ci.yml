@@ -118,6 +118,8 @@ jobs:
     environment: stage
     needs: list-and-read
     if: ${{ needs.list-and-read.outputs.python_changes_exist == 'true' }}
+    outputs:
+      upload_artefacts_outcome: ${{ steps.upload-code-artefacts.outcome }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -146,7 +148,8 @@ jobs:
           aws-region:
             ${{ vars.AWS_REGION }}
 
-      - name: Upload changed code to S3
+      - name: Upload changed code artefacts to S3
+        id: upload-code-artefacts
         run: |
           # Ensure errors occurring in 'if' blocks are propagated
           set -e
@@ -419,6 +422,47 @@ jobs:
             echo "No deployment found for commit ${{ github.sha }}"
             exit 1
           fi
+
+  artefact-cleanup:
+    runs-on: ubuntu-latest
+    environment: stage
+    needs: [
+      list-and-read,
+      python-test-and-deploy,
+      terraform-test-and-deploy
+    ]
+    if: |
+      ${{ needs.python-test-and-deploy.outputs.upload_artefacts_outcome == 'success' &&
+          ( needs.python-test-and-deploy.result == 'failure' ||
+          needs.terraform-test-and-deploy.result == 'failure') }}
+    steps:
+      - name: Configure AWS credentials
+        id: configure-aws
+        uses: aws-actions/configure-aws-credentials@v6.0.0
+        with:
+          aws-access-key-id:
+            ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key:
+            ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:
+            ${{ vars.AWS_REGION }}
+      
+      - name: Delete created artefacts
+        run: |
+          # Ensure errors occuring in 'if' blocks are propagated
+          set -e
+          
+          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
+
+          if [[ "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}" == "true" ]]; then
+            aws s3 rm s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
+          fi
+          echo "Removed artefact /create_budibase_instance/$SHORT_SHA.zip"
+
+          if [[ "${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
+            aws s3 rm s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.zip
+          fi
+          echo "Removed artefact /destroy_budibase_instance/$SHORT_SHA.zip"
 
   update-manifest:
     runs-on: ubuntu-latest
