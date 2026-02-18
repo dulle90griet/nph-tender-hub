@@ -78,9 +78,6 @@ jobs:
               --region "${{ vars.AWS_REGION }}" \
               "s3://${{ vars.MANIFEST_BUCKET }}/${SSM_MANIFEST_ID}.json" \
               manifest.json
-            echo "Manifest fetched successfully. Checks will continue with amended" \
-              "base sha $SHORT_SHA_BASE." 
-
             echo "Manifest fetched successfully."
 
             # Update our working base SHA to whichever is older
@@ -297,7 +294,9 @@ jobs:
         run: |
           # Determine Lambda code versions for deployment
 
-          if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
+          if [[ "${{ github.event.pull_request.merged }}" == "true" ]] && \
+             [[ "${{ needs.pre-checks.outputs.other_merges }}" == "true" ]]
+          then
             SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_merge }}"
           else
             SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
@@ -310,6 +309,7 @@ jobs:
               jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
             )"
           fi
+          echo "Deploying create_service Lambda code version: $LAMBDA_CREATE_SERVICE_VERSION"
 
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA_CODE"
@@ -318,15 +318,17 @@ jobs:
               jq -r '.Latest.Python.destroy_budibase_instance' ../manifest.json
             )"
           fi
+          echo "Deploying destroy_service Lambda code version: $LAMBDA_DESTROY_SERVICE_VERSION"
 
           # Create backend 
-          
+
           mkdir -p envs/stage
           cat > envs/stage/backend.hcl <<EOF
           region      = "${{ vars.AWS_REGION }}"
           bucket      = "${{ vars.STATE_BUCKET }}"
           key         = "${{ vars.STATE_KEY }}"
           EOF
+          echo "envs/stage/backend.hcl generated."
 
           cat > envs/stage/terraform.tfvars <<EOF
           ENVIRONMENT = "stage"
@@ -335,6 +337,7 @@ jobs:
           LAMBDA_CREATE_SERVICE_VERSION  = "$LAMBDA_CREATE_SERVICE_VERSION"
           LAMBDA_DESTROY_SERVICE_VERSION = "$LAMBDA_DESTROY_SERVICE_VERSION" 
           EOF
+          echo "envs/stage/terraform.tfvars generated."
           
           # Create global .tfvars file
           # For REPO_NAME, sed strips "user-name/repo-name" to just "repo-name"
