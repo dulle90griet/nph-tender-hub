@@ -9,6 +9,10 @@ jobs:
   pre-checks:
     runs-on: ubuntu-latest
     environment: stage
+    # Skip workflow on PRs closed without being merged
+    if: |
+      ${{ github.event.action != 'closed' ||
+      github.event.pull_request.merged == true }}
     outputs:
       other_merges: ${{ steps.check-merges.outputs.other_merges }}
 
