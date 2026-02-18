@@ -16,7 +16,11 @@ jobs:
       python_changes_exist: ${{ steps.list-changes.outputs.python_changes_exist }}
 
       lambda_create_instance_changed: ${{ steps.list-changes.outputs.lambda_create_instance_changed }}
-      lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}      
+      lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}
+
+      short_sha_branch_base: ${{ steps.short-shas.outputs.short_sha_branch_base }}
+      short_sha_branch_head: ${{ steps.short-shas.outputs.short_sha_branch_head }}
+      short_sha_merge: ${{ steps.short-shas.outputs.short_sha_merge }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -99,6 +103,18 @@ jobs:
             >> $GITHUB_OUTPUT
           echo "lambda_destroy_instance_changed=$LAMBDA_DESTROY_INSTANCE_CHANGED" \
             >> $GITHUB_OUTPUT
+      
+      - name: Generate short SHAs
+        id: short-shas
+        if: ${{ steps.list-changes.outcome == 'success' }}
+        run: |
+          SHORT_SHA_BRANCH_BASE="$(git rev-parse --short "${{ github.event.pull_request.base.sha }}")"
+          SHORT_SHA_BRANCH_HEAD="$(git rev-parse --short "${{ github.event.pull_request.head.sha }}")"
+          SHORT_SHA_MERGE="$(git rev-parse --short "${{ github.sha }}")"
+
+          echo "short_sha_branch_base=$SHORT_SHA_BRANCH_BASE" >> $GITHUB_OUTPUT
+          echo "short_sha_branch_head=$SHORT_SHA_BRANCH_HEAD" >> $GITHUB_OUTPUT
+          echo "short_sha_merge=$SHORT_SHA_MERGE" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials
         id: configure-aws
@@ -117,7 +133,7 @@ jobs:
           ${{ steps.list-changes.outputs.terraform_changed ||
           steps.list-changes.outputs.python_changes_exist }}
         run: |
-          MANIFEST_ID="$(git rev-parse --short "${{ github.event.pull_request.base.sha }}")"
+          MANIFEST_ID="${{ steps.short-shas.outputs.short_sha_branch_base }}"
 
           echo "Fetching manifest with id $MANIFEST_ID from S3..."
           aws s3 cp \
@@ -175,7 +191,11 @@ jobs:
           # Ensure errors occurring in 'if' blocks are propagated
           set -e
 
-          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
+          if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_merge }}"
+          else
+            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
+          fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
@@ -259,7 +279,11 @@ jobs:
         run: |
           # Determine Lambda code versions for deployment
 
-          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
+          if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_merge }}"
+          else
+            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
+          fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             LAMBDA_CREATE_SERVICE_VERSION="$SHORT_SHA"
@@ -425,7 +449,7 @@ jobs:
           # Fetch the deployment ID for this commit
           DEPLOYMENT_ID=$(gh api \
             -H "Accept: application/vnd.github+json" \
-            "/repos/${{ github.repository }}/deployments?environment=stage&sha=${{ github.event.pull_request.head.sha}}" \
+            "/repos/${{ github.repository }}/deployments?environment=stage&sha=${{ github.event.pull_request.head.sha }}" \
             --jq '.[0].id')
 
           if [ -n "$DEPLOYMENT_ID" ] && [ "$DEPLOYMENT_ID" != "null" ]; then
@@ -440,7 +464,7 @@ jobs:
               -f description='Deployment verified and ready for merge'
           else
             # Deployment ID is empty or null: alert the user and fail
-            echo "No deployment found for commit ${{ github.sha }}"
+            echo "No deployment found for commit ${{ github.event.pull_request.head.sha }}"
             exit 1
           fi
 
@@ -473,7 +497,11 @@ jobs:
           # Ensure errors occuring in 'if' blocks are propagated
           set -e
           
-          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
+          if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_merge }}"
+          else
+            SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
+          fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             aws s3 rm s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
@@ -522,37 +550,45 @@ jobs:
           # Ensure errors occurring in 'if' blocks are propagated
           set -e
 
-          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
+          SHORT_SHA_MERGE="${{ needs.pre-checks.outputs.short_sha_merge }}"
+
+          SHORT_SHA_TF="$SHORT_SHA_MERGE"
+
+          if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            SHORT_SHA_CODE="$SHORT_SHA_MERGE"
+          else
+            SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
+          fi
 
           if [[ "${{ needs.pre-checks.outputs.terraform_changed }}" == "true" ]]; then
-            jq '.Latest.Terraform = "'$SHORT_SHA'"' manifest.json \
+            jq '.Latest.Terraform = "'$SHORT_SHA_TF'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
-            echo "Updated manifest with new Terraform version: $SHORT_SHA"
+            echo "Updated manifest with new Terraform version: $SHORT_SHA_TF"
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
-            jq '.Latest.Python.create_budibase_instance = "'$SHORT_SHA'"' manifest.json \
+            jq '.Latest.Python.create_budibase_instance = "'$SHORT_SHA_CODE'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
-            echo "Updated manifest with new create_budibase_instance Lambda version: $SHORT_SHA"
+            echo "Updated manifest with new create_budibase_instance Lambda version: $SHORT_SHA_CODE"
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
-            jq '.Latest.Python.destroy_budibase_instance = "'$SHORT_SHA'"' manifest.json \
+            jq '.Latest.Python.destroy_budibase_instance = "'$SHORT_SHA_CODE'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
-            echo "Updated manifest with new destroy_budibase_instance Lambda version: $SHORT_SHA"
+            echo "Updated manifest with new destroy_budibase_instance Lambda version: $SHORT_SHA_CODE"
           fi         
 
-          echo "Uploading updated manifest with ID $SHORT_SHA to S3..."
+          echo "Uploading updated manifest with ID $SHORT_SHA_MERGE to S3..."
           aws s3 cp \
             --region "${{ vars.AWS_REGION }}" \
             manifest.json \
-            "s3://${{ vars.MANIFEST_BUCKET }}/${SHORT_SHA}.json"
+            "s3://${{ vars.MANIFEST_BUCKET }}/${SHORT_SHA_MERGE}.json"
           echo "Manifest uploaded successfully."
       
       - name: Update manifest ID fallback tracking parameter
         if: ${{ steps.update-manifest.outcome == 'success' }}
         run: |
-          SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
+          SHORT_SHA="${{ needs.pre-checks.outputs.short_sha_merge }}"
 
           echo "Updating SSM parameter ${{ vars.SSM_PARAM_NAME_MANIFEST_ID }} with new manifest ID $SHORT_SHA..."
           aws ssm put-parameter \
