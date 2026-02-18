@@ -150,18 +150,21 @@ jobs:
 
       - name: Upload changed code to S3
         run: |
+          # Ensure errors occurring in 'if' blocks are propagated
+          set -euo pipefail
+
           SHORT_SHA="$(git rev-parse --short ${{ github.sha }})"
 
           if "${{ needs.list-and-read.outputs.lambda_create_instance_changed }}"; then
-            mkdir -p packages/lambdas/ && \
-            zip src/create_budibase_instance.py packages/lambdas/create_budibase_instance.zip && \
+            mkdir -p packages/lambdas/
+            zip -j packages/lambdas/create_budibase_instance.zip src/create_budibase_instance.py
             cp packages/lambdas/create_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA.zip
           fi
 
           if "$${{ needs.list-and-read.outputs.lambda_destroy_instance_changed }}"; then
-            mkdir -p packages/lambdas/ && \
-            zip src/destroy_budibase_instance.py packages/lambdas/destroy_budibase_instance.zip && \
+            mkdir -p packages/lambdas/
+            zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
             cp src/destroy_budibase_instance.py \
               s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA.py
           fi
