@@ -115,6 +115,10 @@ jobs:
           SHORT_SHA_BRANCH_HEAD="$(git rev-parse --short "${{ github.event.pull_request.head.sha }}")"
           SHORT_SHA_MERGE="$(git rev-parse --short "${{ github.sha }}")"
 
+          # Print SHAs to log for reference
+          printf "Branch base SHA: %s\nBranch head SHA: %s\nCandidate/actual merge SHA: %s\n" \
+            "$SHORT_SHA_BRANCH_BASE" "$SHORT_SHA_BRANCH_HEAD" "$SHORT_SHA_MERGE"
+
           echo "short_sha_branch_base=$SHORT_SHA_BRANCH_BASE" >> $GITHUB_OUTPUT
           echo "short_sha_branch_head=$SHORT_SHA_BRANCH_HEAD" >> $GITHUB_OUTPUT
           echo "short_sha_merge=$SHORT_SHA_MERGE" >> $GITHUB_OUTPUT
