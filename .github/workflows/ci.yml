@@ -263,6 +263,9 @@ jobs:
       python-test-and-deploy
     ]
     steps:
+      - name: TEMP SKIP
+        run: exit 0
+
       - name: Checkout code
         uses: actions/checkout@v6
         with:
