@@ -122,8 +122,10 @@ jobs:
             --count $LONG_SHA_BASE..${{ github.event.pull_request.head.sha }})
 
           if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
+            echo "Other merges found since $SHORT_BASE_SHA."
             echo "other_merges=true" >> $GITHUB_OUTPUT
           else
+            echo "$SHORT_BASE_SHA remains most recent merge before this one."
             echo "other_merges=false" >> $GITHUB_OUTPUT
           fi
 
@@ -573,7 +575,11 @@ jobs:
 
       - name: Generate and upload manifest
         id: update-manifest
-        if: ${{ steps.download-manifest.outcome == 'success' }}
+        if: |
+          ${{ github.event.pull_request.merged == true &&
+              always() &&
+              ! contains(needs.*.result, 'failure') &&
+              ! contains(needs.*.result, 'cancelled') }}
         run: |
           # Ensure errors occurring in 'if' blocks are propagated
           set -e
