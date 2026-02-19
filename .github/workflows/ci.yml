@@ -122,8 +122,10 @@ jobs:
             --count $LONG_SHA_BASE..${{ github.event.pull_request.head.sha }})
 
           if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
+            echo "Other merges found since $SHORT_BASE_SHA."
             echo "other_merges=true" >> $GITHUB_OUTPUT
           else
+            echo "$SHORT_BASE_SHA remains most recent merge before this one."
             echo "other_merges=false" >> $GITHUB_OUTPUT
           fi
 
@@ -260,6 +262,10 @@ jobs:
       pre-checks,
       python-test-and-deploy
     ]
+    if: |
+      ${{ always() &&
+          needs.python-test-and-deploy.result != 'failure' &&
+          needs.python-test-and-deploy.result != 'cancelled' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -267,207 +273,207 @@ jobs:
           # Ensure unshallow fetch to allow for merge-base checks
           fetch-depth: 0 
 
-      - name: Configure AWS credentials
-        id: configure-aws
-        # Continue only if this is a pre-merge run OR post-merge run with other merges
-        if: |
-          ${{ github.event.pull_request.merged == false ||
-          needs.pre-checks.outputs.other_merges == 'true' }}
-        uses: aws-actions/configure-aws-credentials@v6.0.0
-        with:
-          aws-access-key-id:
-            ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key:
-            ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:
-            ${{ vars.AWS_REGION }}
+      # - name: Configure AWS credentials
+      #   id: configure-aws
+      #   # Continue only if this is a pre-merge run OR post-merge run with other merges
+      #   if: |
+      #     ${{ github.event.pull_request.merged == false ||
+      #     needs.pre-checks.outputs.other_merges == 'true' }}
+      #   uses: aws-actions/configure-aws-credentials@v6.0.0
+      #   with:
+      #     aws-access-key-id:
+      #       ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key:
+      #       ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region:
+      #       ${{ vars.AWS_REGION }}
 
-      - name: Set up Terraform
-        if: ${{ steps.configure-aws.outcome == 'success' }}
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_wrapper: false
+      # - name: Set up Terraform
+      #   if: ${{ steps.configure-aws.outcome == 'success' }}
+      #   uses: hashicorp/setup-terraform@v3
+      #   with:
+      #     terraform_wrapper: false
 
-      - name: Download manifest artifact
-        id: download-manifest
-        uses: actions/download-artifact@v5
-        with:
-          name: base-manifest-${{ github.run_id }}
+      # - name: Download manifest artifact
+      #   id: download-manifest
+      #   uses: actions/download-artifact@v5
+      #   with:
+      #     name: base-manifest-${{ github.run_id }}
 
-      - name: Create Terraform backend and env configuration
-        working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
-        run: |
-          # Determine Lambda code versions for deployment
+      # - name: Create Terraform backend and env configuration
+      #   working-directory: infra
+      #   if: ${{ steps.configure-aws.outcome == 'success' }}
+      #   run: |
+      #     # Determine Lambda code versions for deployment
 
-          if [[ "${{ github.event.pull_request.merged }}" == "true" ]] && \
-             [[ "${{ needs.pre-checks.outputs.other_merges }}" == "true" ]]
-          then
-            SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_merge }}"
-          else
-            SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
-          fi
+      #     if [[ "${{ github.event.pull_request.merged }}" == "true" ]] && \
+      #        [[ "${{ needs.pre-checks.outputs.other_merges }}" == "true" ]]
+      #     then
+      #       SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_merge }}"
+      #     else
+      #       SHORT_SHA_CODE="${{ needs.pre-checks.outputs.short_sha_branch_head }}"
+      #     fi
 
-          if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
-            LAMBDA_CREATE_SERVICE_VERSION="$SHORT_SHA_CODE"
-          else
-            LAMBDA_CREATE_SERVICE_VERSION="$(
-              jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
-            )"
-          fi
-          echo "Deploying create_service Lambda code version: $LAMBDA_CREATE_SERVICE_VERSION"
+      #     if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
+      #       LAMBDA_CREATE_SERVICE_VERSION="$SHORT_SHA_CODE"
+      #     else
+      #       LAMBDA_CREATE_SERVICE_VERSION="$(
+      #         jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
+      #       )"
+      #     fi
+      #     echo "Deploying create_service Lambda code version: $LAMBDA_CREATE_SERVICE_VERSION"
 
-          if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
-            LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA_CODE"
-          else
-            LAMBDA_DESTROY_SERVICE_VERSION="$(
-              jq -r '.Latest.Python.destroy_budibase_instance' ../manifest.json
-            )"
-          fi
-          echo "Deploying destroy_service Lambda code version: $LAMBDA_DESTROY_SERVICE_VERSION"
+      #     if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
+      #       LAMBDA_DESTROY_SERVICE_VERSION="$SHORT_SHA_CODE"
+      #     else
+      #       LAMBDA_DESTROY_SERVICE_VERSION="$(
+      #         jq -r '.Latest.Python.destroy_budibase_instance' ../manifest.json
+      #       )"
+      #     fi
+      #     echo "Deploying destroy_service Lambda code version: $LAMBDA_DESTROY_SERVICE_VERSION"
 
-          # Create backend 
+      #     # Create backend 
 
-          mkdir -p envs/stage
-          cat > envs/stage/backend.hcl <<EOF
-          region      = "${{ vars.AWS_REGION }}"
-          bucket      = "${{ vars.STATE_BUCKET }}"
-          key         = "${{ vars.STATE_KEY }}"
-          EOF
-          echo "envs/stage/backend.hcl generated."
+      #     mkdir -p envs/stage
+      #     cat > envs/stage/backend.hcl <<EOF
+      #     region      = "${{ vars.AWS_REGION }}"
+      #     bucket      = "${{ vars.STATE_BUCKET }}"
+      #     key         = "${{ vars.STATE_KEY }}"
+      #     EOF
+      #     echo "envs/stage/backend.hcl generated."
 
-          cat > envs/stage/terraform.tfvars <<EOF
-          ENVIRONMENT = "stage"
-          CODE_BUCKET = "${{ vars.CODE_BUCKET }}"
+      #     cat > envs/stage/terraform.tfvars <<EOF
+      #     ENVIRONMENT = "stage"
+      #     CODE_BUCKET = "${{ vars.CODE_BUCKET }}"
 
-          LAMBDA_CREATE_SERVICE_VERSION  = "$LAMBDA_CREATE_SERVICE_VERSION"
-          LAMBDA_DESTROY_SERVICE_VERSION = "$LAMBDA_DESTROY_SERVICE_VERSION" 
-          EOF
-          echo "envs/stage/terraform.tfvars generated."
+      #     LAMBDA_CREATE_SERVICE_VERSION  = "$LAMBDA_CREATE_SERVICE_VERSION"
+      #     LAMBDA_DESTROY_SERVICE_VERSION = "$LAMBDA_DESTROY_SERVICE_VERSION" 
+      #     EOF
+      #     echo "envs/stage/terraform.tfvars generated."
           
-          # Create global .tfvars file
-          # For REPO_NAME, sed strips "user-name/repo-name" to just "repo-name"
+      #     # Create global .tfvars file
+      #     # For REPO_NAME, sed strips "user-name/repo-name" to just "repo-name"
 
-          cat > global.auto.tfvars <<EOF
-          AWS_REGION         = "${{ vars.AWS_REGION }}"
-          IAM_USER           = "${{ secrets.IAM_USER }}"
-          REPO_NAME          = "$(echo "${{ github.repository }}" | sed -E "s/.+\///g")"
-          PREFIX             = "${{ vars.PREFIX }}"
-          CLIENT             = "${{ vars.CLIENT }}"
-          PROJECT            = "${{ vars.PROJECT }}"
-          BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
-          EOF
-          echo "global.auto.tfvars generated."
+      #     cat > global.auto.tfvars <<EOF
+      #     AWS_REGION         = "${{ vars.AWS_REGION }}"
+      #     IAM_USER           = "${{ secrets.IAM_USER }}"
+      #     REPO_NAME          = "$(echo "${{ github.repository }}" | sed -E "s/.+\///g")"
+      #     PREFIX             = "${{ vars.PREFIX }}"
+      #     CLIENT             = "${{ vars.CLIENT }}"
+      #     PROJECT            = "${{ vars.PROJECT }}"
+      #     BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
+      #     EOF
+      #     echo "global.auto.tfvars generated."
 
-      - name: Initialize Terraform
-        working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
-        run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
+      # - name: Initialize Terraform
+      #   working-directory: infra
+      #   if: ${{ steps.configure-aws.outcome == 'success' }}
+      #   run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
 
-      - name: Validate Terraform configuration
-        working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
-        run: terraform validate
+      # - name: Validate Terraform configuration
+      #   working-directory: infra
+      #   if: ${{ steps.configure-aws.outcome == 'success' }}
+      #   run: terraform validate
 
-      - name: Format Terraform code
-        working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
-        run: terraform fmt -check
+      # - name: Format Terraform code
+      #   working-directory: infra
+      #   if: ${{ steps.configure-aws.outcome == 'success' }}
+      #   run: terraform fmt -check
 
-      - name: Use Terraform workspace
-        working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
-        run: ./switch_env.sh stage
+      # - name: Use Terraform workspace
+      #   working-directory: infra
+      #   if: ${{ steps.configure-aws.outcome == 'success' }}
+      #   run: ./switch_env.sh stage
 
-      - name: Terraform plan with check for changes
-        id: terraform-plan
-        working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
-        run: |
-          set +e
-          terraform plan \
-            -detailed-exitcode \
-            -out=tfplan \
-            -var-file="envs/stage/terraform.tfvars" \
-            -var="BUDIBASE_TASK_COUNT=1"
-          EXIT_CODE="$?"
-          set -e
+      # - name: Terraform plan with check for changes
+      #   id: terraform-plan
+      #   working-directory: infra
+      #   if: ${{ steps.configure-aws.outcome == 'success' }}
+      #   run: |
+      #     set +e
+      #     terraform plan \
+      #       -detailed-exitcode \
+      #       -out=tfplan \
+      #       -var-file="envs/stage/terraform.tfvars" \
+      #       -var="BUDIBASE_TASK_COUNT=1"
+      #     EXIT_CODE="$?"
+      #     set -e
 
-          if [ $EXIT_CODE -eq 2 ]; then
-            echo "Changes detected in Terraform configuration."
-            echo "runapply=true" >> $GITHUB_OUTPUT
-          elif [ $EXIT_CODE -eq 1 ]; then
-            echo "Error during Terraform plan."
-            exit 1
-          else
-            echo "No changes detected. Infrastructure is up-to-date."
-          fi
+      #     if [ $EXIT_CODE -eq 2 ]; then
+      #       echo "Changes detected in Terraform configuration."
+      #       echo "runapply=true" >> $GITHUB_OUTPUT
+      #     elif [ $EXIT_CODE -eq 1 ]; then
+      #       echo "Error during Terraform plan."
+      #       exit 1
+      #     else
+      #       echo "No changes detected. Infrastructure is up-to-date."
+      #     fi
 
-      - name: Terraform apply
-        id: terraform-apply
-        working-directory: infra
-        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
-        run: |
-          terraform apply tfplan
-            echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
+      # - name: Terraform apply
+      #   id: terraform-apply
+      #   working-directory: infra
+      #   if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+      #   run: |
+      #     terraform apply tfplan
+      #       echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
 
-      - name: Clean up Terraform plan file
-        working-directory: infra
-        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
-        run: rm -f tfplan
+      # - name: Clean up Terraform plan file
+      #   working-directory: infra
+      #   if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+      #   run: rm -f tfplan
 
-      - name: Post-apply validation
-        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
-        run: |
-          echo "Running post-apply validation..."
+      # - name: Post-apply validation
+      #   if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+      #   run: |
+      #     echo "Running post-apply validation..."
           
-          timeout 300s bash -s "${{ steps.terraform-apply.outputs.lb_url }}" << 'EOF'
-            LB_URL="$1"
+      #     timeout 300s bash -s "${{ steps.terraform-apply.outputs.lb_url }}" << 'EOF'
+      #       LB_URL="$1"
 
-            start_time="$SECONDS"
-            until curl -s "$LB_URL" > /dev/null; do
-              elapsed="$(( SECONDS - start_time ))"
-              timestamp=""
-              if [ "$elapsed" -ge 10 ]; then
-                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
-              fi
-              echo "Waiting for load balancer to become available at $LB_URL ...$timestamp"
-              sleep 10
-            done
-            echo "Load balancer available at $LB_URL"
+      #       start_time="$SECONDS"
+      #       until curl -s "$LB_URL" > /dev/null; do
+      #         elapsed="$(( SECONDS - start_time ))"
+      #         timestamp=""
+      #         if [ "$elapsed" -ge 10 ]; then
+      #           timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
+      #         fi
+      #         echo "Waiting for load balancer to become available at $LB_URL ...$timestamp"
+      #         sleep 10
+      #       done
+      #       echo "Load balancer available at $LB_URL"
 
-            start_time="$SECONDS"
-            until curl -s "$LB_URL" | grep -q 'Redirecting to <a href="/builder">/builder</a>'; do
-              elapsed="$(( SECONDS - start_time ))"
-              timestamp=""
-              if [ "$elapsed" -ge 10 ]; then
-                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
-              fi
-              echo "Waiting for redirection to /builder at $LB_URL ...$timestamp"
-              sleep 10
-            done
-            echo "Redirection to /builder confirmed at $LB_URL"
+      #       start_time="$SECONDS"
+      #       until curl -s "$LB_URL" | grep -q 'Redirecting to <a href="/builder">/builder</a>'; do
+      #         elapsed="$(( SECONDS - start_time ))"
+      #         timestamp=""
+      #         if [ "$elapsed" -ge 10 ]; then
+      #           timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
+      #         fi
+      #         echo "Waiting for redirection to /builder at $LB_URL ...$timestamp"
+      #         sleep 10
+      #       done
+      #       echo "Redirection to /builder confirmed at $LB_URL"
 
-            start_time="$SECONDS"
-            until curl -s "${LB_URL}builder" --compressed | grep title | grep -q Budibase; do
-              elapsed="$(( SECONDS - start_time ))"
-              timestamp=""
-              if [ "$elapsed" -ge 10 ]; then
-                timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
-              fi
-              echo "Waiting for Budibase builder to be available at ${LB_URL}builder ...$timestamp"
-              sleep 10
-            done
-            echo "Budibase builder is available at ${LB_URL}builder"
-          EOF
+      #       start_time="$SECONDS"
+      #       until curl -s "${LB_URL}builder" --compressed | grep title | grep -q Budibase; do
+      #         elapsed="$(( SECONDS - start_time ))"
+      #         timestamp=""
+      #         if [ "$elapsed" -ge 10 ]; then
+      #           timestamp=" [$(date -u --date="@$elapsed" +%Mm%Ss) elapsed]"
+      #         fi
+      #         echo "Waiting for Budibase builder to be available at ${LB_URL}builder ...$timestamp"
+      #         sleep 10
+      #       done
+      #       echo "Budibase builder is available at ${LB_URL}builder"
+      #     EOF
 
-      - name: Terraform destroy
-        working-directory: infra
-        if: |
-          ${{ steps.configure-aws.outcome == 'success' &&
-          steps.terraform-plan.outputs.runapply == 'true' && 
-          always() }}
-        run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
+      # - name: Terraform destroy
+      #   working-directory: infra
+      #   if: |
+      #     ${{ steps.configure-aws.outcome == 'success' &&
+      #     steps.terraform-plan.outputs.runapply == 'true' && 
+      #     always() }}
+      #   run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
       
       - name: Report deployment status to GitHub
         if: success()
@@ -550,7 +556,11 @@ jobs:
       python-test-and-deploy,
       terraform-test-and-deploy
     ]
-    if: ${{ github.event.pull_request.merged == true }}
+    if: |
+      ${{ github.event.pull_request.merged == true &&
+        always() &&
+        ! contains(needs.*.result, 'failure') &&
+        ! contains(needs.*.result, 'cancelled') }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
