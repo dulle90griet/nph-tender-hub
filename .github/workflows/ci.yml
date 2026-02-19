@@ -262,6 +262,10 @@ jobs:
       pre-checks,
       python-test-and-deploy
     ]
+    if: |
+      ${{ always() &&
+          needs.python-test-and-deploy.result != 'failure' &&
+          needs.python-test-and-deploy.result != 'cancelled' }}
     steps:
       - name: TEMP SKIP
         run: exit 0
@@ -555,7 +559,11 @@ jobs:
       python-test-and-deploy,
       terraform-test-and-deploy
     ]
-    if: ${{ github.event.pull_request.merged == true }}
+    if: |
+      ${{ github.event.pull_request.merged == true &&
+        always() &&
+        ! contains(needs.*.result, 'failure') &&
+        ! contains(needs.*.result, 'cancelled') }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -578,11 +586,7 @@ jobs:
 
       - name: Generate and upload manifest
         id: update-manifest
-        if: |
-          ${{ github.event.pull_request.merged == true &&
-              always() &&
-              ! contains(needs.*.result, 'failure') &&
-              ! contains(needs.*.result, 'cancelled') }}
+        if: ${{ steps.download-manifest.outcome == 'success' }}
         run: |
           # Ensure errors occurring in 'if' blocks are propagated
           set -e
