@@ -19,7 +19,7 @@ code-checks:
 
 terraform-checks:
 	terraform fmt --check ./infra
-	cd infra && uv run terraform validate
+	cd infra && terraform validate
 
 unit-tests:
 	PYTHONPATH=${PYTHONPATH} uv run pytest -v --cov=src --cov-report term-missing test/
