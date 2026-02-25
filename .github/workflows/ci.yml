@@ -425,6 +425,8 @@ jobs:
             echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
             echo "cluster_name=\"$(terraform output -raw budibase_ecs_cluster_name)\"" \
               >> $GITHUB_OUTPUT
+            echo "service_name=\"$(terraform output -raw budibase_ecs_service_name)\"" \
+              >> $GITHUB_OUTPUT
             echo "create_service_function_name=\"$(terraform output -raw lambda_create_service_name)\"" \
               >> $GITHUB_OUTPUT
             echo "destroy_service_function_name=\"$(terraform output -raw lambda_destroy_service_name)\"" \
