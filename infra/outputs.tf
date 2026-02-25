@@ -25,10 +25,10 @@ output "budibase_ecs_exec_command" {
 
 output "lambda_create_service_name" {
   description = "The name of the create_service Lambda function"
-  value       = aws_lambda_function.create_instance_lambda.name
+  value       = aws_lambda_function.create_instance_lambda.function_name
 }
 
 output "lambda_destroy_service_name" {
   description = "The name of the destroy_service Lambda function"
-  value       = aws_lambda_function.destroy_instance_lambda.name
+  value       = aws_lambda_function.destroy_instance_lambda.function_name
 }
