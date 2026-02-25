@@ -450,7 +450,7 @@ jobs:
               "ECS desiredCount is $DESIRED_COUNT, not 0."
             exit 1;
           else
-            "Integration test environment meets expectations. ECS desiredCount is 0."
+            echo "Integration test environment meets expectations. ECS desiredCount is 0."
           fi
 
           # Invoke the Lambda function
@@ -468,7 +468,7 @@ jobs:
               "$FUNC_NAME run, got $DESIRED_COUNT."
             exit 1;
           else
-            "Integration test successful: after $FUNCT_NAME run, desiredCount is 1."
+            echo "Integration test successful: after $FUNCT_NAME run, desiredCount is 1."
           fi
 
       - name: Post-apply validation
