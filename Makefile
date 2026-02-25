@@ -13,19 +13,18 @@ audit:
 security-checks:
 	uv run bandit -rlll ./src ./test
 
-terraform-checks:
-	uv run terraform fmt ./infra
+code-checks:
+	uv run ruff check ./src ./test
+	uv run ruff format --check ./src ./test
 
-lint-format-validate:
-	uv run ruff check --fix ./src ./test
-	uv run ruff format ./src ./test
-	terraform fmt ./infra
+terraform-checks:
+	terraform fmt --check ./infra
 	cd infra && uv run terraform validate
 
 unit-tests:
 	PYTHONPATH=${PYTHONPATH} uv run pytest -v --cov=src --cov-report term-missing test/
 
-run-checks: audit security-checks terraform-checks lint-format-validate unit-tests
+all-checks: audit security-checks code-checks terraform-checks unit-tests
 
 prepare-layer:
 	uv export --only-group lambda-layer --output-file requirements-lambda.txt
