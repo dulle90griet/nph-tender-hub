@@ -32,6 +32,19 @@ jobs:
           # Ensure unshallow fetch to allow for merge-base checks
           fetch-depth: 0 
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: "auto"
+
+      - name: Install dependencies
+        run: make install
+      
+      - name: Run audit and security checks
+        run: |
+          make audit
+          make security-checks
+
       - name: Configure AWS credentials
         id: configure-aws
         uses: aws-actions/configure-aws-credentials@v6.0.0
@@ -201,18 +214,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Check linting with ruff
-        uses: astral-sh/ruff-action@v3
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          src: >-
-            ./src
-            ./test
+          enable-cache: "auto"
 
-      - name: Check formatting with ruff
-        run: ruff format --check
+      - name: Install dependencies
+        run: make install
+      
+      - name: Lint and format with ruff
+        run: make code-checks
 
       - name: Run unit tests
-        run: echo "TK"
+        run: make unit-tests
       
       - name: Configure AWS credentials
         id: configure-aws
@@ -370,15 +384,9 @@ jobs:
         if: ${{ steps.configure-aws.outcome == 'success' }}
         run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
 
-      - name: Validate Terraform configuration
-        working-directory: infra
+      - name: Format Terraform code and validate configuration
         if: ${{ steps.configure-aws.outcome == 'success' }}
-        run: terraform validate
-
-      - name: Format Terraform code
-        working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
-        run: terraform fmt -check
+        run: make terraform-checks
 
       - name: Use Terraform workspace
         working-directory: infra

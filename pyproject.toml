@@ -1,0 +1,25 @@
+[project]
+name = "tender-hub"
+version = "0.0.1"
+requires-python = ">=3.12"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.0",
+    "bandit>=1.9.0",
+    "pytest>=9.0.0",
+    "pytest-cov>=7.0.0",  # Includes 'coverage'
+    "boto3>=1.42.0",
+    "moto>=5.0.0",
+]
+audit = [
+    "pip-audit>=2.10.0"
+]
+lambda-layer = [
+    "psycopg[binary]>=3.2.0",
+]
+local-dev = [
+    {include-group = "dev"},
+    {include-group = "audit"},
+    {include-group = "lambda-layer"}
+]
