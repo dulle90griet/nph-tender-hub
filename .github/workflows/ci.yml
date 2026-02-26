@@ -393,7 +393,7 @@ jobs:
         if: ${{ steps.configure-aws.outcome == 'success' }}
         run: ./switch_env.sh stage
 
-      - name: Terraform plan with check for changescompliant
+      - name: Terraform plan with check for changes
         id: terraform-plan
         working-directory: infra
         if: ${{ steps.configure-aws.outcome == 'success' }}
