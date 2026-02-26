@@ -3,10 +3,10 @@ WD := $(shell pwd)
 PYTHONPATH := $(wd):$(wd)/src
 PIP = pip
 
-# Try to include .env, fail gracefully if missing
--include .env
-# Space-separated list of vars required from .env
-REQUIRED_VARS := CODE_BUCKET_DEV
+# # Try to include .env, fail gracefully if missing
+# -include .env
+# # Space-separated list of vars required from .env
+# REQUIRED_VARS := ""
 
 .PHONY: install audit
 
@@ -45,17 +45,17 @@ prepare-layer:
 	$(PIP) install -r requirements-lambda.txt -t build/layer/python
 
 # Check that env exists and required vars are set
-.env-check:
-	@if [ ! -f .env ]; then \
-		echo "Error: .env file not found"; \
-		exit 1; \
-	fi
-	@$(foreach var,$(REQUIRED_VARS),\
-		if [ -z "$($(var))" ]; then \
-			echo "Error: $(var) not set in .env"; \
-			exit 1; \
-		fi; \
-	)
+# .env-check:
+# 	@if [ ! -f .env ]; then \
+# 		echo "Error: .env file not found"; \
+# 		exit 1; \
+# 	fi
+# 	@$(foreach var,$(REQUIRED_VARS),\
+# 		if [ -z "$($(var))" ]; then \
+# 			echo "Error: $(var) not set in .env"; \
+# 			exit 1; \
+# 		fi; \
+# 	)
 
 define zip_to_bucket
 	@# arg1: path/to/code/file.py, arg2: s3-bucket-name
@@ -72,9 +72,15 @@ define zip_to_bucket
 	@zip -j "packages/temp/$(FILENAME).zip" "$(FILEPATH)"
 
 	@# Upload to S3
-	@echo "Attempting upload to S3 using CODE_BUCKET_DEV var expected in .env ..."
+	@echo "Attempting upload to S3 ..."
 	@source .env && aws s3 cp "packages/temp/$(FILENAME).zip" "s3://$(BUCKET)/current.zip"
 endef
 
-zip-it-up: .env-check
-	$(call zip_to_bucket, src/create_budibase_instance.py, $(CODE_BUCKET_DEV))
+deploy-to-dev:
+	$(eval CODE_BUCKET := $(shell \
+		cat infra/envs/dev/terraform.tfvars | \
+		grep CODE_BUCKET | \
+		sed -E "s/\s*CODE_BUCKET\s*=\s*['\"]?([^'\"]+)['\"]?\s*$$/\1/" | \
+		xargs))
+	@echo "Bucket name retrieved from infra/envs/dev/terraform.tfvars: \"$(CODE_BUCKET)\""
+	$(call zip_to_bucket, src/create_budibase_instance.py, $(CODE_BUCKET))
