@@ -8,7 +8,7 @@ PIP = pip
 # # Space-separated list of vars required from .env
 # REQUIRED_VARS := ""
 
-.PHONY: install audit
+.PHONY: install audit clean
 
 
 ###############################################################################
@@ -97,3 +97,6 @@ deploy-to-dev:
 	else \
 		printf "\n%s\n" "Terraform plan will not be applied. Exiting."; \
 	fi
+
+clean:
+	rm -rf packages/temp
