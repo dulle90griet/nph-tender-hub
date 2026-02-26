@@ -67,13 +67,13 @@ define zip_to_bucket
 	$(eval FILENAME := "$(basename "$(FILENAME)")")
 
 	@# Zip it up
-	@echo "Zipping $(FILEPATH) to packages/temp/$(FILENAME).zip ..."
+	@printf "\n%s\n" "Zipping $(FILEPATH) to packages/temp/$(FILENAME).zip ..."
 	@mkdir -p packages/temp/
 	@zip -j "packages/temp/$(FILENAME).zip" "$(FILEPATH)"
 
 	@# Upload to S3
 	@echo "Attempting upload to S3 ..."
-	@source .env && aws s3 cp "packages/temp/$(FILENAME).zip" "s3://$(BUCKET)/current.zip"
+	@source .env && aws s3 cp "packages/temp/$(FILENAME).zip" "s3://$(BUCKET)/$(FILENAME)/current.zip"
 endef
 
 deploy-to-dev:
@@ -84,3 +84,16 @@ deploy-to-dev:
 		xargs))
 	@echo "Bucket name retrieved from infra/envs/dev/terraform.tfvars: \"$(CODE_BUCKET)\""
 	$(call zip_to_bucket, src/create_budibase_instance.py, $(CODE_BUCKET))
+	$(call zip_to_bucket, src/destroy_budibase_instance.py, $(CODE_BUCKET))
+	@printf "\n%s\n" "Switching into 'dev' Terraform environment ..."
+	@cd infra && ./switch_env.sh dev
+	@printf "\n%s\n" "Running terraform plan ..."
+	@cd infra && terraform plan -out=tfplan -no-color -var-file="envs/dev/terraform.tfvars" 2>&1 > plan.out
+	@printf "\n%s\n" "Plan successfully output."
+	@echo "If you wish to proceed with the plan in infra/plan.out, type Y: ";
+	@read RESPONSE; \
+	if [[ "$$RESPONSE" == "Y" ]]; then \
+		cd infra && terraform apply tfplan; \
+	else \
+		printf "\n%s\n" "Terraform plan will not be applied. Exiting."; \
+	fi
