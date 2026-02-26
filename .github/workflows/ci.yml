@@ -448,7 +448,7 @@ jobs:
           if [ "$DESIRED_COUNT" != 0 ]; then
             echo "Non-compliant integration test environment: initial" \
               "ECS desiredCount is $DESIRED_COUNT, not 0."
-            exit 1;
+            exit 1
           else
             echo "Integration test environment meets expectations. ECS desiredCount is 0."
           fi
@@ -466,15 +466,15 @@ jobs:
           if [ "$DESIRED_COUNT" != 1 ]; then
             echo "Integration test failed: expected desiredCount 1 after" \
               "$FUNC_NAME run, got $DESIRED_COUNT."
-            exit 1;
+            exit 1
           else
-            echo "Integration test successful: after $FUNCT_NAME run, desiredCount is 1."
+            echo "Integration test successful: after $FUNC_NAME run, desiredCount is 1."
           fi
 
-      - name: Post-apply validation
+      - name: Budibase availability validation
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
         run: |
-          echo "Running post-apply validation..."
+          echo "Validating Budibase availability ..."
           
           timeout 300s bash -s "${{ steps.terraform-apply.outputs.lb_url }}" << 'EOF'
             LB_URL="$1"
@@ -515,6 +515,40 @@ jobs:
             done
             echo "Budibase builder is available at ${LB_URL}builder"
           EOF
+
+      - name: "Lambda integration test: destroy-instance-lambda"
+        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+        run: |
+          # Confirm desiredCount is still 1
+          DESIRED_COUNT="$(aws ecs describe-services \
+            --cluster "${{ steps.terraform-apply.outputs.cluster_name }}" \
+            --services "${{ steps.terraform-apply.outputs.service_name }}" \
+            | jq -r '.services[0].desiredCount')"
+          if [ "$DESIRED_COUNT" != 1 ]; then
+            echo "Non-compliant integration test environment:" \
+              "ECS desiredCount is $DESIRED_COUNT, not 1."
+            exit 1
+          else
+            echo "Integration test environment meets expectations. ECS desiredCount is 1."
+          fi
+
+          # Invoke the Lambda function
+          FUNC_NAME="${{ steps.terraform-apply.outputs.destroy_service_function_name }}"
+          echo "Invoking Lambda function $FUNC_NAME ..."
+          aws lambda invoke --function-name "$FUNC_NAME" lambda.out
+
+          # Confirm ECS desiredCount is now 0
+          DESIRED_COUNT="$(aws ecs describe-services \
+            --cluster "${{ steps.terraform-apply.outputs.cluster_name }}" \
+            --services "${{ steps.terraform-apply.outputs.service_name }}" \
+            | jq -r '.services[0].desiredCount')"
+          if [ "$DESIRED_COUNT" != 0 ]; then
+            echo "Integration test failed: expected desiredCount 0 after" \
+              "$FUNC_NAME run, got $DESIRED_COUNT."
+            exit 1
+          else
+            echo "Integration test successful: after $FUNC_NAME run, desiredCount is 0."
+          fi
 
       - name: Terraform destroy
         working-directory: infra
