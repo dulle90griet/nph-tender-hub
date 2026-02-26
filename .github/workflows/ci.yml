@@ -112,7 +112,7 @@ jobs:
           echo "short_sha_merge=$SHORT_SHA_MERGE" >> $GITHUB_OUTPUT
 
       - name: Upload manifest artefact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: base-manifest-${{ github.run_id }}
           path: manifest.json
@@ -304,13 +304,13 @@ jobs:
 
       - name: Set up Terraform
         if: ${{ steps.configure-aws.outcome == 'success' }}
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_wrapper: false
 
       - name: Download manifest artifact
         id: download-manifest
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: base-manifest-${{ github.run_id }}
 
@@ -660,7 +660,7 @@ jobs:
 
       - name: Download manifest artifact
         id: download-manifest
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: base-manifest-${{ github.run_id }}
 

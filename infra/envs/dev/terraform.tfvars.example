@@ -1,3 +1,7 @@
 # Specifies environment-specific variables
 
 ENVIRONMENT = "dev"
+CODE_BUCKET = "my-code-bucket-dev"
+
+LAMBDA_CREATE_SERVICE_VERSION  = "current"
+LAMBDA_DESTROY_SERVICE_VERSION = "current"
