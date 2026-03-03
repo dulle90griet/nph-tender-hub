@@ -128,7 +128,7 @@ jobs:
       - name: Save merge base (if pre-merge)
         run: echo "${{ steps.manifest-and-shas.outputs.long_sha_base }}" > merge_base.txt
 
-      - name: Upload merge base artefact (if pre-merge)
+      - name: Upload merge base artifact (if pre-merge)
         if: ${{ github.event.pull_request.merged == false }}
         uses: actions/upload-artifact@v6
         with:
