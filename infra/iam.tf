@@ -32,6 +32,14 @@ resource "aws_iam_policy" "budibase_ecs_task_policy" {
           "ssmmessages:OpenControlChannel"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "${data.aws_cloudwatch_log_group.budibase_ecs_task.arn}:*"
       }
     ]
   })
