@@ -8,6 +8,7 @@ def create_budibase_instance(client):
         cluster=os.environ.get("TARGET_CLUSTER_NAME"),
         service=os.environ.get("TARGET_SERVICE_NAME"),
         desiredCount=1,
+        forceNewDeployment=True,
     )
 
 
