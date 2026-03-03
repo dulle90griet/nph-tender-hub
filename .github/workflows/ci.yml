@@ -59,8 +59,11 @@ jobs:
       - name: Fetch base manifest and generate SHAs
         id: manifest-and-shas
         run: |
+          git fetch origin main:main
+
           # Generate short SHAs
-          SHORT_SHA_BASE="$(git rev-parse --short "${{ github.event.pull_request.base.sha }}")"
+          LONG_SHA_BASE="$(git merge-base "${{ github.event.pull_request.head.sha }}" main)"
+          SHORT_SHA_BASE="$(git rev-parse --short "$LONG_SHA_BASE")"
           SHORT_SHA_BRANCH_HEAD="$(git rev-parse --short "${{ github.event.pull_request.head.sha }}")"
           SHORT_SHA_MERGE="$(git rev-parse --short "${{ github.sha }}")"
 
@@ -135,10 +138,10 @@ jobs:
             --count $LONG_SHA_BASE..${{ github.event.pull_request.head.sha }})
 
           if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
-            echo "Other merges found since $SHORT_BASE_SHA."
+            echo "Other merges found since $SHORT_SHA_BASE."
             echo "other_merges=true" >> $GITHUB_OUTPUT
           else
-            echo "$SHORT_BASE_SHA remains most recent merge before this one."
+            echo "$SHORT_SHA_BASE remains most recent merge before this one."
             echo "other_merges=false" >> $GITHUB_OUTPUT
           fi
 
