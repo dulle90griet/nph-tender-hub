@@ -55,12 +55,23 @@ jobs:
             ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:
             ${{ vars.AWS_REGION }}
+      
+      - name: Download merge base artifact (if post-merge)
+        if: ${{ github.event.pull_request.merged == true }}
+        uses: actions/download-artifact@v7
+        with:
+          name: merge-base-for-pr-${{ github.event.pull_request.number }}
+          path: merge_base.txt
 
       - name: Fetch base manifest and generate SHAs
         id: manifest-and-shas
         run: |
           # Generate short SHAs
-          LONG_SHA_BASE="$(git merge-base "${{ github.event.pull_request.head.sha }}" origin/main)"
+          if [ -f merge_base.txt ]; then
+            LONG_SHA_BASE="$(cat merge_base.txt)"
+          else
+            LONG_SHA_BASE="$(git merge-base "${{ github.event.pull_request.head.sha }}" origin/main)"
+          fi
           SHORT_SHA_BASE="$(git rev-parse --short "$LONG_SHA_BASE")"
           SHORT_SHA_BRANCH_HEAD="$(git rev-parse --short "${{ github.event.pull_request.head.sha }}")"
           SHORT_SHA_MERGE="$(git rev-parse --short "${{ github.sha }}")"
@@ -99,6 +110,7 @@ jobs:
               echo "SSM's $SSM_MANIFEST_ID is an ancestor of branch base $SHORT_SHA_BASE." \
                 "Checks will continue with amended base SHA $SSM_MANIFEST_ID."
               SHORT_SHA_BASE="$SSM_MANIFEST_ID"
+              LONG_SHA_BASE="$(git rev-parse "$SHORT_SHA_BASE")"
             else
               echo "Branch base $SHORT_SHA_BASE is an ancestor of SSM's $SSM_MANIFEST_ID." \
                 "Checks will continue with existing base SHA."
@@ -108,10 +120,21 @@ jobs:
           fi
 
           # Output final SHAs for use throughout workflow
+          echo "long_sha_base=$LONG_SHA_BASE" >> $GITHUB_OUTPUT
           echo "short_sha_base=$SHORT_SHA_BASE" >> $GITHUB_OUTPUT
           echo "short_sha_branch_head=$SHORT_SHA_BRANCH_HEAD" >> $GITHUB_OUTPUT
           echo "short_sha_merge=$SHORT_SHA_MERGE" >> $GITHUB_OUTPUT
 
+      - name: Save merge base (if pre-merge)
+        run: echo "${{ steps.manifest-and-shas.outputs.long_sha_base }}" > merge_base.txt
+
+      - name: Upload merge base artifact (if pre-merge)
+        if: ${{ github.event.pull_request.merged == false }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: merge-base-for-pr-${{ github.event.pull_request.number }}
+          path: merge_base.txt
+      
       - name: Upload manifest artefact
         uses: actions/upload-artifact@v6
         with:
