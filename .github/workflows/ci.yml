@@ -59,10 +59,8 @@ jobs:
       - name: Fetch base manifest and generate SHAs
         id: manifest-and-shas
         run: |
-          git fetch origin main:main
-
           # Generate short SHAs
-          LONG_SHA_BASE="$(git merge-base "${{ github.event.pull_request.head.sha }}" main)"
+          LONG_SHA_BASE="$(git merge-base "${{ github.event.pull_request.head.sha }}" origin/main)"
           SHORT_SHA_BASE="$(git rev-parse --short "$LONG_SHA_BASE")"
           SHORT_SHA_BRANCH_HEAD="$(git rev-parse --short "${{ github.event.pull_request.head.sha }}")"
           SHORT_SHA_MERGE="$(git rev-parse --short "${{ github.sha }}")"
