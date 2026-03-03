@@ -20,7 +20,7 @@ resource "aws_ecs_cluster" "budibase_cluster" {
     execute_command_configuration {
       # kms_key_id = None # What was this in the Console?
       logging = "OVERRIDE"
-  
+
       log_configuration {
         cloud_watch_log_group_name = data.aws_cloudwatch_log_group.budibase_ecs_task.name
       }
