@@ -14,6 +14,8 @@ resource "aws_lambda_function" "create_instance_lambda" {
   handler       = "create_budibase_instance.lambda_handler"
   # code_sha256   = data.archive_file.create_instance_lambda_code.output_base64sha256
 
+  source_code_hash = filebase64sha256("${path.module}/../src/create_budibase_instance.py")
+
   runtime = "python3.12"
   publish = true
 
