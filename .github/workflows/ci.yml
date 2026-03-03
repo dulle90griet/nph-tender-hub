@@ -136,10 +136,10 @@ jobs:
             --count $LONG_SHA_BASE..${{ github.event.pull_request.head.sha }})
 
           if [ $TOTAL_REVS -gt $(( $BRANCH_REVS + 1 )) ]; then
-            echo "Other merges found since $SHORT_BASE_SHA."
+            echo "Other merges found since $SHORT_SHA_BASE."
             echo "other_merges=true" >> $GITHUB_OUTPUT
           else
-            echo "$SHORT_BASE_SHA remains most recent merge before this one."
+            echo "$SHORT_SHA_BASE remains most recent merge before this one."
             echo "other_merges=false" >> $GITHUB_OUTPUT
           fi
 
