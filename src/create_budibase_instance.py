@@ -16,6 +16,5 @@ def lambda_handler(event, context):
     ecs_client = boto3.client("ecs")
 
     result = create_budibase_instance(ecs_client)
-    # test change - to delete
 
     return {"statusCode": 200, "body": json.dumps(result, default=str)}
