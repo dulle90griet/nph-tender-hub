@@ -41,7 +41,7 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
     effect = "Allow"
     principals {
       type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}"] # Can I get user name from the caller identity or does it need to be a .tfenv var?
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}"]
     }
     actions = [
       "kms:ReplicateKey",
@@ -171,5 +171,79 @@ data "aws_iam_policy_document" "kms_key_for_fargate" {
       variable = "kms:CallerAccount"
       values   = ["${data.aws_caller_identity.current.account_id}"]
     }
+  }
+}
+
+
+# KMS key for RDS encryption at rest
+resource "aws_kms_key" "rds_encryption_at_rest" {
+  description             = "KMS key used for encrypting RDS storage at rest"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  policy                  = data.aws_iam_policy_document.kms_key_for_rds_at_rest.json
+
+  tags = {
+    Name = "${var.PREFIX}-${var.ENVIRONMENT}-key-for-rds-at-rest"
+  }
+}
+
+data "aws_iam_policy_document" "kms_key_for_rds_at_rest" {
+  statement {
+    sid    = "Enable root management of KMS key"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    actions   = ["*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "To begin with, permit user everything"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}"]
+    }
+    actions   = ["*"]
+    resources = ["*"]
+  }
+}
+
+
+# KMS key for RDS user secret management
+resource "aws_kms_key" "rds_master_user_secret" {
+  description             = "KMS key used for managing RDS master user password in Secrets Manager"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  policy                  = data.aws_iam_policy_document.kms_key_for_rds_master_user_secret.json
+
+  tags = {
+    Name = "${var.PREFIX}-${var.ENVIRONMENT}-key-for-rds-master-user-secret"
+  }
+}
+
+data "aws_iam_policy_document" "kms_key_for_rds_master_user_secret" {
+  statement {
+    sid    = "Enable root management of KMS key"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    actions   = ["*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "To begin with, allow user everything"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/${var.IAM_USER}"]
+    }
+    actions   = ["*"]
+    resources = ["*"]
   }
 }
