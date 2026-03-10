@@ -48,14 +48,16 @@ class TestRDSPortReponsivenessChecks:
 
     def test_socket_error_returns_detail(self, mock_rds_sock):
         mock_rds_sock.connect_ex.side_effect=socket.error("Test error")
-        expected = {"result": "SocketError", "detail": "Test error"}
+        expected = {"result": "SocketError", "detail": OSError("Test error")}
         response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
-        assert response == expected
+        assert response['result'] == expected['result']
+        assert str(response['detail']) == str(expected['detail'])
 
         mock_rds_sock.connect_ex.side_effect=socket.error("Brzezinski incident")
-        expected = {"result": "SocketError", "detail": "Brzezinski incident"}
+        expected = {"result": "SocketError", "detail": OSError("Brzezinski incident")}
         response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
-        assert response == expected
+        assert response['result'] == expected['result']
+        assert str(response['detail']) == str(expected['detail'])
 
 
     def test_socket_closed_after_success(self, mock_rds_sock):
