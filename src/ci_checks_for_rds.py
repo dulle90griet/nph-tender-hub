@@ -1,6 +1,5 @@
 import socket
-import moto
-import boto3
+
 
 def check_rds_port_responsive(rds_sock, host, port):
     try:
@@ -10,19 +9,22 @@ def check_rds_port_responsive(rds_sock, host, port):
 
         if result == 0:
             print(f"Successfully connected to {host}:{port}")
-            return {"result": "Success", "detail": None}
+            res, detail = "Success", None
         else:
             print(f"Failed to connect to {host}:{port} (Error code: {result})")
-            return {"result": "ConnectionError", "detail": result}
+            res, detail = "ConnectionError", result
     
     except socket.timeout:
         print(f"Connection to {host}:{port} timed out")
-        return {"result": "Timeout", "detail": None}
+        res, detail = "Timeout", None
+
     except socket.error as e:
         print(f"Socket error: {e}")
-        return {"result": "SocketError", "detail": e}
-    finally:
-        rds_sock.close()
+        res, detail = "SocketError", e
+    
+    rds_sock.close()
+    return {"result": res, "detail": detail}
+
 
 if __name__ == "__main__":
     rds_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
