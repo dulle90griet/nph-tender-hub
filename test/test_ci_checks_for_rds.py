@@ -20,6 +20,43 @@ class TestRDSPortReponsivenessChecks:
         check_rds_port_responsive(mock_rds_sock, "another.expected.host", 1)
         mock_rds_sock.connect_ex.assert_called_with(("another.expected.host", 1))
 
+    
+    def test_success_returns_success(self, mock_rds_sock):
+        expected = {"result": "Success", "detail": None}
+        response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
+        assert response == expected
+
+
+    def test_connection_error_returns_detail(self, mock_rds_sock):
+        mock_rds_sock.connect_ex.return_value = 642
+        expected = {"result": "ConnectionError", "detail": 642}
+        response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
+        assert response == expected
+
+        mock_rds_sock.connect_ex.return_value = 404
+        expected = {"result": "ConnectionError", "detail": 404}
+        response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
+        assert response == expected
+
+
+    def test_socket_timeout_returns_timeout(self, mock_rds_sock):
+        mock_rds_sock.connect_ex.side_effect=socket.timeout("Test timeout")
+        expected = {"result": "Timeout", "detail": None}
+        response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
+        assert response == expected
+
+
+    def test_socket_error_returns_detail(self, mock_rds_sock):
+        mock_rds_sock.connect_ex.side_effect=socket.error("Test error")
+        expected = {"result": "SocketError", "detail": "Test error"}
+        response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
+        assert response == expected
+
+        mock_rds_sock.connect_ex.side_effect=socket.error("Brzezinski incident")
+        expected = {"result": "SocketError", "detail": "Brzezinski incident"}
+        response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
+        assert response == expected
+
 
     def test_socket_closed_after_success(self, mock_rds_sock):
         check_rds_port_responsive(mock_rds_sock, "host", 1234)
