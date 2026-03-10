@@ -311,3 +311,9 @@ resource "aws_vpc_security_group_ingress_rule" "allow_nfs_ingress_to_efs" {
   ip_protocol                  = "tcp"
   referenced_security_group_id = aws_security_group.budibase_fargate.id
 }
+
+resource "aws_security_group" "rds_database_main" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}DatabaseMain"
+  description = "Security group for ${var.CLIENT} ${var.PROJECT} main RDS database"
+  vpc_id      = local.vpc_id
+}
