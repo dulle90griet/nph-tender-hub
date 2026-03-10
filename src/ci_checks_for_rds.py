@@ -10,17 +10,17 @@ def check_rds_port_responsive(rds_sock, host, port):
 
         if result == 0:
             print(f"Successfully connected to {host}:{port}")
-            return True
+            return {"result": "Success", "detail": None}
         else:
             print(f"Failed to connect to {host}:{port} (Error code: {result})")
-            return False
+            return {"result": "ConnectionError", "detail": result}
     
     except socket.timeout:
         print(f"Connection to {host}:{port} timed out")
-        return False
+        return {"result": "Timeout", "detail": None}
     except socket.error as e:
         print(f"Socket error: {e}")
-        return False
+        return {"result": "SocketError", "detail": e}
     finally:
         rds_sock.close()
 
