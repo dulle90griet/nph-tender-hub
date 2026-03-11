@@ -1,7 +1,7 @@
 import pytest
 import socket
-from unittest.mock import patch, Mock
-from src.ci_checks_for_rds import check_rds_port_responsive
+from unittest.mock import patch, Mock, MagicMock
+from src.ci_checks_for_rds import check_rds_port_responsive, check_rds_psql_select
 
 
 @pytest.fixture(scope="function")
@@ -10,6 +10,20 @@ def mock_rds_sock():
     mock_sock.connect_ex = Mock(return_value=0)
     mock_sock.close = Mock()
     return mock_sock
+
+
+@pytest.fixture(scope="function")
+def mock_psql_conn():
+    mock_conn = Mock()
+    mock_cursor = Mock()
+
+    mock_cursor.fetchall = Mock(return_value=[(1,)])
+    mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+    mock_cursor.__exit__ = Mock(return_value=None)
+
+    mock_conn.cursor = Mock(return_value=mock_cursor)
+
+    return mock_conn
 
 
 class TestRDSPortReponsivenessChecks:
@@ -84,3 +98,10 @@ class TestRDSPortReponsivenessChecks:
 
         check_rds_port_responsive(mock_rds_sock, "host", 1234)
         mock_rds_sock.close.assert_called_once()
+
+
+class TestRDSPSQLSelectChecks:
+    def test_connection_closed_after_success(self, mock_psql_conn):
+        check_rds_psql_select(mock_psql_conn)
+        mock_psql_conn.close.assert_called_once()
+
