@@ -1,5 +1,6 @@
 import socket
 import psycopg
+import boto3
 from getpass import getpass
 
 
@@ -45,6 +46,11 @@ def check_rds_psql_select(psql_conn):
     
     psql_conn.close()
     return {"result": res, "detail": detail}
+
+
+def lambda_handler(event, context):
+    secrets_manager = boto3.client("secretsmanager")
+    rds_secret = secrets_manager.get_secret_value(SecretId=event['RDS_login_secret'])
 
 
 if __name__ == "__main__":
