@@ -1,4 +1,6 @@
 import socket
+import psycopg
+from getpass import getpass
 
 
 def check_rds_port_responsive(rds_sock, host, port):
@@ -20,12 +22,44 @@ def check_rds_port_responsive(rds_sock, host, port):
 
     except socket.error as e:
         print(f"Socket error: {e}")
-        res, detail = "SocketError", e
+        res, detail = "SocketError", str(e)
     
     rds_sock.close()
     return {"result": res, "detail": detail}
 
 
+def check_rds_psql_select(psql_conn):
+    try:
+        with psql_conn.cursor() as cur:
+            cur.execute("SELECT 1 AS test")
+
+            result = cur.fetchall()
+
+            if result == [(1,),]:
+                res, detail = "Success", None
+            else:
+                res, detail = "Error", "Query executed but received unexpected response"
+    
+    except psycopg.Error as e:
+        res, detail = type(e).__name__, str(e)
+        print(f"{type(e).__name__}: {e}")
+    
+    psql_conn.close()
+    return {"result": res, "detail": detail}
+
+
 if __name__ == "__main__":
     rds_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    check_rds_port_responsive(rds_sock, "127.0.0.1", 9999)
+    check_rds_port_responsive(rds_sock, "127.0.0.1", 5432)
+
+    user = input("PSQL username: ")
+    pwd = getpass("PSQL password: ")
+
+    with psycopg.connect(f"""
+        host=127.0.0.1
+        port=5432
+        dbname=donald
+        user={user}
+        password={pwd}
+    """) as psql_conn:
+        print(check_rds_psql_select(psql_conn))
