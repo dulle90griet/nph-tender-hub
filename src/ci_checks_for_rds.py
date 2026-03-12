@@ -42,7 +42,6 @@ def check_rds_psql_select(psql_conn):
     
     except psycopg.Error as e:
         res, detail = type(e).__name__, str(e)
-        print(f"{type(e).__name__}: {e}")
     
     psql_conn.close()
     return {"result": res, "detail": detail}
