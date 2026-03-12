@@ -48,6 +48,8 @@ def raise_error(error_type: int):
 
 
 class TestRDSPortReponsivenessChecks:
+    """Unit tests for the check_rds_port_responsive() function."""
+
     def test_connect_ex_invoked_with_expected_host_and_port(self, mock_rds_sock):
         check_rds_port_responsive(mock_rds_sock, "expected.host.name", 5432)
         mock_rds_sock.connect_ex.assert_called_with(("expected.host.name", 5432))
@@ -122,6 +124,20 @@ class TestRDSPortReponsivenessChecks:
 
 
 class TestRDSPSQLSelectChecks:
+    """Unit tests for the check_rds_psql_select() function."""
+
+    def test_cursor_execute_invoked_with_select_statement(self, mock_psql_conn):
+        mock_cursor = Mock()
+        mock_cursor.execute = Mock()
+        mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+        mock_cursor.__exit__ = Mock(return_value=None)
+        mock_psql_conn.cursor = Mock(return_value=mock_cursor)
+
+        check_rds_psql_select(mock_psql_conn)
+        mock_cursor.execute.assert_called_once()
+        assert mock_cursor.execute.call_args[0][0][:7] == "SELECT "
+
+
     def test_success_returns_success(self, mock_psql_conn):
         expected = {"result": "Success", "detail": None}
         response = check_rds_psql_select(mock_psql_conn)
@@ -192,3 +208,18 @@ class TestRDSPSQLSelectChecks:
             mock_cursor.execute = Mock(side_effect=raise_error(error_i))
             check_rds_psql_select(mock_psql_conn)
             assert mock_psql_conn.close.call_count == error_i + 1
+
+
+class TestRDSChecksLambdaHandler:
+    """Unit tests for the Lambda handler."""
+
+    def test_rds_port_checks_called_with_event_values():
+        pass
+
+
+    def test_psycopg_connect_called_with_event_values():
+        pass
+
+
+    def test_psql_select_checks_called_with_expected_connection():
+        pass
