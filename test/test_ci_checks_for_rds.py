@@ -1,5 +1,6 @@
 import pytest
 import socket
+import psycopg
 from unittest.mock import patch, Mock, MagicMock
 from src.ci_checks_for_rds import check_rds_port_responsive, check_rds_psql_select
 
@@ -105,3 +106,50 @@ class TestRDSPSQLSelectChecks:
         check_rds_psql_select(mock_psql_conn)
         mock_psql_conn.close.assert_called_once()
 
+    def test_connection_closed_after_unexpected_response(self, mock_psql_conn):
+        mock_cursor = Mock()
+        mock_cursor.fetchall = Mock(return_value=[("An unexpected value",)])
+        mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+        mock_cursor.__exit__ = Mock(return_value=None)
+        mock_psql_conn.cursor = Mock(return_value=mock_cursor)
+
+        check_rds_psql_select(mock_psql_conn)
+        mock_psql_conn.close.assert_called_once()
+
+        mock_cursor.fetchall = Mock(return_value=[(1,), (2,), (3,)])
+
+        check_rds_psql_select(mock_psql_conn)
+        assert mock_psql_conn.close.call_count == 2
+    
+    def test_connection_closed_after_psycopg_error(self, mock_psql_conn):
+        def raise_error(error_type: int):
+            def wrapper(*args, **kwargs):
+                msg = "Test error"
+
+                match error_type:
+                    case 0:
+                        raise psycopg.InterfaceError(msg)
+                    case 1:
+                        raise psycopg.DataError(msg)
+                    case 2:
+                        raise psycopg.OperationalError(msg)
+                    case 3:
+                        raise psycopg.IntegrityError(msg)
+                    case 4:
+                        raise psycopg.InternalError(msg)
+                    case 5:
+                        raise psycopg.ProgrammingError(msg)
+                    case 6:
+                        raise psycopg.NotSupportedError(msg)
+            
+            return wrapper
+
+        mock_cursor = Mock()
+        mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+        mock_cursor.__exit__ = Mock(return_value=None)
+        mock_psql_conn.cursor = Mock(return_value=mock_cursor)
+
+        for error_i in range(7):
+            mock_cursor.execute = Mock(side_effect=raise_error(error_i))
+            check_rds_psql_select(mock_psql_conn)
+            assert mock_psql_conn.close.call_count == error_i + 1
