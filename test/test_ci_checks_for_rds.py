@@ -27,6 +27,26 @@ def mock_psql_conn():
     return mock_conn
 
 
+error_selection = [
+    psycopg.InterfaceError,
+    psycopg.DataError,
+    psycopg.OperationalError,
+    psycopg.IntegrityError,
+    psycopg.InternalError,
+    psycopg.ProgrammingError,
+    psycopg.NotSupportedError
+]
+
+
+def raise_error(error_type: int):
+    def wrapper(*args, **kwargs):
+        msg = "Test error"
+
+        raise error_selection[error_type](msg)
+    
+    return wrapper
+
+
 class TestRDSPortReponsivenessChecks:
     def test_connect_ex_invoked_with_expected_host_and_port(self, mock_rds_sock):
         check_rds_port_responsive(mock_rds_sock, "expected.host.name", 5432)
@@ -102,9 +122,49 @@ class TestRDSPortReponsivenessChecks:
 
 
 class TestRDSPSQLSelectChecks:
+    def test_success_returns_success(self, mock_psql_conn):
+        expected = {"result": "Success", "detail": None}
+        response = check_rds_psql_select(mock_psql_conn)
+        assert response == expected
+    
+    
+    def test_unexpected_response_returns_error(self, mock_psql_conn):
+        mock_cursor = Mock()
+        mock_cursor.fetchall = Mock(return_value=[("An unexpected value",)])
+        mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+        mock_cursor.__exit__ = Mock(return_value=None)
+        mock_psql_conn.cursor = Mock(return_value=mock_cursor)
+
+        expected = {"result": "Error", "detail": "Query executed but received unexpected response"}
+                    
+        response = check_rds_psql_select(mock_psql_conn)
+        assert response == expected
+
+        mock_cursor.fetchall = Mock(return_value=[(1,), (2,), (3,)])
+        response = check_rds_psql_select(mock_psql_conn)
+        assert response == expected
+
+
+    def test_psycopg_error_returns_detail(self, mock_psql_conn):
+        mock_cursor = Mock()
+        mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+        mock_cursor.__exit__ = Mock(return_value=None)
+        mock_psql_conn.cursor = Mock(return_value=mock_cursor)
+
+        for error_i in range(7):
+            expected = {
+                "result": type(error_selection[error_i]()).__name__,
+                "detail": "Test error"
+            }
+            mock_cursor.execute = Mock(side_effect=raise_error(error_i))
+            response = check_rds_psql_select(mock_psql_conn)
+            assert response == expected
+
+
     def test_connection_closed_after_success(self, mock_psql_conn):
         check_rds_psql_select(mock_psql_conn)
         mock_psql_conn.close.assert_called_once()
+
 
     def test_connection_closed_after_unexpected_response(self, mock_psql_conn):
         mock_cursor = Mock()
@@ -121,29 +181,8 @@ class TestRDSPSQLSelectChecks:
         check_rds_psql_select(mock_psql_conn)
         assert mock_psql_conn.close.call_count == 2
     
+
     def test_connection_closed_after_psycopg_error(self, mock_psql_conn):
-        def raise_error(error_type: int):
-            def wrapper(*args, **kwargs):
-                msg = "Test error"
-
-                match error_type:
-                    case 0:
-                        raise psycopg.InterfaceError(msg)
-                    case 1:
-                        raise psycopg.DataError(msg)
-                    case 2:
-                        raise psycopg.OperationalError(msg)
-                    case 3:
-                        raise psycopg.IntegrityError(msg)
-                    case 4:
-                        raise psycopg.InternalError(msg)
-                    case 5:
-                        raise psycopg.ProgrammingError(msg)
-                    case 6:
-                        raise psycopg.NotSupportedError(msg)
-            
-            return wrapper
-
         mock_cursor = Mock()
         mock_cursor.__enter__ = Mock(return_value=mock_cursor)
         mock_cursor.__exit__ = Mock(return_value=None)
