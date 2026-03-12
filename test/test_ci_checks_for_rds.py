@@ -1,8 +1,11 @@
+import os
 import pytest
 import socket
 import psycopg
+import boto3
+from moto import mock_aws
 from unittest.mock import patch, Mock, MagicMock
-from src.ci_checks_for_rds import check_rds_port_responsive, check_rds_psql_select
+from src.ci_checks_for_rds import check_rds_port_responsive, check_rds_psql_select, lambda_handler
 
 
 @pytest.fixture(scope="function")
@@ -210,16 +213,54 @@ class TestRDSPSQLSelectChecks:
             assert mock_psql_conn.close.call_count == error_i + 1
 
 
+@pytest.fixture(scope="function")
+def aws_credentials():
+    """Mocked AWS Credentials for moto"""
+    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+    os.environ["AWS_SECURITY_TOKEN"] = "testing"
+    os.environ["AWS_SESSION_TOKEN"] = "testing"
+    os.environ["AWS_DEFAULT_REGION"] = "eu-west-2"
+
+
+@pytest.fixture
+def sm_client(aws_credentials):
+    with mock_aws():
+        secrets_manager = boto3.client("secretsmanager")
+        yield secrets_manager
+
+
 class TestRDSChecksLambdaHandler:
     """Unit tests for the Lambda handler."""
 
-    def test_rds_port_checks_called_with_event_values():
+    @patch("src.ci_checks_for_rds.boto3.client")
+    def test_get_secret_value_called_with_event_value(self, mock_boto3_client):
+        mock_sm_client = Mock()
+        mock_boto3_client.return_value = mock_sm_client
+
+        test_event = {"RDS_login_secret": "test_secret"}
+        lambda_handler(test_event, object())
+        assert "test_secret" in [
+            mock_sm_client.get_secret_value.call_args[0][0:1],
+            mock_sm_client.get_secret_value.call_args.kwargs.get('SecretId')
+        ]
+
+
+    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    def test_rds_port_checks_called_with_secret_values(
+        self,
+        mock_check_rds_port_responsive
+    ):
+        test_event_1 = {
+            "rds_host": "127.0.0.1",
+            "rds_port": 5432,
+
+        }
+
+
+    def test_psycopg_connect_called_with_secret_values(self):
         pass
 
 
-    def test_psycopg_connect_called_with_event_values():
-        pass
-
-
-    def test_psql_select_checks_called_with_expected_connection():
+    def test_psql_select_checks_called_with_expected_connection(self):
         pass
