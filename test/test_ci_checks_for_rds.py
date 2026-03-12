@@ -1,4 +1,5 @@
 import os
+import json
 import pytest
 import socket
 import psycopg
@@ -234,8 +235,23 @@ class TestRDSChecksLambdaHandler:
     """Unit tests for the Lambda handler."""
 
     @patch("src.ci_checks_for_rds.boto3.client")
-    def test_get_secret_value_called_with_event_value(self, mock_boto3_client):
+    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    def test_get_secret_value_called_with_event_value(
+        self,
+        mock_check_rds_port_responsive,
+        mock_boto3_client
+    ):
+        test_secret_json = {
+            "host": "127.0.0.1",
+            "port": 5432,
+            "dbname": "testname",
+            "user": "testuser",
+            "password": "testpassword"
+        }
+        test_secret = {"SecretString": json.dumps(test_secret_json)}
+        
         mock_sm_client = Mock()
+        mock_sm_client.get_secret_value = Mock(return_value=test_secret)
         mock_boto3_client.return_value = mock_sm_client
 
         test_event = {"RDS_login_secret": "test_secret"}
@@ -245,17 +261,33 @@ class TestRDSChecksLambdaHandler:
             mock_sm_client.get_secret_value.call_args.kwargs.get('SecretId')
         ]
 
-
+    @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_rds_port_checks_called_with_secret_values(
         self,
-        mock_check_rds_port_responsive
+        mock_check_rds_port_responsive,
+        mock_boto3_client
     ):
-        test_event_1 = {
-            "rds_host": "127.0.0.1",
-            "rds_port": 5432,
-
+        test_event = {"RDS_login_secret": "test_secret"}
+        test_secret_json = {
+            "host": "127.0.0.1",
+            "port": 5432,
+            "dbname": "testname",
+            "user": "testuser",
+            "password": "testpassword"
         }
+        test_secret = {"SecretString": json.dumps(test_secret_json)}
+
+        mock_sm_client = Mock()
+        mock_sm_client.get_secret_value = Mock(return_value=test_secret)
+        mock_boto3_client.return_value = mock_sm_client
+
+        lambda_handler(test_event, object())
+
+        assert mock_check_rds_port_responsive.call_args[0][1:3] == (
+            "127.0.0.1",
+            5432
+        )
 
 
     def test_psycopg_connect_called_with_secret_values(self):
