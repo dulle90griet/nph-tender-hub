@@ -1,3 +1,4 @@
+import json
 import socket
 import psycopg
 import boto3
@@ -51,6 +52,9 @@ def check_rds_psql_select(psql_conn):
 def lambda_handler(event, context):
     secrets_manager = boto3.client("secretsmanager")
     rds_secret = secrets_manager.get_secret_value(SecretId=event['RDS_login_secret'])
+    rds_secret_json = json.loads(rds_secret['SecretString'])
+
+    check_rds_port_responsive(None, rds_secret_json['host'], rds_secret_json['port'])
 
 
 if __name__ == "__main__":
