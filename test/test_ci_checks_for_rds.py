@@ -5,8 +5,12 @@ import socket
 import psycopg
 import boto3
 from moto import mock_aws
-from unittest.mock import patch, Mock, MagicMock
-from src.ci_checks_for_rds import check_rds_port_responsive, check_rds_psql_select, lambda_handler
+from unittest.mock import patch, Mock
+from src.ci_checks_for_rds import (
+    check_rds_port_responsive,
+    check_rds_psql_select,
+    lambda_handler,
+)
 
 
 @pytest.fixture(scope="function")
@@ -38,7 +42,7 @@ error_selection = [
     psycopg.IntegrityError,
     psycopg.InternalError,
     psycopg.ProgrammingError,
-    psycopg.NotSupportedError
+    psycopg.NotSupportedError,
 ]
 
 
@@ -47,7 +51,7 @@ def raise_error(error_type: int):
         msg = "Test error"
 
         raise error_selection[error_type](msg)
-    
+
     return wrapper
 
 
@@ -61,12 +65,10 @@ class TestRDSPortReponsivenessChecks:
         check_rds_port_responsive(mock_rds_sock, "another.expected.host", 1)
         mock_rds_sock.connect_ex.assert_called_with(("another.expected.host", 1))
 
-    
     def test_success_returns_success(self, mock_rds_sock):
         expected = {"result": "Success", "detail": None}
         response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
         assert response == expected
-
 
     def test_connection_error_returns_detail(self, mock_rds_sock):
         mock_rds_sock.connect_ex.return_value = 642
@@ -79,49 +81,43 @@ class TestRDSPortReponsivenessChecks:
         response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
         assert response == expected
 
-
     def test_socket_timeout_returns_timeout(self, mock_rds_sock):
-        mock_rds_sock.connect_ex.side_effect=socket.timeout("Test timeout")
+        mock_rds_sock.connect_ex.side_effect = socket.timeout("Test timeout")
         expected = {"result": "Timeout", "detail": None}
         response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
         assert response == expected
 
-
     def test_socket_error_returns_detail(self, mock_rds_sock):
-        mock_rds_sock.connect_ex.side_effect=socket.error("Test error")
+        mock_rds_sock.connect_ex.side_effect = socket.error("Test error")
         expected = {"result": "SocketError", "detail": OSError("Test error")}
         response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
-        assert response['result'] == expected['result']
-        assert str(response['detail']) == str(expected['detail'])
+        assert response["result"] == expected["result"]
+        assert str(response["detail"]) == str(expected["detail"])
 
-        mock_rds_sock.connect_ex.side_effect=socket.error("Brzezinski incident")
+        mock_rds_sock.connect_ex.side_effect = socket.error("Brzezinski incident")
         expected = {"result": "SocketError", "detail": OSError("Brzezinski incident")}
         response = check_rds_port_responsive(mock_rds_sock, "host", 1234)
-        assert response['result'] == expected['result']
-        assert str(response['detail']) == str(expected['detail'])
-
+        assert response["result"] == expected["result"]
+        assert str(response["detail"]) == str(expected["detail"])
 
     def test_socket_closed_after_success(self, mock_rds_sock):
         check_rds_port_responsive(mock_rds_sock, "host", 1234)
         mock_rds_sock.close.assert_called_once()
-
 
     def test_socket_closed_after_connection_failure(self, mock_rds_sock):
         mock_rds_sock.connect_ex.return_value = 111
 
         check_rds_port_responsive(mock_rds_sock, "host", 1234)
         mock_rds_sock.close.assert_called_once()
-    
 
     def test_socket_closed_after_socket_timeout(self, mock_rds_sock):
-        mock_rds_sock.connect_ex.side_effect=socket.timeout("Test timeout")
+        mock_rds_sock.connect_ex.side_effect = socket.timeout("Test timeout")
 
         check_rds_port_responsive(mock_rds_sock, "host", 1234)
         mock_rds_sock.close.assert_called_once()
 
-    
     def test_socket_closed_after_socket_error(self, mock_rds_sock):
-        mock_rds_sock.connect_ex.side_effect=socket.error("Test error")
+        mock_rds_sock.connect_ex.side_effect = socket.error("Test error")
 
         check_rds_port_responsive(mock_rds_sock, "host", 1234)
         mock_rds_sock.close.assert_called_once()
@@ -141,13 +137,11 @@ class TestRDSPSQLSelectChecks:
         mock_cursor.execute.assert_called_once()
         assert mock_cursor.execute.call_args.args[0][:7] == "SELECT "
 
-
     def test_success_returns_success(self, mock_psql_conn):
         expected = {"result": "Success", "detail": None}
         response = check_rds_psql_select(mock_psql_conn)
         assert response == expected
-    
-    
+
     def test_unexpected_response_returns_error(self, mock_psql_conn):
         mock_cursor = Mock()
         mock_cursor.fetchall = Mock(return_value=[("An unexpected value",)])
@@ -155,15 +149,17 @@ class TestRDSPSQLSelectChecks:
         mock_cursor.__exit__ = Mock(return_value=None)
         mock_psql_conn.cursor = Mock(return_value=mock_cursor)
 
-        expected = {"result": "Error", "detail": "Query executed but received unexpected response"}
-                    
+        expected = {
+            "result": "Error",
+            "detail": "Query executed but received unexpected response",
+        }
+
         response = check_rds_psql_select(mock_psql_conn)
         assert response == expected
 
         mock_cursor.fetchall = Mock(return_value=[(1,), (2,), (3,)])
         response = check_rds_psql_select(mock_psql_conn)
         assert response == expected
-
 
     def test_psycopg_error_returns_detail(self, mock_psql_conn):
         mock_cursor = Mock()
@@ -174,17 +170,15 @@ class TestRDSPSQLSelectChecks:
         for error_i in range(7):
             expected = {
                 "result": type(error_selection[error_i]()).__name__,
-                "detail": "Test error"
+                "detail": "Test error",
             }
             mock_cursor.execute = Mock(side_effect=raise_error(error_i))
             response = check_rds_psql_select(mock_psql_conn)
             assert response == expected
 
-
     def test_connection_closed_after_success(self, mock_psql_conn):
         check_rds_psql_select(mock_psql_conn)
         mock_psql_conn.close.assert_called_once()
-
 
     def test_connection_closed_after_unexpected_response(self, mock_psql_conn):
         mock_cursor = Mock()
@@ -200,7 +194,6 @@ class TestRDSPSQLSelectChecks:
 
         check_rds_psql_select(mock_psql_conn)
         assert mock_psql_conn.close.call_count == 2
-    
 
     def test_connection_closed_after_psycopg_error(self, mock_psql_conn):
         mock_cursor = Mock()
@@ -238,10 +231,7 @@ class TestRDSChecksLambdaHandler:
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_get_secret_value_called_with_event_value(
-        self,
-        mock_check_rds_port_responsive,
-        mock_boto3_client,
-        mock_psycopg_connect
+        self, mock_check_rds_port_responsive, mock_boto3_client, mock_psycopg_connect
     ):
         test_event = {"RDS_login_secret": "test_secret"}
         test_secret_json = {
@@ -249,10 +239,10 @@ class TestRDSChecksLambdaHandler:
             "port": 5432,
             "dbname": "testname",
             "user": "testuser",
-            "password": "testpassword"
+            "password": "testpassword",
         }
         test_secret = {"SecretString": json.dumps(test_secret_json)}
-        
+
         mock_sm_client = Mock()
         mock_sm_client.get_secret_value = Mock(return_value=test_secret)
         mock_boto3_client.return_value = mock_sm_client
@@ -260,18 +250,14 @@ class TestRDSChecksLambdaHandler:
         lambda_handler(test_event, object())
         assert "test_secret" in [
             mock_sm_client.get_secret_value.call_args.args[0:1],
-            mock_sm_client.get_secret_value.call_args.kwargs.get('SecretId')
+            mock_sm_client.get_secret_value.call_args.kwargs.get("SecretId"),
         ]
-
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_rds_port_checks_called_with_socket_object(
-        self,
-        mock_check_rds_port_responsive,
-        mock_boto3_client,
-        mock_psycopg_connect
+        self, mock_check_rds_port_responsive, mock_boto3_client, mock_psycopg_connect
     ):
         test_event = {"RDS_login_secret": "test_secret"}
         test_secret_json = {
@@ -279,7 +265,7 @@ class TestRDSChecksLambdaHandler:
             "port": 5432,
             "dbname": "testname",
             "user": "testuser",
-            "password": "testpassword"
+            "password": "testpassword",
         }
         test_secret = {"SecretString": json.dumps(test_secret_json)}
 
@@ -292,15 +278,11 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_port_responsive.assert_called_once()
         assert type(mock_check_rds_port_responsive.call_args.args[0]) is socket.socket
 
-
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_rds_port_checks_called_with_secret_values(
-        self,
-        mock_check_rds_port_responsive,
-        mock_boto3_client,
-        mock_psycopg_connect
+        self, mock_check_rds_port_responsive, mock_boto3_client, mock_psycopg_connect
     ):
         test_event = {"RDS_login_secret": "test_secret"}
         test_secret_json = {
@@ -308,7 +290,7 @@ class TestRDSChecksLambdaHandler:
             "port": 5432,
             "dbname": "testname",
             "user": "testuser",
-            "password": "testpassword"
+            "password": "testpassword",
         }
         test_secret = {"SecretString": json.dumps(test_secret_json)}
 
@@ -318,20 +300,13 @@ class TestRDSChecksLambdaHandler:
 
         lambda_handler(test_event, object())
 
-        assert mock_check_rds_port_responsive.call_args.args[1:3] == (
-            "127.0.0.1",
-            5432
-        )
-
+        assert mock_check_rds_port_responsive.call_args.args[1:3] == ("127.0.0.1", 5432)
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_psycopg_connect_called_with_secret_values(
-        self,
-        mock_check_rds_port_responsive,
-        mock_boto3_client,
-        mock_psycopg_connect
+        self, mock_check_rds_port_responsive, mock_boto3_client, mock_psycopg_connect
     ):
         test_event = {"RDS_login_secret": "test_secret"}
         test_secret_json = {
@@ -339,7 +314,7 @@ class TestRDSChecksLambdaHandler:
             "port": 5432,
             "dbname": "testname",
             "user": "testuser",
-            "password": "testpassword"
+            "password": "testpassword",
         }
         test_secret = {"SecretString": json.dumps(test_secret_json)}
 
@@ -351,13 +326,14 @@ class TestRDSChecksLambdaHandler:
 
         mock_psycopg_connect.assert_called_once()
         connection_string = mock_psycopg_connect.call_args.args[0]
-        connection_values = dict([pair.split("=") for pair in connection_string.split()])
-        assert connection_values['host'] == "127.0.0.1"
-        assert int(connection_values['port']) == 5432
-        assert connection_values['dbname'] == "testname"
-        assert connection_values['user'] == "testuser"
-        assert connection_values['password'] == "testpassword"
-
+        connection_values = dict(
+            [pair.split("=") for pair in connection_string.split()]
+        )
+        assert connection_values["host"] == "127.0.0.1"
+        assert int(connection_values["port"]) == 5432
+        assert connection_values["dbname"] == "testname"
+        assert connection_values["user"] == "testuser"
+        assert connection_values["password"] == "testpassword"
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
@@ -368,7 +344,7 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_port_responsive,
         mock_check_rds_psql_select,
         mock_boto3_client,
-        mock_psycopg_connect
+        mock_psycopg_connect,
     ):
         test_event = {"RDS_login_secret": "test_secret"}
         test_secret_json = {
@@ -376,7 +352,7 @@ class TestRDSChecksLambdaHandler:
             "port": 5432,
             "dbname": "testname",
             "user": "testuser",
-            "password": "testpassword"
+            "password": "testpassword",
         }
         test_secret = {"SecretString": json.dumps(test_secret_json)}
 
@@ -392,17 +368,16 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_psql_select.assert_called_once()
         assert id(mock_conn) == id(mock_check_rds_psql_select.call_args.args[0])
 
-
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_psql_select")
-    @patch("src.ci_checks_for_rds.check_rds_port_responsive")    
+    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_lambda_handler_returns_dict_of_check_results(
         self,
         mock_check_rds_port_responsive,
         mock_check_rds_psql_select,
         mock_boto3_client,
-        mock_psycopg_connect
+        mock_psycopg_connect,
     ):
         test_event = {"RDS_login_secret": "test_secret"}
         test_secret_json = {
@@ -410,7 +385,7 @@ class TestRDSChecksLambdaHandler:
             "port": 5432,
             "dbname": "testname",
             "user": "testuser",
-            "password": "testpassword"
+            "password": "testpassword",
         }
         test_secret = {"SecretString": json.dumps(test_secret_json)}
 
@@ -422,23 +397,19 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_port_responsive.return_value = check_port_result
         check_select_result = {
             "result": type(error_selection[0]()).__name__,
-            "detail": "Test error"
+            "detail": "Test error",
         }
         mock_check_rds_psql_select.return_value = check_select_result
 
         result = lambda_handler(test_event, object())
 
-        result_body_json = json.loads(result['body'])
+        result_body_json = json.loads(result["body"])
         assert len(result_body_json.keys()) == 2
-        assert result_body_json['check_rds_port_responsive'] == {
-            "result": "Success", "detail": None
+        assert result_body_json["check_rds_port_responsive"] == {
+            "result": "Success",
+            "detail": None,
         }
-        assert result_body_json['check_rds_psql_select'] == {
+        assert result_body_json["check_rds_psql_select"] == {
             "result": type(error_selection[0]()).__name__,
-            "detail": "Test error"
+            "detail": "Test error",
         }
-
-
-
-
-
