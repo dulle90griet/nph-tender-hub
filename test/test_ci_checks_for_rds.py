@@ -1,16 +1,16 @@
-import os
 import json
 import pytest
 import socket
 import psycopg
-import boto3
-from moto import mock_aws
 from unittest.mock import patch, Mock
 from src.ci_checks_for_rds import (
     check_rds_port_responsive,
     check_rds_psql_select,
     lambda_handler,
 )
+# import os
+# import boto3
+# from moto import mock_aws
 
 
 @pytest.fixture(scope="function")
@@ -207,21 +207,38 @@ class TestRDSPSQLSelectChecks:
             assert mock_psql_conn.close.call_count == error_i + 1
 
 
-@pytest.fixture(scope="function")
-def aws_credentials():
-    """Mocked AWS Credentials for moto"""
-    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
-    os.environ["AWS_SECURITY_TOKEN"] = "testing"
-    os.environ["AWS_SESSION_TOKEN"] = "testing"
-    os.environ["AWS_DEFAULT_REGION"] = "eu-west-2"
+# @pytest.fixture(scope="function")
+# def aws_credentials():
+#     """Mocked AWS Credentials for moto"""
+#     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+#     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+#     os.environ["AWS_SECURITY_TOKEN"] = "testing"
+#     os.environ["AWS_SESSION_TOKEN"] = "testing"
+#     os.environ["AWS_DEFAULT_REGION"] = "eu-west-2"
+
+
+# @pytest.fixture
+# def sm_client(aws_credentials):
+#     with mock_aws():
+#         secrets_manager = boto3.client("secretsmanager")
+#         yield secrets_manager
 
 
 @pytest.fixture
-def sm_client(aws_credentials):
-    with mock_aws():
-        secrets_manager = boto3.client("secretsmanager")
-        yield secrets_manager
+def test_event():
+    return {"RDS_login_secret": "test_secret"}
+
+
+@pytest.fixture
+def test_secret():
+    test_secret_json = {
+        "host": "127.0.0.1",
+        "port": 5432,
+        "dbname": "testname",
+        "user": "testuser",
+        "password": "testpassword",
+    }
+    return {"SecretString": json.dumps(test_secret_json)}
 
 
 class TestRDSChecksLambdaHandler:
@@ -231,18 +248,13 @@ class TestRDSChecksLambdaHandler:
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_get_secret_value_called_with_event_value(
-        self, mock_check_rds_port_responsive, mock_boto3_client, mock_psycopg_connect
+        self,
+        mock_check_rds_port_responsive,
+        mock_boto3_client,
+        mock_psycopg_connect,
+        test_event,
+        test_secret,
     ):
-        test_event = {"RDS_login_secret": "test_secret"}
-        test_secret_json = {
-            "host": "127.0.0.1",
-            "port": 5432,
-            "dbname": "testname",
-            "user": "testuser",
-            "password": "testpassword",
-        }
-        test_secret = {"SecretString": json.dumps(test_secret_json)}
-
         mock_sm_client = Mock()
         mock_sm_client.get_secret_value = Mock(return_value=test_secret)
         mock_boto3_client.return_value = mock_sm_client
@@ -257,18 +269,13 @@ class TestRDSChecksLambdaHandler:
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_rds_port_checks_called_with_socket_object(
-        self, mock_check_rds_port_responsive, mock_boto3_client, mock_psycopg_connect
+        self,
+        mock_check_rds_port_responsive,
+        mock_boto3_client,
+        mock_psycopg_connect,
+        test_event,
+        test_secret,
     ):
-        test_event = {"RDS_login_secret": "test_secret"}
-        test_secret_json = {
-            "host": "127.0.0.1",
-            "port": 5432,
-            "dbname": "testname",
-            "user": "testuser",
-            "password": "testpassword",
-        }
-        test_secret = {"SecretString": json.dumps(test_secret_json)}
-
         mock_sm_client = Mock()
         mock_sm_client.get_secret_value = Mock(return_value=test_secret)
         mock_boto3_client.return_value = mock_sm_client
@@ -284,18 +291,13 @@ class TestRDSChecksLambdaHandler:
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_rds_port_checks_called_with_secret_values(
-        self, mock_check_rds_port_responsive, mock_boto3_client, mock_psycopg_connect
+        self,
+        mock_check_rds_port_responsive,
+        mock_boto3_client,
+        mock_psycopg_connect,
+        test_event,
+        test_secret,
     ):
-        test_event = {"RDS_login_secret": "test_secret"}
-        test_secret_json = {
-            "host": "127.0.0.1",
-            "port": 5432,
-            "dbname": "testname",
-            "user": "testuser",
-            "password": "testpassword",
-        }
-        test_secret = {"SecretString": json.dumps(test_secret_json)}
-
         mock_sm_client = Mock()
         mock_sm_client.get_secret_value = Mock(return_value=test_secret)
         mock_boto3_client.return_value = mock_sm_client
@@ -308,18 +310,13 @@ class TestRDSChecksLambdaHandler:
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_psycopg_connect_called_with_secret_values(
-        self, mock_check_rds_port_responsive, mock_boto3_client, mock_psycopg_connect
+        self,
+        mock_check_rds_port_responsive,
+        mock_boto3_client,
+        mock_psycopg_connect,
+        test_event,
+        test_secret,
     ):
-        test_event = {"RDS_login_secret": "test_secret"}
-        test_secret_json = {
-            "host": "127.0.0.1",
-            "port": 5432,
-            "dbname": "testname",
-            "user": "testuser",
-            "password": "testpassword",
-        }
-        test_secret = {"SecretString": json.dumps(test_secret_json)}
-
         mock_sm_client = Mock()
         mock_sm_client.get_secret_value = Mock(return_value=test_secret)
         mock_boto3_client.return_value = mock_sm_client
@@ -347,17 +344,9 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_psql_select,
         mock_boto3_client,
         mock_psycopg_connect,
+        test_event,
+        test_secret,
     ):
-        test_event = {"RDS_login_secret": "test_secret"}
-        test_secret_json = {
-            "host": "127.0.0.1",
-            "port": 5432,
-            "dbname": "testname",
-            "user": "testuser",
-            "password": "testpassword",
-        }
-        test_secret = {"SecretString": json.dumps(test_secret_json)}
-
         mock_sm_client = Mock()
         mock_sm_client.get_secret_value = Mock(return_value=test_secret)
         mock_boto3_client.return_value = mock_sm_client
@@ -379,17 +368,9 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_psql_select,
         mock_boto3_client,
         mock_psycopg_connect,
+        test_event,
+        test_secret,
     ):
-        test_event = {"RDS_login_secret": "test_secret"}
-        test_secret_json = {
-            "host": "127.0.0.1",
-            "port": 5432,
-            "dbname": "testname",
-            "user": "testuser",
-            "password": "testpassword",
-        }
-        test_secret = {"SecretString": json.dumps(test_secret_json)}
-
         mock_sm_client = Mock()
         mock_sm_client.get_secret_value = Mock(return_value=test_secret)
         mock_boto3_client.return_value = mock_sm_client
