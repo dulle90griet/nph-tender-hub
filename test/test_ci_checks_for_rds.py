@@ -139,7 +139,7 @@ class TestRDSPSQLSelectChecks:
 
         check_rds_psql_select(mock_psql_conn)
         mock_cursor.execute.assert_called_once()
-        assert mock_cursor.execute.call_args[0][0][:7] == "SELECT "
+        assert mock_cursor.execute.call_args.args[0][:7] == "SELECT "
 
 
     def test_success_returns_success(self, mock_psql_conn):
@@ -234,12 +234,14 @@ def sm_client(aws_credentials):
 class TestRDSChecksLambdaHandler:
     """Unit tests for the Lambda handler."""
 
+    @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_get_secret_value_called_with_event_value(
         self,
         mock_check_rds_port_responsive,
-        mock_boto3_client
+        mock_boto3_client,
+        mock_psycopg_connect
     ):
         test_secret_json = {
             "host": "127.0.0.1",
@@ -257,16 +259,19 @@ class TestRDSChecksLambdaHandler:
         test_event = {"RDS_login_secret": "test_secret"}
         lambda_handler(test_event, object())
         assert "test_secret" in [
-            mock_sm_client.get_secret_value.call_args[0][0:1],
+            mock_sm_client.get_secret_value.call_args.args[0:1],
             mock_sm_client.get_secret_value.call_args.kwargs.get('SecretId')
         ]
 
+
+    @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
     def test_rds_port_checks_called_with_secret_values(
         self,
         mock_check_rds_port_responsive,
-        mock_boto3_client
+        mock_boto3_client,
+        mock_psycopg_connect
     ):
         test_event = {"RDS_login_secret": "test_secret"}
         test_secret_json = {
@@ -284,14 +289,48 @@ class TestRDSChecksLambdaHandler:
 
         lambda_handler(test_event, object())
 
-        assert mock_check_rds_port_responsive.call_args[0][1:3] == (
+        assert mock_check_rds_port_responsive.call_args.args[1:3] == (
             "127.0.0.1",
             5432
         )
 
 
-    def test_psycopg_connect_called_with_secret_values(self):
-        pass
+    @patch("src.ci_checks_for_rds.psycopg.connect")
+    @patch("src.ci_checks_for_rds.boto3.client")
+    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    def test_psycopg_connect_called_with_secret_values(
+        self,
+        mock_check_rds_port_responsive,
+        mock_boto3_client,
+        mock_psycopg_connect
+    ):
+        test_event = {"RDS_login_secret": "test_secret"}
+        test_secret_json = {
+            "host": "127.0.0.1",
+            "port": 5432,
+            "dbname": "testname",
+            "user": "testuser",
+            "password": "testpassword"
+        }
+        test_secret = {"SecretString": json.dumps(test_secret_json)}
+
+        mock_sm_client = Mock()
+        mock_sm_client.get_secret_value = Mock(return_value=test_secret)
+        mock_boto3_client.return_value = mock_sm_client
+
+        lambda_handler(test_event, object())
+
+        mock_psycopg_connect.assert_called_once()
+        connection_string = mock_psycopg_connect.call_args.args[0]
+        connection_values = {
+            key: value for key, value in
+            [pair.split("=") for pair in connection_string.split()]
+        }
+        assert connection_values['host'] == "127.0.0.1"
+        assert int(connection_values['port']) == 5432
+        assert connection_values['dbname'] == "testname"
+        assert connection_values['user'] == "testuser"
+        assert connection_values['password'] == "testpassword"
 
 
     def test_psql_select_checks_called_with_expected_connection(self):
