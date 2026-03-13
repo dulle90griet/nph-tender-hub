@@ -2,7 +2,6 @@ import json
 import socket
 import psycopg
 import boto3
-from getpass import getpass
 
 
 def check_rds_port_responsive(rds_sock, host, port):

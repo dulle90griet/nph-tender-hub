@@ -248,10 +248,10 @@ class TestRDSChecksLambdaHandler:
         mock_boto3_client.return_value = mock_sm_client
 
         lambda_handler(test_event, object())
-        assert "test_secret" in [
-            mock_sm_client.get_secret_value.call_args.args[0:1],
-            mock_sm_client.get_secret_value.call_args.kwargs.get("SecretId"),
-        ]
+        assert (
+            mock_sm_client.get_secret_value.call_args.kwargs.get("SecretId")
+            == "test_secret"
+        )
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
@@ -276,7 +276,9 @@ class TestRDSChecksLambdaHandler:
         lambda_handler(test_event, object())
 
         mock_check_rds_port_responsive.assert_called_once()
-        assert type(mock_check_rds_port_responsive.call_args.args[0]) is socket.socket
+        assert isinstance(
+            mock_check_rds_port_responsive.call_args.args[0], socket.socket
+        )
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
@@ -365,8 +367,7 @@ class TestRDSChecksLambdaHandler:
 
         lambda_handler(test_event, object())
 
-        mock_check_rds_psql_select.assert_called_once()
-        assert id(mock_conn) == id(mock_check_rds_psql_select.call_args.args[0])
+        mock_check_rds_psql_select.assert_called_once_with(mock_conn)
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.boto3.client")
