@@ -76,20 +76,3 @@ def lambda_handler(event, context):
     results["check_rds_psql_select"] = select_res
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
-
-
-if __name__ == "__main__":
-    rds_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    check_rds_port_responsive(rds_sock, "127.0.0.1", 5432)
-
-    user = input("PSQL username: ")
-    pwd = getpass("PSQL password: ")
-
-    with psycopg.connect(f"""
-        host=127.0.0.1
-        port=5432
-        dbname=donald
-        user={user}
-        password={pwd}
-    """) as psql_conn:
-        print(check_rds_psql_select(psql_conn))
