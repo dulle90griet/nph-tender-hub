@@ -392,6 +392,53 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_psql_select.assert_called_once()
         assert id(mock_conn) == id(mock_check_rds_psql_select.call_args.args[0])
 
-    
-    def test_lambda_handler_returns_dict_of_check_results(self):
-        pass
+
+    @patch("src.ci_checks_for_rds.psycopg.connect")
+    @patch("src.ci_checks_for_rds.boto3.client")
+    @patch("src.ci_checks_for_rds.check_rds_psql_select")
+    @patch("src.ci_checks_for_rds.check_rds_port_responsive")    
+    def test_lambda_handler_returns_dict_of_check_results(
+        self,
+        mock_check_rds_port_responsive,
+        mock_check_rds_psql_select,
+        mock_boto3_client,
+        mock_psycopg_connect
+    ):
+        test_event = {"RDS_login_secret": "test_secret"}
+        test_secret_json = {
+            "host": "127.0.0.1",
+            "port": 5432,
+            "dbname": "testname",
+            "user": "testuser",
+            "password": "testpassword"
+        }
+        test_secret = {"SecretString": json.dumps(test_secret_json)}
+
+        mock_sm_client = Mock()
+        mock_sm_client.get_secret_value = Mock(return_value=test_secret)
+        mock_boto3_client.return_value = mock_sm_client
+
+        check_port_result = {"result": "Success", "detail": None}
+        mock_check_rds_port_responsive.return_value = check_port_result
+        check_select_result = {
+            "result": type(error_selection[0]()).__name__,
+            "detail": "Test error"
+        }
+        mock_check_rds_psql_select.return_value = check_select_result
+
+        result = lambda_handler(test_event, object())
+
+        result_body_json = json.loads(result['body'])
+        assert len(result_body_json.keys()) == 2
+        assert result_body_json['check_rds_port_responsive'] == {
+            "result": "Success", "detail": None
+        }
+        assert result_body_json['check_rds_psql_select'] == {
+            "result": type(error_selection[0]()).__name__,
+            "detail": "Test error"
+        }
+
+
+
+
+
