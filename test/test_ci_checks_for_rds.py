@@ -240,8 +240,9 @@ def test_secret():
     }
     return {"SecretString": json.dumps(test_secret_json)}
 
+
 @pytest.fixture
-def mock_sm_client_with_test_secret(test_secret):
+def mock_boto3_client_with_test_secret(test_secret):
     mock_sm_client = Mock()
     mock_sm_client.get_secret_value = Mock(return_value=test_secret)
     with patch("src.ci_checks_for_rds.boto3.client") as mock_boto3_client:
@@ -259,13 +260,11 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_port_responsive,
         mock_psycopg_connect,
         test_event,
-        mock_sm_client_with_test_secret
+        mock_boto3_client_with_test_secret,
     ):
         lambda_handler(test_event, object())
-        assert (
-            mock_sm_client_with_test_secret.return_value.get_secret_value.call_args.kwargs.get("SecretId")
-            == "test_secret"
-        )
+        mock_g_s_v = mock_boto3_client_with_test_secret.return_value.get_secret_value
+        assert mock_g_s_v.call_args.kwargs.get("SecretId") == "test_secret"
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
@@ -274,7 +273,7 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_port_responsive,
         mock_psycopg_connect,
         test_event,
-        mock_sm_client_with_test_secret,
+        mock_boto3_client_with_test_secret,
     ):
         lambda_handler(test_event, object())
 
@@ -290,7 +289,7 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_port_responsive,
         mock_psycopg_connect,
         test_event,
-        mock_sm_client_with_test_secret,
+        mock_boto3_client_with_test_secret,
     ):
         lambda_handler(test_event, object())
 
@@ -303,7 +302,7 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_port_responsive,
         mock_psycopg_connect,
         test_event,
-        mock_sm_client_with_test_secret,
+        mock_boto3_client_with_test_secret,
     ):
         lambda_handler(test_event, object())
 
@@ -327,7 +326,7 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_psql_select,
         mock_psycopg_connect,
         test_event,
-        mock_sm_client_with_test_secret,
+        mock_boto3_client_with_test_secret,
     ):
         mock_conn = Mock()
         mock_psycopg_connect.return_value = mock_conn
@@ -345,7 +344,7 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_psql_select,
         mock_psycopg_connect,
         test_event,
-        mock_sm_client_with_test_secret,
+        mock_boto3_client_with_test_secret,
     ):
         check_port_result = {"result": "Success", "detail": None}
         mock_check_rds_port_responsive.return_value = check_port_result
