@@ -54,8 +54,15 @@ def lambda_handler(event, context):
     rds_secret = secrets_manager.get_secret_value(SecretId=event['RDS_login_secret'])
     rds_secret_json = json.loads(rds_secret['SecretString'])
 
+    results = {}
+
     rds_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    check_rds_port_responsive(rds_sock, rds_secret_json['host'], rds_secret_json['port'])
+    port_res = check_rds_port_responsive(
+        rds_sock,
+        rds_secret_json['host'],
+        rds_secret_json['port']
+    )
+    results["check_rds_port_responsive"] = port_res
 
     # for ease of testing, a keyword=value Postgres connection string is expected
     psql_conn = psycopg.connect(f"""
@@ -65,7 +72,10 @@ def lambda_handler(event, context):
         user={rds_secret_json['user']}
         password={rds_secret_json['password']}
     """)
-    check_rds_psql_select(psql_conn)
+    select_res = check_rds_psql_select(psql_conn)
+    results["check_rds_psql_select"] = select_res
+
+    return {"statusCode": 200, "body": json.dumps(results, default=str)}
 
 
 if __name__ == "__main__":
