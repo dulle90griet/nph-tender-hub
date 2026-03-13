@@ -56,6 +56,15 @@ def lambda_handler(event, context):
 
     check_rds_port_responsive(None, rds_secret_json['host'], rds_secret_json['port'])
 
+    # for ease of testing, a keyword=value Postgres connection string is expected
+    psql_conn = psycopg.connect(f"""
+        host={rds_secret_json['host']}
+        port={rds_secret_json['port']}
+        dbname={rds_secret_json['dbname']}
+        user={rds_secret_json['user']}
+        password={rds_secret_json['password']}
+    """)
+
 
 if __name__ == "__main__":
     rds_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
