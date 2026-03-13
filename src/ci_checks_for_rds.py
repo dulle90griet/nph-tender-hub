@@ -64,6 +64,7 @@ def lambda_handler(event, context):
         user={rds_secret_json['user']}
         password={rds_secret_json['password']}
     """)
+    check_rds_psql_select(psql_conn)
 
 
 if __name__ == "__main__":
