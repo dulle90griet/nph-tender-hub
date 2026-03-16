@@ -54,6 +54,10 @@ def lambda_handler(event, context):
     secrets_manager = boto3.client("secretsmanager")
     rds_secret = secrets_manager.get_secret_value(SecretId=event["RDS_login_secret"])
     rds_secret_json = json.loads(rds_secret["SecretString"])
+    rds_user_secret = secrets_manager.get_secret_value(
+        SecretId=rds_secret_json["user_secret"]
+    )
+    rds_user_secret_json = json.loads(rds_user_secret["SecretString"])
 
     results = {}
 
@@ -68,8 +72,8 @@ def lambda_handler(event, context):
         host={rds_secret_json["host"]}
         port={rds_secret_json["port"]}
         dbname={rds_secret_json["dbname"]}
-        user={rds_secret_json["user"]}
-        password={rds_secret_json["password"]}
+        user={rds_user_secret_json["username"]}
+        password={rds_user_secret_json["password"]}
     """)
     select_res = check_rds_psql_select(psql_conn)
     results["check_rds_psql_select"] = select_res

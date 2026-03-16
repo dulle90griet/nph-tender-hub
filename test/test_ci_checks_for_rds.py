@@ -244,11 +244,11 @@ def test_secret_yielder():
             {
                 "username": "dbadmin",
                 "password": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
-            }
+            },
         ]
         for secret in test_secret_json_list:
             yield {"SecretString": json.dumps(secret)}
-    
+
     return generator
 
 
@@ -256,7 +256,9 @@ def test_secret_yielder():
 def mock_boto3_client_with_test_secret(test_secret_yielder):
     test_secret = test_secret_yielder()
     mock_sm_client = Mock()
-    mock_sm_client.get_secret_value = Mock(side_effect=lambda *args, **kwargs: next(test_secret))
+    mock_sm_client.get_secret_value = Mock(
+        side_effect=lambda *args, **kwargs: next(test_secret)
+    )
     with patch("src.ci_checks_for_rds.boto3.client") as mock_boto3_client:
         mock_boto3_client.return_value = mock_sm_client
         yield mock_boto3_client
@@ -285,11 +287,14 @@ class TestRDSChecksLambdaHandler:
         mock_check_rds_port_responsive,
         mock_psycopg_connect,
         test_event,
-        mock_boto3_client_with_test_secret
+        mock_boto3_client_with_test_secret,
     ):
         lambda_handler(test_event, object())
         mock_g_s_v = mock_boto3_client_with_test_secret.return_value.get_secret_value
-        assert mock_g_s_v.call_args_list[1].kwargs.get("SecretId") == "test-rds-master-user-secret"
+        assert (
+            mock_g_s_v.call_args_list[1].kwargs.get("SecretId")
+            == "test-rds-master-user-secret"
+        )
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
