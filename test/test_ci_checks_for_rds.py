@@ -230,21 +230,33 @@ def test_event():
 
 
 @pytest.fixture
-def test_secret():
-    test_secret_json = {
-        "host": "127.0.0.1",
-        "port": 5432,
-        "dbname": "testname",
-        "user": "testuser",
-        "password": "testpassword",
-    }
-    return {"SecretString": json.dumps(test_secret_json)}
+def test_secret_yielder():
+    def generator():
+        test_secret_json_list = [
+            {
+                "host": "127.0.0.1",
+                "port": 5432,
+                "dbname": "testname",
+                "user_secret": "test-rds-master-user-secret",
+                "user": "testuser",
+                "password": "testpassword",
+            },
+            {
+                "username": "dbadmin",
+                "password": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+            }
+        ]
+        for secret in test_secret_json_list:
+            yield {"SecretString": json.dumps(secret)}
+    
+    return generator
 
 
 @pytest.fixture
-def mock_boto3_client_with_test_secret(test_secret):
+def mock_boto3_client_with_test_secret(test_secret_yielder):
+    test_secret = test_secret_yielder()
     mock_sm_client = Mock()
-    mock_sm_client.get_secret_value = Mock(return_value=test_secret)
+    mock_sm_client.get_secret_value = Mock(side_effect=lambda *args, **kwargs: next(test_secret))
     with patch("src.ci_checks_for_rds.boto3.client") as mock_boto3_client:
         mock_boto3_client.return_value = mock_sm_client
         yield mock_boto3_client
@@ -255,7 +267,7 @@ class TestRDSChecksLambdaHandler:
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
-    def test_get_secret_value_called_with_event_value(
+    def test_first_secret_requested_is_secret_specified_by_event(
         self,
         mock_check_rds_port_responsive,
         mock_psycopg_connect,
@@ -264,7 +276,20 @@ class TestRDSChecksLambdaHandler:
     ):
         lambda_handler(test_event, object())
         mock_g_s_v = mock_boto3_client_with_test_secret.return_value.get_secret_value
-        assert mock_g_s_v.call_args.kwargs.get("SecretId") == "test_secret"
+        assert mock_g_s_v.call_args_list[0].kwargs.get("SecretId") == "test_secret"
+
+    @patch("src.ci_checks_for_rds.psycopg.connect")
+    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    def test_rds_user_secret_requested_is_secret_specified_by_first_secret(
+        self,
+        mock_check_rds_port_responsive,
+        mock_psycopg_connect,
+        test_event,
+        mock_boto3_client_with_test_secret
+    ):
+        lambda_handler(test_event, object())
+        mock_g_s_v = mock_boto3_client_with_test_secret.return_value.get_secret_value
+        assert mock_g_s_v.call_args_list[1].kwargs.get("SecretId") == "test-rds-master-user-secret"
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.check_rds_port_responsive")
@@ -314,8 +339,8 @@ class TestRDSChecksLambdaHandler:
         assert connection_values["host"] == "127.0.0.1"
         assert int(connection_values["port"]) == 5432
         assert connection_values["dbname"] == "testname"
-        assert connection_values["user"] == "testuser"
-        assert connection_values["password"] == "testpassword"
+        assert connection_values["user"] == "dbadmin"
+        assert connection_values["password"] == "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
 
     @patch("src.ci_checks_for_rds.psycopg.connect")
     @patch("src.ci_checks_for_rds.check_rds_psql_select")
