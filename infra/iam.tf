@@ -132,6 +132,11 @@ resource "aws_iam_role" "destroy_instance_lambda_execution_role" {
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
+resource "aws_iam_role" "ci_checks_for_rds_lambda_execution_role" {
+  name               = "${var.PREFIX}${var.ENVIRONMENT}ExecutionRoleForCIChecksForRDSLambda"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
 data "aws_iam_policy_document" "generic_create_log_group_policy_doc" {
   statement {
     sid       = "GenericCreateLogGroup"
@@ -188,6 +193,24 @@ data "aws_iam_policy_document" "destroy_instance_lambda_policy_doc" {
   }
 }
 
+data "aws_iam_policy_document" "ci_checks_for_rds_lambda_policy_doc" {
+  source_policy_documents = [
+    data.aws_iam_policy_document.generic_create_log_group_policy_doc.json
+  ]
+
+  statement {
+    sid    = "CIChecksForRDSLambdaLogging"
+    effect = "Allow"
+
+    actions = [
+      "logs:DestroyLogStream",
+      "logs:PutLogEvents",
+    ]
+
+    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-ci-checks-for-rds-lambda:*"]
+  }
+}
+
 resource "aws_iam_policy" "create_instance_lambda_policy" {
   name        = "${var.PREFIX}${var.ENVIRONMENT}BudibasePolicyForCreateInstanceLambda"
   description = "Policy allowing the Budibase Create Instance Lambda to write logs and update the Budibase ECS service."
@@ -200,6 +223,12 @@ resource "aws_iam_policy" "destroy_instance_lambda_policy" {
   policy      = data.aws_iam_policy_document.destroy_instance_lambda_policy_doc.json
 }
 
+resource "aws_iam_policy" "ci_checks_for_rds_lambda_policy" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}LoggingPolicyForCIChecksForRDSLambda"
+  description = "Policy allowing the CI Checks for RDS Lambda to write logs"
+  policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_policy_doc.json
+}
+
 resource "aws_iam_role_policy_attachment" "create_instance_lambda_policy_attachment" {
   role       = aws_iam_role.create_instance_lambda_execution_role.name
   policy_arn = aws_iam_policy.create_instance_lambda_policy.arn
@@ -208,4 +237,9 @@ resource "aws_iam_role_policy_attachment" "create_instance_lambda_policy_attachm
 resource "aws_iam_role_policy_attachment" "destroy_instance_lambda_policy_attachment" {
   role       = aws_iam_role.destroy_instance_lambda_execution_role.name
   policy_arn = aws_iam_policy.destroy_instance_lambda_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_policy_attachment" {
+  role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_policy.arn
 }
