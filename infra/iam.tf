@@ -226,6 +226,18 @@ data "aws_iam_policy_document" "ci_checks_for_rds_lambda_secrets_access_policy_d
     ]
   }
 
+  statement {
+    sid    = "CIChecksForRDSLambdaKMSAccess"
+    effect = "Allow"
+
+    actions = [
+      "kms:Decrypt",
+      # "kms:GenerateDataKey*",
+    ]
+
+    resources = [aws_kms_key.rds_master_user_secret.arn]
+  }
+
   depends_on = [
     aws_db_instance.main,
     aws_secretsmanager_secret.rds_connection_info,

@@ -246,4 +246,18 @@ data "aws_iam_policy_document" "kms_key_for_rds_master_user_secret" {
     actions   = ["*"]
     resources = ["*"]
   }
+
+  statement {
+    sid    = "AllowLambdasToDecrypt"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = [aws_iam_role.ci_checks_for_rds_lambda_execution_role.arn]
+    }
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+    ]
+    resources = ["*"]
+  }
 }
