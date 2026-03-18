@@ -170,7 +170,7 @@ data "aws_iam_policy_document" "create_instance_lambda_policy_doc" {
       "logs:PutLogEvents"
     ]
 
-    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-create-instance-lambda:*"]
+    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-create-instance-lambda:*"]
   }
 }
 
@@ -189,7 +189,7 @@ data "aws_iam_policy_document" "destroy_instance_lambda_policy_doc" {
       "logs:PutLogEvents"
     ]
 
-    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-destroy-instance-lambda:*"]
+    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-destroy-instance-lambda:*"]
   }
 }
 
@@ -257,6 +257,10 @@ resource "aws_iam_policy" "ci_checks_for_rds_lambda_secrets_access_policy" {
 
 }
 
+data "aws_iam_policy" "lambda_basic_execution_role_policy" {
+  arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
 data "aws_iam_policy" "lambda_eni_management_access_policy" {
   arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaENIManagementAccess"
 }
@@ -266,9 +270,19 @@ resource "aws_iam_role_policy_attachment" "create_instance_lambda_policy_attachm
   policy_arn = aws_iam_policy.create_instance_lambda_policy.arn
 }
 
+resource "aws_iam_role_policy_attachment" "create_instance_lambda_basic_execution_attachment" {
+  role       = aws_iam_role.create_instance_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
+}
+
 resource "aws_iam_role_policy_attachment" "destroy_instance_lambda_policy_attachment" {
   role       = aws_iam_role.destroy_instance_lambda_execution_role.name
   policy_arn = aws_iam_policy.destroy_instance_lambda_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "destroy_instance_lambda_basic_execution_attachment" {
+  role       = aws_iam_role.destroy_instance_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_policy_attachment" {
@@ -279,6 +293,11 @@ resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_policy_attac
 resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_secrets_access_policy_attachment" {
   role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
   policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_secrets_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_basic_execution_attachment" {
+  role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_eni_managed_policy_attachment" {
