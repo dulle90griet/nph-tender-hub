@@ -257,6 +257,10 @@ resource "aws_iam_policy" "ci_checks_for_rds_lambda_secrets_access_policy" {
 
 }
 
+data "aws_iam_policy" "lambda_eni_management_access_policy" {
+  arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaENIManagementAccess"
+}
+
 resource "aws_iam_role_policy_attachment" "create_instance_lambda_policy_attachment" {
   role       = aws_iam_role.create_instance_lambda_execution_role.name
   policy_arn = aws_iam_policy.create_instance_lambda_policy.arn
@@ -275,4 +279,9 @@ resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_policy_attac
 resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_secrets_access_policy_attachment" {
   role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
   policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_secrets_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_eni_managed_policy_attachment" {
+  role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_eni_management_access_policy.arn
 }
