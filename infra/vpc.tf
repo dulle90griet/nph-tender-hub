@@ -317,3 +317,33 @@ resource "aws_security_group" "rds_database_main" {
   description = "Security group for ${var.CLIENT} ${var.PROJECT} main RDS database"
   vpc_id      = local.vpc_id
 }
+
+resource "aws_vpc_security_group_ingress_rule" "allow_lambda_ingress_to_rds" {
+  security_group_id            = aws_security_group.rds_database_main.id
+  from_port                    = aws_db_instance.main.port
+  to_port                      = aws_db_instance.main.port
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.lambdas_for_rds.id
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_psql_egress_from_rds" {
+  security_group_id = aws_security_group.rds_database_main.id
+  from_port         = aws_db_instance.main.port
+  to_port           = aws_db_instance.main.port
+  ip_protocol       = "tcp"
+  cidr_ipv4         = "0.0.0.0/0"
+}
+
+resource "aws_security_group" "lambdas_for_rds" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}LambdasForRDS"
+  description = "Security group for Lambdas requiring access to ${var.CLIENT} ${var.PROJECT} RDS datbase"
+  vpc_id      = local.vpc_id
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_lambda_egress_to_rds" {
+  security_group_id            = aws_security_group.lambdas_for_rds.id
+  from_port                    = aws_db_instance.main.port
+  to_port                      = aws_db_instance.main.port
+  ip_protocol                  = "tcp"
+  referenced_security_group_id = aws_security_group.rds_database_main.id
+}
