@@ -1,3 +1,24 @@
+data "archive_file" "psycopg_layer" {
+  type        = "zip"
+  source_dir  = "${path.module}/../build/psycopg-layer"
+  output_path = "${path.module}/../packages/layer/psycopg_layer.zip"
+}
+
+resource "aws_s3_object" "psycopg_layer" {
+  bucket     = var.CODE_BUCKET
+  key        = "layers/psycopg-layer.zip"
+  source     = data.archive_file.psycopg_layer.output_path
+  etag       = data.archive_file.psycopg_layer.output_base64sha256
+  depends_on = [data.archive_file.psycopg_layer]
+}
+
+resource "aws_lambda_layer_version" "psycopg_layer" {
+  layer_name       = "${var.PREFIX}-${var.ENVIRONMENT}-psycopg-layer"
+  s3_bucket        = aws_s3_object.psycopg_layer.bucket
+  s3_key           = aws_s3_object.psycopg_layer.key
+  source_code_hash = data.archive_file.psycopg_layer.output_base64sha256
+}
+
 # data "archive_file" "create_instance_lambda_code" {
 #   type        = "zip"
 #   source_file = "${path.module}/../src/create_budibase_instance.py"
