@@ -16,6 +16,8 @@ audit = [
     "pip-audit>=2.10.0"
 ]
 lambda-layer = [
+]
+psycopg-layer = [
     "psycopg[binary]>=3.2.0",
 ]
 local-dev = [

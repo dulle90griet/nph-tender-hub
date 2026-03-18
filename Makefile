@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 WD := $(shell pwd)
 PYTHONPATH := $(wd):$(wd)/src
+PYTHON_VERSION := $(shell grep "^requires-python" pyproject.toml | cut -d'"' -f2 | sed 's/>=//')
 PIP = pip
 
 # # Try to include .env, fail gracefully if missing
@@ -43,6 +44,18 @@ all-checks: audit security-checks code-checks terraform-checks unit-tests
 prepare-layer:
 	uv export --only-group lambda-layer --output-file requirements-lambda.txt
 	$(PIP) install -r requirements-lambda.txt -t build/layer/python
+
+prepare-psycopg-layer:
+	uv export --only-group psycopg-layer --output-file requirements-psycopg.txt
+	mkdir -p build/psycopg-layer/python
+	$(PIP) install -r requirements-psycopg.txt \
+		--platform manylinux2014_x86_64 \
+		--target=build/psycopg-layer/python \
+		--implementation cp \
+		--python-version $(PYTHON_VERSION) \
+		--only-binary=:all: \
+		--upgrade \
+		--no-deps
 
 # Check that env exists and required vars are set
 # .env-check:
