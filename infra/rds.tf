@@ -56,8 +56,9 @@ resource "aws_db_instance" "main" {
 
   multi_az = false
   # availability_zone ?
-  publicly_accessible  = false
-  db_subnet_group_name = aws_db_subnet_group.main.name
+  publicly_accessible    = false
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.rds_database_main.id]
 
   apply_immediately = false
 
