@@ -33,7 +33,12 @@ output "lambda_destroy_service_name" {
   value       = aws_lambda_function.destroy_instance_lambda.function_name
 }
 
-output "rds_connection_info_secret" {
+output "lambda_ci_checks_for_rds_name" {
+  description = "The name of the ci_checks_for_rds Lambda function"
+  value       = aws_lambda_function.ci_checks_for_rds_lambda.function_name
+}
+
+output "rds_connection_info_secret_name" {
   description = "The name of the secret storing values needed to connect to the platform's RDS instance"
   value       = aws_secretsmanager_secret.rds_connection_info.name
 }
