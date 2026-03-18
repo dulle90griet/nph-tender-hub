@@ -347,3 +347,12 @@ resource "aws_vpc_security_group_egress_rule" "allow_lambda_egress_to_rds" {
   ip_protocol                  = "tcp"
   referenced_security_group_id = aws_security_group.rds_database_main.id
 }
+
+resource "aws_vpc_security_group_egress_rule" "allow_lambda_https_egress_to_internet" {
+  security_group_id = aws_security_group.lambdas_for_rds.id
+  description       = "Allow HTTPS outbound to internet (via NAT Gateway)"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+  cidr_ipv4         = "0.0.0.0/0"
+}
