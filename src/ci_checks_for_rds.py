@@ -1,7 +1,12 @@
+import logging
 import json
 import socket
 import psycopg
 import boto3
+
+
+logger = logging.getLogger("logger")
+logger.setLevel(logging.INFO)
 
 
 def check_rds_port_responsive(rds_sock, host, port):
@@ -52,8 +57,11 @@ def check_rds_psql_select(psql_conn):
 
 def lambda_handler(event, context):
     secrets_manager = boto3.client("secretsmanager")
+
+    logger.info("Fetching RDS login secret")
     rds_secret = secrets_manager.get_secret_value(SecretId=event["RDS_login_secret"])
     rds_secret_json = json.loads(rds_secret["SecretString"])
+    logger.info("Fetching RDS master user secret")
     rds_user_secret = secrets_manager.get_secret_value(
         SecretId=rds_secret_json["user_secret"]
     )
@@ -61,12 +69,15 @@ def lambda_handler(event, context):
 
     results = {}
 
+    logger.info("Checking RDS port responsiveness")
     rds_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     port_res = check_rds_port_responsive(
         rds_sock, rds_secret_json["host"], rds_secret_json["port"]
     )
+    logger.info("RDS port responsiveness check output: %s", str(port_res))
     results["check_rds_port_responsive"] = port_res
 
+    logger.info("Trying RDS Postgres SELECT statement")
     # for ease of testing, a keyword=value Postgres connection string is expected
     psql_conn = psycopg.connect(f"""
         host={rds_secret_json["host"]}
@@ -76,6 +87,7 @@ def lambda_handler(event, context):
         password={rds_user_secret_json["password"]}
     """)
     select_res = check_rds_psql_select(psql_conn)
+    logger.info("RDS Postgres SELECT output: %s", str(select_res))
     results["check_rds_psql_select"] = select_res
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
