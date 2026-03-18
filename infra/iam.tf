@@ -211,6 +211,27 @@ data "aws_iam_policy_document" "ci_checks_for_rds_lambda_policy_doc" {
   }
 }
 
+data "aws_iam_policy_document" "ci_checks_for_rds_lambda_secrets_access_policy_doc" {
+  statement {
+    sid    = "CIChecksForRDSLambdaSecretsAccess"
+    effect = "Allow"
+
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+
+    resources = [
+      aws_db_instance.main.master_user_secret[0].secret_arn,
+      aws_secretsmanager_secret.rds_connection_info.arn,
+    ]
+  }
+
+  depends_on = [
+    aws_db_instance.main,
+    aws_secretsmanager_secret.rds_connection_info,
+  ]
+}
+
 resource "aws_iam_policy" "create_instance_lambda_policy" {
   name        = "${var.PREFIX}${var.ENVIRONMENT}BudibasePolicyForCreateInstanceLambda"
   description = "Policy allowing the Budibase Create Instance Lambda to write logs and update the Budibase ECS service."
@@ -229,6 +250,13 @@ resource "aws_iam_policy" "ci_checks_for_rds_lambda_policy" {
   policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_policy_doc.json
 }
 
+resource "aws_iam_policy" "ci_checks_for_rds_lambda_secrets_access_policy" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}SecretsPolicyForCIChecksForRDSLambda"
+  description = "Policy allowing the CI Checks for RDS Lambda to access required Secrets Manager secrets"
+  policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_secrets_access_policy_doc.json
+
+}
+
 resource "aws_iam_role_policy_attachment" "create_instance_lambda_policy_attachment" {
   role       = aws_iam_role.create_instance_lambda_execution_role.name
   policy_arn = aws_iam_policy.create_instance_lambda_policy.arn
@@ -242,4 +270,9 @@ resource "aws_iam_role_policy_attachment" "destroy_instance_lambda_policy_attach
 resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_policy_attachment" {
   role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
   policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_secrets_access_policy_attachment" {
+  role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_secrets_access_policy.arn
 }
