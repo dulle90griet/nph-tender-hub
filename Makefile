@@ -85,6 +85,7 @@ deploy-to-dev:
 	@echo "Bucket name retrieved from infra/envs/dev/terraform.tfvars: \"$(CODE_BUCKET)\""
 	$(call zip_to_bucket, src/create_budibase_instance.py, $(CODE_BUCKET))
 	$(call zip_to_bucket, src/destroy_budibase_instance.py, $(CODE_BUCKET))
+	$(call zip_to_bucket, src/ci_checks_for_rds.py, $(CODE_BUCKET))
 	@printf "\n%s\n" "Switching into 'dev' Terraform environment ..."
 	@cd infra && ./switch_env.sh dev
 	@printf "\n%s\n" "Running terraform plan ..."
@@ -99,4 +100,4 @@ deploy-to-dev:
 	fi
 
 clean:
-	rm -rf packages/temp
+	rm -rf packages/temp build

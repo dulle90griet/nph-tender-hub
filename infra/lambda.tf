@@ -44,6 +44,8 @@ resource "aws_lambda_function" "destroy_instance_lambda" {
   handler       = "destroy_budibase_instance.lambda_handler"
   # code_sha256   = data.archive_file.destroy_instance_lambda_code.output_base64sha256
 
+  source_code_hash = filebase64sha256(("${path.module}/../src/destroy_budibase_instance.py"))
+
   runtime = "python3.12"
   publish = true
 
@@ -53,5 +55,28 @@ resource "aws_lambda_function" "destroy_instance_lambda" {
       TARGET_SERVICE_NAME = aws_ecs_service.budibase_ecs_service.name
       ENVIRONMENT         = var.ENVIRONMENT
     }
+  }
+}
+
+resource "aws_lambda_function" "ci_checks_for_rds_lambda" {
+  function_name = "${var.PREFIX}-${var.ENVIRONMENT}-ci-checks-for-rds-lambda"
+  s3_bucket     = var.CODE_BUCKET
+  s3_key        = "ci_checks_for_rds/${var.LAMBDA_CI_CHECKS_FOR_RDS_VERSION}.zip"
+  role          = aws_iam_role.ci_checks_for_rds_lambda_execution_role.arn
+  handler       = "ci_checks_for_rds.lambda_handler"
+
+  source_code_hash = filebase64sha256(("${path.module}/../src/ci_checks_for_rds.py"))
+
+  runtime = "python3.12"
+  publish = true
+  layers  = [aws_lambda_layer_version.psycopg_layer.arn]
+  timeout = 30
+
+  vpc_config {
+    subnet_ids = tolist([
+      for key in var.SUBNETS_BY_ENV[var.ENVIRONMENT] :
+      aws_subnet.private[key].id
+    ])
+    security_group_ids = [aws_security_group.lambdas_for_rds.id]
   }
 }
