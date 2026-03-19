@@ -23,5 +23,6 @@ psycopg-layer = [
 local-dev = [
     {include-group = "dev"},
     {include-group = "audit"},
-    {include-group = "lambda-layer"}
+    {include-group = "lambda-layer"},
+    {include-group = "psycopg-layer"},
 ]
