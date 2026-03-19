@@ -45,7 +45,7 @@ resource "aws_iam_policy" "budibase_ecs_task_policy" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "budbase_ecs_task_policy" {
+resource "aws_iam_role_policy_attachment" "budibase_ecs_task_policy" {
   role       = aws_iam_role.budibase_ecs_task.name
   policy_arn = aws_iam_policy.budibase_ecs_task_policy.arn
 }
