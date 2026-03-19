@@ -489,7 +489,7 @@ jobs:
           # Build the expected event JSON
           EVENT_JSON="$(jq -n \
             --arg RDS_login_secret \
-              '${{ steps.terraform-apply.outputs.rds_connection_info_secret_name }}' \
+              "${{ steps.terraform-apply.outputs.rds_connection_info_secret_name }}" \
               '{RDS_login_secret: $RDS_login_secret}')"
 
           # Convert it to Base64 and pass it to the Lambda invocation
