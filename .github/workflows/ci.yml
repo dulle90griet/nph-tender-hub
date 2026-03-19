@@ -792,6 +792,7 @@ jobs:
             jq '.Latest.Python.ci_checks_for_rds = "'$SHORT_SHA_CODE'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new ci_checks_for_rds Lambda version: $SHORT_SHA_CODE"
+          fi
 
           echo "Uploading updated manifest with ID $SHORT_SHA_MERGE to S3..."
           aws s3 cp \
