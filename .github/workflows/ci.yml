@@ -465,11 +465,58 @@ jobs:
               >> $GITHUB_OUTPUT
             echo "destroy_service_function_name=\"$(terraform output -raw lambda_destroy_service_name)\"" \
               >> $GITHUB_OUTPUT
+            echo "ci_checks_for_rds_function_name=\"$(terraform output -raw lambda_ci_checks_for_rds_name)\"" \
+              >> $GITHUB_OUTPUT
+            echo "rds_connection_info_secret_name=\"$(terraform output -raw rds_connection_info_secret_name)\"" \
+              >> $GITHUB_OUTPUT
 
       - name: Clean up Terraform plan file
         working-directory: infra
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
         run: rm -f tfplan
+
+      - name: Perform RDS checks
+        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+        run: |
+          # Build the expected event JSON
+          EVENT_JSON="$(jq -n \
+            --arg RDS_login_secret \
+              '${{ steps.terraform-apply.outputs.rds_connection_info_secret_name }}' \
+              '{RDS_login_secret: $RDS_login_secret}')"
+
+          # Convert it to Base64 and pass it to the Lambda invocation
+          echo "Running RDS checks with connection secret" \
+            "${{ steps.terraform-apply.outputs.rds_connection_info_secret_name }}"
+          PAYLOAD_B64=$(echo -n "$EVENT_JSON" | base64)
+          RESPONSE="$(aws lambda invoke \
+            --function-name '${{ steps.terraform-apply.outputs.ci_checks_for_rds_function_name }}' \
+            --payload "$PAYLOAD_B64" \
+            lambda.out)"
+
+          # Raise an error if the Lambda execution failed
+          STATUS_CODE="$(echo "$RESPONSE" | jq '.StatusCode')"
+          if [[ "$STATUS_CODE" != 200 ]]; then
+            echo "Lambda invocation failed with status code $STATUS_CODE"
+            exit 1
+          else
+            RESULTS="$(jq -r '.body' lambda.out)"
+          fi
+
+          # Raise an error unless both checks succeeded
+          PORT_CHECK_RESULT="$(echo "$RESULTS" | jq -r '.check_rds_port_responsive.result')"
+          TRY_SELECT_RESULT="$(echo "$RESULTS" | jq -r '.check_rds_psql_select.result')"
+          if [[ "$PORT_CHECK_RESULT" == "Success" ]] && \
+             [[ "$TRY_SELECT_RESULT" == "Success" ]]; then
+            echo "RDS port check and test SELECT both succeeded."
+          else
+            if [[ "$PORT_CHECK_RESULT" != "Success" ]]; then
+              echo "RDS port check failed."
+            fi
+            if [[ "$TRY_SELECT_RESULT" == "Success" ]]; then
+              echo "Attempted SELECT statement failed."
+            fi
+            exit 1
+          fi
 
       - name: "Lambda integration test: create-instance-lambda"
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
