@@ -100,4 +100,17 @@ resource "aws_lambda_function" "ci_checks_for_rds_lambda" {
     ])
     security_group_ids = [aws_security_group.lambdas_for_rds.id]
   }
+
+  # depends_on = [
+  #   aws_iam_role_policy_attachment.ci_checks_for_rds_lambda_policy_attachment,
+  #   aws_iam_role_policy_attachment.ci_checks_for_rds_lambda_secrets_access_policy_attachment,
+  #   aws_iam_role_policy_attachment.ci_checks_for_rds_lambda_basic_execution_attachment,
+  #   aws_iam_role_policy_attachment.ci_checks_for_rds_lambda_eni_managed_policy_attachment,
+  #   aws_vpc_security_group_egress_rule.allow_lambda_egress_to_rds,
+  #   aws_vpc_security_group_egress_rule.allow_lambda_https_egress_to_internet,
+  #   aws_vpc_security_group_egress_rule.allow_psql_egress_from_rds,
+  #   aws_vpc_security_group_ingress_rule.allow_lambda_ingress_to_rds,
+  #   aws_route_table_private["0"],   # - and associations?
+  #   aws_nat_gateway.ngw["0"],
+  # ]
 }
