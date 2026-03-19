@@ -21,6 +21,7 @@ jobs:
 
       lambda_create_instance_changed: ${{ steps.list-changes.outputs.lambda_create_instance_changed }}
       lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}
+      lambda_ci_checks_for_rds_changed: ${{ steps.list-changes.outputs.lambda_ci_checks_for_rds_changed }}
 
       short_sha_base: ${{ steps.manifest-and-shas.outputs.short_sha_base }}
       short_sha_branch_head: ${{ steps.manifest-and-shas.outputs.short_sha_branch_head }}
@@ -198,6 +199,13 @@ jobs:
             else
               LAMBDA_DESTROY_INSTANCE_CHANGED=false
             fi
+
+            if echo "$CHANGED_PYTHON" | grep -q "ci_checks_for_rds.py"; then
+              LAMBDA_CI_CHECKS_FOR_RDS_CHANGED=true
+              echo "Lambda function ci_checks_for_rds changed."
+            else
+              LAMBDA_CI_CHECKS_FOR_RDS_CHANGED=false
+            fi
           else
             PYTHON_CHANGES_EXIST=false
             echo "No changes detected to Python code."
@@ -208,6 +216,8 @@ jobs:
           echo "lambda_create_instance_changed=$LAMBDA_CREATE_INSTANCE_CHANGED" \
             >> $GITHUB_OUTPUT
           echo "lambda_destroy_instance_changed=$LAMBDA_DESTROY_INSTANCE_CHANGED" \
+            >> $GITHUB_OUTPUT
+          echo "lambda_ci_checks_for_rds_changed=$LAMBDA_CI_CHECKS_FOR_RDS_CHANGED" \
             >> $GITHUB_OUTPUT
 
   python-test-and-deploy:
@@ -270,6 +280,13 @@ jobs:
             zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
             aws s3 cp packages/lambdas/destroy_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
+          fi
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_ci_checks_for_rds_changed }}" == "true" ]]; then
+            mkdir -p packages/lambdas/
+            zip -j packages/lambdas/ci_checks_for_rds.zip src/ci_checks_for_rds.py
+            aws s3 cp packages/lambdas/ci_checks_for_rds.zip \
+              s3://${{ vars.CODE_BUCKET }}/ci_checks_for_rds/$SHORT_SHA_CODE.zip
           fi
 
   terraform-test-and-deploy:
@@ -353,6 +370,15 @@ jobs:
           fi
           echo "Deploying destroy_service Lambda code version: $LAMBDA_DESTROY_SERVICE_VERSION"
 
+          if [[ "${{ needs.pre-checks.outputs.lambda_ci_checks_for_rds_changed }}" == "true" ]]; then
+            LAMBDA_CI_CHECKS_FOR_RDS_VERSION="$SHORT_SHA_CODE"
+          else
+            LAMBDA_CI_CHECKS_FOR_RDS_VERSION="$(
+              jq -r '.Latest.Python.ci_checks_for_rds' ../manifest.json
+            )"
+          fi
+          echo "Deploying ci_checks_for_rds Lambda code version: $LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
+
           # Create backend 
 
           mkdir -p envs/stage
@@ -367,8 +393,9 @@ jobs:
           ENVIRONMENT = "stage"
           CODE_BUCKET = "${{ vars.CODE_BUCKET }}"
 
-          LAMBDA_CREATE_SERVICE_VERSION  = "$LAMBDA_CREATE_SERVICE_VERSION"
-          LAMBDA_DESTROY_SERVICE_VERSION = "$LAMBDA_DESTROY_SERVICE_VERSION" 
+          LAMBDA_CREATE_SERVICE_VERSION    = "$LAMBDA_CREATE_SERVICE_VERSION"
+          LAMBDA_DESTROY_SERVICE_VERSION   = "$LAMBDA_DESTROY_SERVICE_VERSION"
+          LAMBDA_CI_CHECKS_FOR_RDS_VERSION = "$LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
           EOF
           echo "envs/stage/terraform.tfvars generated."
           
