@@ -778,7 +778,12 @@ jobs:
             jq '.Latest.Python.destroy_budibase_instance = "'$SHORT_SHA_CODE'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new destroy_budibase_instance Lambda version: $SHORT_SHA_CODE"
-          fi         
+          fi
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_ci_checks_for_rds_changed }}" == "true" ]]; then
+            jq '.Latest.Python.ci_checks_for_rds = "'$SHORT_SHA_CODE'"' manifest.json \
+              > manifest.json.tmp && mv manifest.json.tmp manifest.json
+            echo "Updated manifest with new ci_checks_for_rds Lambda version: $SHORT_SHA_CODE"
 
           echo "Uploading updated manifest with ID $SHORT_SHA_MERGE to S3..."
           aws s3 cp \
