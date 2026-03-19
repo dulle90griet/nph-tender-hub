@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 WD := $(shell pwd)
 PYTHONPATH := $(wd):$(wd)/src
+PYTHON_VERSION := $(shell grep "^requires-python" pyproject.toml | cut -d'"' -f2 | sed 's/>=//')
 PIP = pip
 
 # # Try to include .env, fail gracefully if missing
@@ -44,6 +45,18 @@ prepare-layer:
 	uv export --only-group lambda-layer --output-file requirements-lambda.txt
 	$(PIP) install -r requirements-lambda.txt -t build/layer/python
 
+prepare-psycopg-layer:
+	uv export --only-group psycopg-layer --output-file requirements-psycopg.txt
+	mkdir -p build/psycopg-layer/python
+	$(PIP) install -r requirements-psycopg.txt \
+		--platform manylinux2014_x86_64 \
+		--target=build/psycopg-layer/python \
+		--implementation cp \
+		--python-version $(PYTHON_VERSION) \
+		--only-binary=:all: \
+		--upgrade \
+		--no-deps
+
 # Check that env exists and required vars are set
 # .env-check:
 # 	@if [ ! -f .env ]; then \
@@ -85,6 +98,7 @@ deploy-to-dev:
 	@echo "Bucket name retrieved from infra/envs/dev/terraform.tfvars: \"$(CODE_BUCKET)\""
 	$(call zip_to_bucket, src/create_budibase_instance.py, $(CODE_BUCKET))
 	$(call zip_to_bucket, src/destroy_budibase_instance.py, $(CODE_BUCKET))
+	$(call zip_to_bucket, src/ci_checks_for_rds.py, $(CODE_BUCKET))
 	@printf "\n%s\n" "Switching into 'dev' Terraform environment ..."
 	@cd infra && ./switch_env.sh dev
 	@printf "\n%s\n" "Running terraform plan ..."
@@ -99,4 +113,4 @@ deploy-to-dev:
 	fi
 
 clean:
-	rm -rf packages/temp
+	rm -rf packages/temp build

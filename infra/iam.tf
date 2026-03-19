@@ -45,7 +45,7 @@ resource "aws_iam_policy" "budibase_ecs_task_policy" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "budbase_ecs_task_policy" {
+resource "aws_iam_role_policy_attachment" "budibase_ecs_task_policy" {
   role       = aws_iam_role.budibase_ecs_task.name
   policy_arn = aws_iam_policy.budibase_ecs_task_policy.arn
 }
@@ -132,6 +132,11 @@ resource "aws_iam_role" "destroy_instance_lambda_execution_role" {
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
+resource "aws_iam_role" "ci_checks_for_rds_lambda_execution_role" {
+  name               = "${var.PREFIX}${var.ENVIRONMENT}ExecutionRoleForCIChecksForRDSLambda"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
 data "aws_iam_policy_document" "generic_create_log_group_policy_doc" {
   statement {
     sid       = "GenericCreateLogGroup"
@@ -165,7 +170,7 @@ data "aws_iam_policy_document" "create_instance_lambda_policy_doc" {
       "logs:PutLogEvents"
     ]
 
-    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-create-instance-lambda:*"]
+    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-create-instance-lambda:*"]
   }
 }
 
@@ -184,8 +189,59 @@ data "aws_iam_policy_document" "destroy_instance_lambda_policy_doc" {
       "logs:PutLogEvents"
     ]
 
-    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-destroy-instance-lambda:*"]
+    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-destroy-instance-lambda:*"]
   }
+}
+
+data "aws_iam_policy_document" "ci_checks_for_rds_lambda_policy_doc" {
+  source_policy_documents = [
+    data.aws_iam_policy_document.generic_create_log_group_policy_doc.json
+  ]
+
+  statement {
+    sid    = "CIChecksForRDSLambdaLogging"
+    effect = "Allow"
+
+    actions = [
+      "logs:DestroyLogStream",
+      "logs:PutLogEvents",
+    ]
+
+    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-ci-checks-for-rds-lambda:*"]
+  }
+}
+
+data "aws_iam_policy_document" "ci_checks_for_rds_lambda_secrets_access_policy_doc" {
+  statement {
+    sid    = "CIChecksForRDSLambdaSecretsAccess"
+    effect = "Allow"
+
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+
+    resources = [
+      aws_db_instance.main.master_user_secret[0].secret_arn,
+      aws_secretsmanager_secret.rds_connection_info.arn,
+    ]
+  }
+
+  statement {
+    sid    = "CIChecksForRDSLambdaKMSAccess"
+    effect = "Allow"
+
+    actions = [
+      "kms:Decrypt",
+      # "kms:GenerateDataKey*",
+    ]
+
+    resources = [aws_kms_key.rds_master_user_secret.arn]
+  }
+
+  depends_on = [
+    aws_db_instance.main,
+    aws_secretsmanager_secret.rds_connection_info,
+  ]
 }
 
 resource "aws_iam_policy" "create_instance_lambda_policy" {
@@ -200,12 +256,63 @@ resource "aws_iam_policy" "destroy_instance_lambda_policy" {
   policy      = data.aws_iam_policy_document.destroy_instance_lambda_policy_doc.json
 }
 
+resource "aws_iam_policy" "ci_checks_for_rds_lambda_policy" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}LoggingPolicyForCIChecksForRDSLambda"
+  description = "Policy allowing the CI Checks for RDS Lambda to write logs"
+  policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_policy_doc.json
+}
+
+resource "aws_iam_policy" "ci_checks_for_rds_lambda_secrets_access_policy" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}SecretsPolicyForCIChecksForRDSLambda"
+  description = "Policy allowing the CI Checks for RDS Lambda to access required Secrets Manager secrets"
+  policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_secrets_access_policy_doc.json
+
+}
+
+data "aws_iam_policy" "lambda_basic_execution_role_policy" {
+  arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+data "aws_iam_policy" "lambda_eni_management_access_policy" {
+  arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaENIManagementAccess"
+}
+
 resource "aws_iam_role_policy_attachment" "create_instance_lambda_policy_attachment" {
   role       = aws_iam_role.create_instance_lambda_execution_role.name
   policy_arn = aws_iam_policy.create_instance_lambda_policy.arn
 }
 
+resource "aws_iam_role_policy_attachment" "create_instance_lambda_basic_execution_attachment" {
+  role       = aws_iam_role.create_instance_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
+}
+
 resource "aws_iam_role_policy_attachment" "destroy_instance_lambda_policy_attachment" {
   role       = aws_iam_role.destroy_instance_lambda_execution_role.name
   policy_arn = aws_iam_policy.destroy_instance_lambda_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "destroy_instance_lambda_basic_execution_attachment" {
+  role       = aws_iam_role.destroy_instance_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_policy_attachment" {
+  role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_secrets_access_policy_attachment" {
+  role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_secrets_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_basic_execution_attachment" {
+  role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_eni_managed_policy_attachment" {
+  role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_eni_management_access_policy.arn
 }

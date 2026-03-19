@@ -63,6 +63,11 @@ variable "LAMBDA_DESTROY_SERVICE_VERSION" {
   description = "The version of the destroy_budibase_service Lambda code to deploy"
 }
 
+variable "LAMBDA_CI_CHECKS_FOR_RDS_VERSION" {
+  type        = string
+  description = "The version of the ci_checks_for_rds Lambda code to deploy"
+}
+
 # Variables hardcoded here
 
 variable "NAT_GATEWAY_COUNT" {

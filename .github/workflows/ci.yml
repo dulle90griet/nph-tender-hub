@@ -21,6 +21,7 @@ jobs:
 
       lambda_create_instance_changed: ${{ steps.list-changes.outputs.lambda_create_instance_changed }}
       lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}
+      lambda_ci_checks_for_rds_changed: ${{ steps.list-changes.outputs.lambda_ci_checks_for_rds_changed }}
 
       short_sha_base: ${{ steps.manifest-and-shas.outputs.short_sha_base }}
       short_sha_branch_head: ${{ steps.manifest-and-shas.outputs.short_sha_branch_head }}
@@ -198,6 +199,13 @@ jobs:
             else
               LAMBDA_DESTROY_INSTANCE_CHANGED=false
             fi
+
+            if echo "$CHANGED_PYTHON" | grep -q "ci_checks_for_rds.py"; then
+              LAMBDA_CI_CHECKS_FOR_RDS_CHANGED=true
+              echo "Lambda function ci_checks_for_rds changed."
+            else
+              LAMBDA_CI_CHECKS_FOR_RDS_CHANGED=false
+            fi
           else
             PYTHON_CHANGES_EXIST=false
             echo "No changes detected to Python code."
@@ -208,6 +216,8 @@ jobs:
           echo "lambda_create_instance_changed=$LAMBDA_CREATE_INSTANCE_CHANGED" \
             >> $GITHUB_OUTPUT
           echo "lambda_destroy_instance_changed=$LAMBDA_DESTROY_INSTANCE_CHANGED" \
+            >> $GITHUB_OUTPUT
+          echo "lambda_ci_checks_for_rds_changed=$LAMBDA_CI_CHECKS_FOR_RDS_CHANGED" \
             >> $GITHUB_OUTPUT
 
   python-test-and-deploy:
@@ -272,6 +282,13 @@ jobs:
               s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
           fi
 
+          if [[ "${{ needs.pre-checks.outputs.lambda_ci_checks_for_rds_changed }}" == "true" ]]; then
+            mkdir -p packages/lambdas/
+            zip -j packages/lambdas/ci_checks_for_rds.zip src/ci_checks_for_rds.py
+            aws s3 cp packages/lambdas/ci_checks_for_rds.zip \
+              s3://${{ vars.CODE_BUCKET }}/ci_checks_for_rds/$SHORT_SHA_CODE.zip
+          fi
+
   terraform-test-and-deploy:
     runs-on: ubuntu-latest
     environment: stage
@@ -293,6 +310,14 @@ jobs:
         with:
           # Ensure unshallow fetch to allow for merge-base checks
           fetch-depth: 0 
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: "auto"
+
+      - name: Prepare Lambda layers
+        run: make prepare-psycopg-layer
 
       - name: Configure AWS credentials
         id: configure-aws
@@ -353,6 +378,15 @@ jobs:
           fi
           echo "Deploying destroy_service Lambda code version: $LAMBDA_DESTROY_SERVICE_VERSION"
 
+          if [[ "${{ needs.pre-checks.outputs.lambda_ci_checks_for_rds_changed }}" == "true" ]]; then
+            LAMBDA_CI_CHECKS_FOR_RDS_VERSION="$SHORT_SHA_CODE"
+          else
+            LAMBDA_CI_CHECKS_FOR_RDS_VERSION="$(
+              jq -r '.Latest.Python.ci_checks_for_rds' ../manifest.json
+            )"
+          fi
+          echo "Deploying ci_checks_for_rds Lambda code version: $LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
+
           # Create backend 
 
           mkdir -p envs/stage
@@ -367,8 +401,9 @@ jobs:
           ENVIRONMENT = "stage"
           CODE_BUCKET = "${{ vars.CODE_BUCKET }}"
 
-          LAMBDA_CREATE_SERVICE_VERSION  = "$LAMBDA_CREATE_SERVICE_VERSION"
-          LAMBDA_DESTROY_SERVICE_VERSION = "$LAMBDA_DESTROY_SERVICE_VERSION" 
+          LAMBDA_CREATE_SERVICE_VERSION    = "$LAMBDA_CREATE_SERVICE_VERSION"
+          LAMBDA_DESTROY_SERVICE_VERSION   = "$LAMBDA_DESTROY_SERVICE_VERSION"
+          LAMBDA_CI_CHECKS_FOR_RDS_VERSION = "$LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
           EOF
           echo "envs/stage/terraform.tfvars generated."
           
@@ -438,11 +473,58 @@ jobs:
               >> $GITHUB_OUTPUT
             echo "destroy_service_function_name=\"$(terraform output -raw lambda_destroy_service_name)\"" \
               >> $GITHUB_OUTPUT
+            echo "ci_checks_for_rds_function_name=\"$(terraform output -raw lambda_ci_checks_for_rds_name)\"" \
+              >> $GITHUB_OUTPUT
+            echo "rds_connection_info_secret_name=\"$(terraform output -raw rds_connection_info_secret_name)\"" \
+              >> $GITHUB_OUTPUT
 
       - name: Clean up Terraform plan file
         working-directory: infra
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
         run: rm -f tfplan
+
+      - name: Perform RDS checks
+        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+        run: |
+          # Build the expected event JSON
+          EVENT_JSON="$(jq -n \
+            --arg RDS_login_secret \
+              "${{ steps.terraform-apply.outputs.rds_connection_info_secret_name }}" \
+              '{RDS_login_secret: $RDS_login_secret}')"
+
+          # Convert it to Base64 and pass it to the Lambda invocation
+          echo "Running RDS checks with connection secret" \
+            "${{ steps.terraform-apply.outputs.rds_connection_info_secret_name }}"
+          PAYLOAD_B64=$(echo -n "$EVENT_JSON" | base64)
+          RESPONSE="$(aws lambda invoke \
+            --function-name "${{ steps.terraform-apply.outputs.ci_checks_for_rds_function_name }}" \
+            --payload "$PAYLOAD_B64" \
+            lambda.out)"
+
+          # Raise an error if the Lambda execution failed
+          STATUS_CODE="$(echo "$RESPONSE" | jq '.StatusCode')"
+          if [[ "$STATUS_CODE" != 200 ]]; then
+            echo "Lambda invocation failed with status code $STATUS_CODE"
+            exit 1
+          else
+            RESULTS="$(jq -r '.body' lambda.out)"
+          fi
+
+          # Raise an error unless both checks succeeded
+          PORT_CHECK_RESULT="$(echo "$RESULTS" | jq -r '.check_rds_port_responsive.result')"
+          TRY_SELECT_RESULT="$(echo "$RESULTS" | jq -r '.check_rds_psql_select.result')"
+          if [[ "$PORT_CHECK_RESULT" == "Success" ]] && \
+             [[ "$TRY_SELECT_RESULT" == "Success" ]]; then
+            echo "RDS port check and test SELECT both succeeded."
+          else
+            if [[ "$PORT_CHECK_RESULT" != "Success" ]]; then
+              echo "RDS port check failed."
+            fi
+            if [[ "$TRY_SELECT_RESULT" == "Success" ]]; then
+              echo "Attempted SELECT statement failed."
+            fi
+            exit 1
+          fi
 
       - name: "Lambda integration test: create-instance-lambda"
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
@@ -704,7 +786,12 @@ jobs:
             jq '.Latest.Python.destroy_budibase_instance = "'$SHORT_SHA_CODE'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new destroy_budibase_instance Lambda version: $SHORT_SHA_CODE"
-          fi         
+          fi
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_ci_checks_for_rds_changed }}" == "true" ]]; then
+            jq '.Latest.Python.ci_checks_for_rds = "'$SHORT_SHA_CODE'"' manifest.json \
+              > manifest.json.tmp && mv manifest.json.tmp manifest.json
+            echo "Updated manifest with new ci_checks_for_rds Lambda version: $SHORT_SHA_CODE"
 
           echo "Uploading updated manifest with ID $SHORT_SHA_MERGE to S3..."
           aws s3 cp \

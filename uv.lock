@@ -973,18 +973,17 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
 ]
-lambda-layer = [
-    { name = "psycopg", extra = ["binary"] },
-]
 local-dev = [
     { name = "bandit" },
     { name = "boto3" },
     { name = "moto" },
     { name = "pip-audit" },
-    { name = "psycopg", extra = ["binary"] },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+]
+psycopg-layer = [
+    { name = "psycopg", extra = ["binary"] },
 ]
 
 [package.metadata]
@@ -999,17 +998,17 @@ dev = [
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "ruff", specifier = ">=0.15.0" },
 ]
-lambda-layer = [{ name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" }]
+lambda-layer = []
 local-dev = [
     { name = "bandit", specifier = ">=1.9.0" },
     { name = "boto3", specifier = ">=1.42.0" },
     { name = "moto", specifier = ">=5.0.0" },
     { name = "pip-audit", specifier = ">=2.10.0" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" },
     { name = "pytest", specifier = ">=9.0.0" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "ruff", specifier = ">=0.15.0" },
 ]
+psycopg-layer = [{ name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" }]
 
 [[package]]
 name = "tomli"
