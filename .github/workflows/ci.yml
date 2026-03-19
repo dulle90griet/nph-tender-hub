@@ -497,7 +497,7 @@ jobs:
             "${{ steps.terraform-apply.outputs.rds_connection_info_secret_name }}"
           PAYLOAD_B64=$(echo -n "$EVENT_JSON" | base64)
           RESPONSE="$(aws lambda invoke \
-            --function-name '${{ steps.terraform-apply.outputs.ci_checks_for_rds_function_name }}' \
+            --function-name "${{ steps.terraform-apply.outputs.ci_checks_for_rds_function_name }}" \
             --payload "$PAYLOAD_B64" \
             lambda.out)"
 
