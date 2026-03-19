@@ -321,10 +321,6 @@ jobs:
 
       - name: Configure AWS credentials
         id: configure-aws
-        # Continue only if this is a pre-merge run OR post-merge run with other merges
-        if: |
-          ${{ github.event.pull_request.merged == false ||
-          needs.pre-checks.outputs.other_merges == 'true' }}
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
           aws-access-key-id:
@@ -335,7 +331,6 @@ jobs:
             ${{ vars.AWS_REGION }}
 
       - name: Set up Terraform
-        if: ${{ steps.configure-aws.outcome == 'success' }}
         uses: hashicorp/setup-terraform@v4
         with:
           terraform_wrapper: false
@@ -348,7 +343,6 @@ jobs:
 
       - name: Create Terraform backend and env configuration
         working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: |
           # Determine Lambda code versions for deployment
 
@@ -423,22 +417,22 @@ jobs:
 
       - name: Initialize Terraform
         working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: terraform init -reconfigure -backend-config="envs/stage/backend.hcl"
 
       - name: Format Terraform code and validate configuration
-        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: make terraform-checks
 
       - name: Use Terraform workspace
         working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
         run: ./switch_env.sh stage
 
       - name: Terraform plan with check for changes
         id: terraform-plan
         working-directory: infra
-        if: ${{ steps.configure-aws.outcome == 'success' }}
+        # Continue only if this is a pre-merge run OR post-merge run with other merges
+        if: |
+          ${{ github.event.pull_request.merged == false ||
+          needs.pre-checks.outputs.other_merges == 'true' }}
         run: |
           set +e
           terraform plan \
@@ -642,9 +636,8 @@ jobs:
       - name: Terraform destroy
         working-directory: infra
         if: |
-          ${{ steps.configure-aws.outcome == 'success' &&
-          steps.terraform-plan.outputs.runapply == 'true' && 
-          always() }}
+          always() &&
+          github.event.pull_request.merged == true
         run: terraform destroy -auto-approve -var-file="envs/stage/terraform.tfvars"
       
       - name: Report deployment status to GitHub
@@ -792,6 +785,7 @@ jobs:
             jq '.Latest.Python.ci_checks_for_rds = "'$SHORT_SHA_CODE'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new ci_checks_for_rds Lambda version: $SHORT_SHA_CODE"
+          fi
 
           echo "Uploading updated manifest with ID $SHORT_SHA_MERGE to S3..."
           aws s3 cp \
