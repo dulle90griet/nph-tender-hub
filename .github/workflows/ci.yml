@@ -311,6 +311,14 @@ jobs:
           # Ensure unshallow fetch to allow for merge-base checks
           fetch-depth: 0 
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: "auto"
+
+      - name: Prepare Lambda layers
+        run: make prepare-psycopg-layer
+
       - name: Configure AWS credentials
         id: configure-aws
         # Continue only if this is a pre-merge run OR post-merge run with other merges
