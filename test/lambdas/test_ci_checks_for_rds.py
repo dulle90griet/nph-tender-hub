@@ -3,7 +3,7 @@ import pytest
 import socket
 import psycopg
 from unittest.mock import patch, Mock
-from src.ci_checks_for_rds import (
+from src.lambdas.ci_checks_for_rds import (
     check_rds_port_responsive,
     check_rds_psql_select,
     lambda_handler,

@@ -4,7 +4,7 @@ import boto3
 import json
 from moto import mock_aws
 from unittest.mock import patch
-from src.create_budibase_instance import create_budibase_instance, lambda_handler
+from src.lambdas.create_budibase_instance import create_budibase_instance, lambda_handler
 
 
 @pytest.fixture(scope="function")
