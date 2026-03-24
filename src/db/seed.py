@@ -2,12 +2,32 @@ import argparse
 import json
 import boto3
 import psycopg
-from psycopg.sql import SQL, Identifier
+# from psycopg.sql import SQL, Identifier
+
+
+def initialize_database(psql_conn):
+    with psql_conn.cursor() as cur:
+        initialize_database_sql = """
+            DROP TABLE IF EXISTS "job_title";
+
+            CREATE TABLE "job_title" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"department" varchar(50) NOT NULL
+                ,"title" varchar(50) NOT NULL
+                ,"default_ft_weekly_hours" decimal(3,1) NOT NULL
+                ,"default_lunch_break_hours" decimal(2,1) NOT NULL
+                ,"hourly_rate_gbp" decimal(7,2) NOT NULL
+                ,"default_annual_holiday_days" decimal(3,1)
+                ,"default_annual_training_days" decimal(3,1)
+                ,"default_annual_sick_days" decimal(3,1)
+            );
+        """
+        cur.execute(initialize_database_sql)
 
 
 def seed_job_title(psql_conn):
     with psql_conn.cursor() as cur:
-        cur.execute(SQL("""
+        seed_job_title_sql = """
             INSERT INTO job_title
                 (department, title, default_ft_weekly_hours,
                 default_lunch_break_hours, hourly_rate_gbp,
@@ -29,12 +49,15 @@ def seed_job_title(psql_conn):
                 ,('Admin Team', 'Specialist Administrator', 37.5, 0, 72.27, 33, 10, 3)
                 ,('Admin Team', 'Operations Controller', 37.5, 0, 72.27, 33, 10, 3)
                 ,('Admin Team', 'Senior Nurse', 37.5, 0, 72.27, 33, 10, 3)
-        """))
+        """
+        cur.execute(seed_job_title_sql)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get RDS connection secret name")
-    parser.add_argument("--rds-secret", help="The name or ARN of the SSM secret to fetch")
+    parser.add_argument(
+        "--rds-secret", help="The name or ARN of the SSM secret to fetch"
+    )
     args = parser.parse_args()
     rds_secret_name = args.rds_secret
 
@@ -58,4 +81,5 @@ if __name__ == "__main__":
 
     conn_info = " ".join(f"{key}={value}" for key, value in config.items())
     with psycopg.connect(conn_info) as conn:
+        initialize_database(conn)
         seed_job_title(conn)
