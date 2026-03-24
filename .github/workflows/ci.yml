@@ -270,21 +270,21 @@ jobs:
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
-            zip -j packages/lambdas/create_budibase_instance.zip src/create_budibase_instance.py
+            zip -j packages/lambdas/create_budibase_instance.zip src/lambdas/create_budibase_instance.py
             aws s3 cp packages/lambdas/create_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA_CODE.zip
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
-            zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
+            zip -j packages/lambdas/destroy_budibase_instance.zip src/lambdas/destroy_budibase_instance.py
             aws s3 cp packages/lambdas/destroy_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_ci_checks_for_rds_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
-            zip -j packages/lambdas/ci_checks_for_rds.zip src/ci_checks_for_rds.py
+            zip -j packages/lambdas/ci_checks_for_rds.zip src/lambdas/ci_checks_for_rds.py
             aws s3 cp packages/lambdas/ci_checks_for_rds.zip \
               s3://${{ vars.CODE_BUCKET }}/ci_checks_for_rds/$SHORT_SHA_CODE.zip
           fi
