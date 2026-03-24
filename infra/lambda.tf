@@ -114,3 +114,26 @@ resource "aws_lambda_function" "ci_checks_for_rds_lambda" {
   #   aws_nat_gateway.ngw["0"],
   # ]
 }
+
+resource "aws_lambda_function" "seed_db" {
+  function_name = "${var.PREFIX}-${var.ENVIRONMENT}-seed-db-lambda"
+  s3_bucket     = var.CODE_BUCKET
+  s3_key        = "seed-db/${var.LAMBDA_SEED_DB_VERSION}.zip"
+  role          = aws_iam_role.seed_db_lambda_execution_role.arn
+  handler       = "seed_db.lambda_handler"
+
+  source_code_hash = filebase64sha256("${path.module}../src/lambdas/seed_db.py")
+
+  runtime = "python3.12"
+  publish = true
+  layers  = [aws_lambda_layer_version.psycopg_layer.arn]
+  timeout = 30
+
+  vpc_config {
+    subnet_ids = tolist([
+      for key in var.SUBNETS_BY_ENV[var.ENVIRONMENT] :
+      aws_subnet.private[key].id
+    ])
+    security_group_ids = [aws_security_group.lambdas_for_rds.id]
+  }
+}

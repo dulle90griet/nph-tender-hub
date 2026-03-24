@@ -137,6 +137,11 @@ resource "aws_iam_role" "ci_checks_for_rds_lambda_execution_role" {
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
+resource "aws_iam_role" "seed_db_lambda_execution_role" {
+  name               = "${var.PREFIX}${var.ENVIRONMENT}ExecutionRoleForSeedDBLambda"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
 data "aws_iam_policy_document" "generic_create_log_group_policy_doc" {
   statement {
     sid       = "GenericCreateLogGroup"
@@ -193,7 +198,7 @@ data "aws_iam_policy_document" "destroy_instance_lambda_policy_doc" {
   }
 }
 
-data "aws_iam_policy_document" "ci_checks_for_rds_lambda_policy_doc" {
+data "aws_iam_policy_document" "ci_checks_for_rds_lambda_logging_policy_doc" {
   source_policy_documents = [
     data.aws_iam_policy_document.generic_create_log_group_policy_doc.json
   ]
@@ -208,6 +213,24 @@ data "aws_iam_policy_document" "ci_checks_for_rds_lambda_policy_doc" {
     ]
 
     resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-ci-checks-for-rds-lambda:*"]
+  }
+}
+
+data "aws_iam_policy_document" "seed_db_lambda_logging_policy_doc" {
+  source_policy_documents = [
+    data.aws_iam_policy_document.generic_create_log_group_policy_doc.json
+  ]
+
+  statement {
+    sid    = "SeedDBLambdaLogging"
+    effect = "Allow"
+
+    actions = [
+      "logs:DestroyLogStream",
+      "logs:PutLogEvents",
+    ]
+
+    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-seed-db-lambda:*"]
   }
 }
 
@@ -244,6 +267,39 @@ data "aws_iam_policy_document" "ci_checks_for_rds_lambda_secrets_access_policy_d
   ]
 }
 
+data "aws_iam_policy_document" "seed_db_lambda_secrets_access_policy_doc" {
+  statement {
+    sid    = "SeedDBLambdaSecretsAccess"
+    effect = "Allow"
+
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+
+    resources = [
+      aws_db_instance.main.master_user_secret[0].secret_arn,
+      aws_secretsmanager_secret.rds_connection_info.arn,
+    ]
+  }
+
+  statement {
+    sid    = "SeedDBLambdaKMSAccess"
+    effect = "Allow"
+
+    actions = [
+      "kms:Decrypt",
+    ]
+
+    resources = [aws_kms_key.rds_master_user_secret.arn]
+  }
+
+
+  depends_on = [
+    aws_db_instance.main,
+    aws_secretsmanager_secret.rds_connection_info,
+  ]
+}
+
 resource "aws_iam_policy" "create_instance_lambda_policy" {
   name        = "${var.PREFIX}${var.ENVIRONMENT}BudibasePolicyForCreateInstanceLambda"
   description = "Policy allowing the Budibase Create Instance Lambda to write logs and update the Budibase ECS service."
@@ -256,16 +312,29 @@ resource "aws_iam_policy" "destroy_instance_lambda_policy" {
   policy      = data.aws_iam_policy_document.destroy_instance_lambda_policy_doc.json
 }
 
-resource "aws_iam_policy" "ci_checks_for_rds_lambda_policy" {
+resource "aws_iam_policy" "ci_checks_for_rds_lambda_logging_policy" {
   name        = "${var.PREFIX}${var.ENVIRONMENT}LoggingPolicyForCIChecksForRDSLambda"
   description = "Policy allowing the CI Checks for RDS Lambda to write logs"
-  policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_policy_doc.json
+  policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_logging_policy_doc.json
+}
+
+resource "aws_iam_policy" "seed_db_lambda_logging_policy" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}LoggingPolicyForSeedDBLambda"
+  description = "Policy allowing the Seed DB Lambda to write logs"
+  policy      = data.aws_iam_policy_document.seed_db_lambda_logging_policy_doc.json
 }
 
 resource "aws_iam_policy" "ci_checks_for_rds_lambda_secrets_access_policy" {
   name        = "${var.PREFIX}${var.ENVIRONMENT}SecretsPolicyForCIChecksForRDSLambda"
   description = "Policy allowing the CI Checks for RDS Lambda to access required Secrets Manager secrets"
   policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_secrets_access_policy_doc.json
+
+}
+
+resource "aws_iam_policy" "seed_db_lambda_secrets_access_policy" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}SecretsPolicyForSeedDBLambda"
+  description = "Policy allowing the Seed DB Lambda to access required Secrets Manager secrets"
+  policy      = data.aws_iam_policy_document.seed_db_lambda_secrets_access_policy_doc.json
 
 }
 
@@ -297,9 +366,9 @@ resource "aws_iam_role_policy_attachment" "destroy_instance_lambda_basic_executi
   policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
 }
 
-resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_policy_attachment" {
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_logging_policy_attachment" {
   role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
-  policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_policy.arn
+  policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_logging_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_secrets_access_policy_attachment" {
@@ -314,5 +383,25 @@ resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_basic_execut
 
 resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_eni_managed_policy_attachment" {
   role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_eni_management_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "seed_db_lambda_logging_policy_attachment" {
+  role       = aws_iam_role.seed_db_lambda_execution_role.name
+  policy_arn = aws_iam_policy.seed_db_lambda_logging_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "seed_db_lambda_secrets_access_policy_attachment" {
+  role       = aws_iam_role.seed_db_lambda_execution_role.name
+  policy_arn = aws_iam_policy.seed_db_lambda_secrets_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "seed_db_lambda_basic_execution_attachment" {
+  role       = aws_iam_role.seed_db_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "seed_db_lambda_eni_managed_policy_attachment" {
+  role       = aws_iam_role.seed_db_lambda_execution_role.name
   policy_arn = data.aws_iam_policy.lambda_eni_management_access_policy.arn
 }
