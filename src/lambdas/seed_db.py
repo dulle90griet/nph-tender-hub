@@ -28,9 +28,14 @@ def initialize_database(psql_conn):
         """
         cur.execute(initialize_database_sql)
 
-        logger.info("Results of initialization:")
-        for record in cur:
-            logger.info(str(record))
+        list_tables_sql = """
+            SELECT * FROM pg_catalog.pg_tables
+                WHERE schemaname = 'public';
+        """
+        cur.execute(list_tables_sql)
+        res = cur.fetchall()
+        logging.info("%s tables in database sent to output", len(res))
+        return res
 
 
 def seed_job_title(psql_conn):
@@ -60,9 +65,13 @@ def seed_job_title(psql_conn):
         """
         cur.execute(seed_job_title_sql)
 
-        logger.info("Results of job_title table seed:")
-        for record in cur:
-            logger.info(str(record))
+        select_from_job_title_sql = """
+            SELECT * FROM job_title;
+        """
+        cur.execute(select_from_job_title_sql)
+        res = cur.fetchall()
+        logging.info("%s rows in job_title table sent to output", len(res))
+        return res
 
 
 def lambda_handler(event, context):
@@ -86,11 +95,13 @@ def lambda_handler(event, context):
         "password": rds_user_secret_json["password"],
     }
 
+    results = {}
+
     conn_info = " ".join(f"{key}={value}" for key, value in config.items())
     with psycopg.connect(conn_info) as conn:
         logger.info("(Re-)initializing database")
-        initialize_database(conn)
+        results["tables_in_db"] = initialize_database(conn)
         logger.info("Seeding job_title table")
-        seed_job_title(conn)
+        results["rows_in_job_title"] = seed_job_title(conn)
 
-    return {"statusCode": 200}
+    return {"statusCode": 200, "body": json.dumps(results, default=str)}
