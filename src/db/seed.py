@@ -1,8 +1,13 @@
 import argparse
+import logging
 import json
 import boto3
 import psycopg
 # from psycopg.sql import SQL, Identifier
+
+
+logger = logging.getLogger("logger")
+logger.setLevel(logging.INFO)
 
 
 def initialize_database(psql_conn):
@@ -23,6 +28,10 @@ def initialize_database(psql_conn):
             );
         """
         cur.execute(initialize_database_sql)
+
+        logger.info("Results of initialization:")
+        for record in cur:
+            logger.info(str(record))
 
 
 def seed_job_title(psql_conn):
@@ -52,20 +61,19 @@ def seed_job_title(psql_conn):
         """
         cur.execute(seed_job_title_sql)
 
+        logger.info("Results of job_title table seed:")
+        for record in cur:
+            logger.info(str(record))
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Get RDS connection secret name")
-    parser.add_argument(
-        "--rds-secret", help="The name or ARN of the SSM secret to fetch"
-    )
-    args = parser.parse_args()
-    rds_secret_name = args.rds_secret
 
+def lambda_handler(event, context):
     # Logic to fetch RDS connection details using SSM Secret
     # TO BE MODULARIZED
     secrets_manager = boto3.client("secretsmanager")
-    rds_secret = secrets_manager.get_secret_value(SecretId=rds_secret_name)
+    logger.info("Fetching RDS login secret")
+    rds_secret = secrets_manager.get_secret_value(SecretId=event["RDS_login_secret"])
     rds_secret_json = json.loads(rds_secret["SecretString"])
+    logger.info("Fetching RDS master user secret")
     rds_user_secret = secrets_manager.get_secret_value(
         SecretId=rds_secret_json["user_secret"]
     )
@@ -75,11 +83,15 @@ if __name__ == "__main__":
         "host": rds_secret_json["host"],
         "port": rds_secret_json["port"],
         "dbname": rds_secret_json["dbname"],
-        "user": rds_secret_json["username"],
-        "password": rds_secret_json["password"],
+        "user": rds_user_secret_json["username"],
+        "password": rds_user_secret_json["password"],
     }
 
     conn_info = " ".join(f"{key}={value}" for key, value in config.items())
     with psycopg.connect(conn_info) as conn:
+        logger.info("(Re-)initializing database")
         initialize_database(conn)
+        logger.info("Seeding job_title table")
         seed_job_title(conn)
+
+    return {"statusCode": 200}
