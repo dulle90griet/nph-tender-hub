@@ -21,7 +21,7 @@ resource "aws_lambda_layer_version" "psycopg_layer" {
 
 # data "archive_file" "create_instance_lambda_code" {
 #   type        = "zip"
-#   source_file = "${path.module}/../src/create_budibase_instance.py"
+#   source_file = "${path.module}/../src/lambdas/create_budibase_instance.py"
 #   output_path = "${path.module}/../packages/lambda-ecs/create_budibase_instance.zip"
 
 # }
@@ -51,7 +51,7 @@ resource "aws_lambda_function" "create_instance_lambda" {
 
 # data "archive_file" "destroy_instance_lambda_code" {
 #   type        = "zip"
-#   source_file = "${path.module}/../src/destroy_budibase_instance.py"
+#   source_file = "${path.module}/../src/lambdas/destroy_budibase_instance.py"
 #   output_path = "${path.module}/../packages/lambda-ecs/destroy_budibase_instance.zip"
 
 # }
@@ -122,7 +122,7 @@ resource "aws_lambda_function" "seed_db" {
   role          = aws_iam_role.seed_db_lambda_execution_role.arn
   handler       = "seed_db.lambda_handler"
 
-  source_code_hash = filebase64sha256("${path.module}../src/lambdas/seed_db.py")
+  source_code_hash = filebase64sha256("${path.module}/../src/lambdas/seed_db.py")
 
   runtime = "python3.12"
   publish = true
