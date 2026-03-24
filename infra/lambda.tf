@@ -35,7 +35,7 @@ resource "aws_lambda_function" "create_instance_lambda" {
   handler       = "create_budibase_instance.lambda_handler"
   # code_sha256   = data.archive_file.create_instance_lambda_code.output_base64sha256
 
-  source_code_hash = filebase64sha256("${path.module}/../src/create_budibase_instance.py")
+  source_code_hash = filebase64sha256("${path.module}/../src/lambdas/create_budibase_instance.py")
 
   runtime = "python3.12"
   publish = true
@@ -65,7 +65,7 @@ resource "aws_lambda_function" "destroy_instance_lambda" {
   handler       = "destroy_budibase_instance.lambda_handler"
   # code_sha256   = data.archive_file.destroy_instance_lambda_code.output_base64sha256
 
-  source_code_hash = filebase64sha256(("${path.module}/../src/destroy_budibase_instance.py"))
+  source_code_hash = filebase64sha256(("${path.module}/../src/lambdas/destroy_budibase_instance.py"))
 
   runtime = "python3.12"
   publish = true
@@ -86,7 +86,7 @@ resource "aws_lambda_function" "ci_checks_for_rds_lambda" {
   role          = aws_iam_role.ci_checks_for_rds_lambda_execution_role.arn
   handler       = "ci_checks_for_rds.lambda_handler"
 
-  source_code_hash = filebase64sha256(("${path.module}/../src/ci_checks_for_rds.py"))
+  source_code_hash = filebase64sha256(("${path.module}/../src/lambdas/ci_checks_for_rds.py"))
 
   runtime = "python3.12"
   publish = true
