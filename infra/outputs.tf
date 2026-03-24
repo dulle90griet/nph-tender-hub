@@ -40,7 +40,7 @@ output "lambda_ci_checks_for_rds_name" {
 
 output "lambda_seed_db_name" {
   description = "The name of the seed_db Lambda function"
-  value       = aws_lambda_function.seed_db.function_name
+  value       = aws_lambda_function.seed_db_lambda.function_name
 }
 
 output "rds_connection_info_secret_name" {

@@ -115,7 +115,7 @@ resource "aws_lambda_function" "ci_checks_for_rds_lambda" {
   # ]
 }
 
-resource "aws_lambda_function" "seed_db" {
+resource "aws_lambda_function" "seed_db_lambda" {
   function_name = "${var.PREFIX}-${var.ENVIRONMENT}-seed-db-lambda"
   s3_bucket     = var.CODE_BUCKET
   s3_key        = "seed_db/${var.LAMBDA_SEED_DB_VERSION}.zip"
