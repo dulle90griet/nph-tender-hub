@@ -118,7 +118,7 @@ resource "aws_lambda_function" "ci_checks_for_rds_lambda" {
 resource "aws_lambda_function" "seed_db" {
   function_name = "${var.PREFIX}-${var.ENVIRONMENT}-seed-db-lambda"
   s3_bucket     = var.CODE_BUCKET
-  s3_key        = "seed-db/${var.LAMBDA_SEED_DB_VERSION}.zip"
+  s3_key        = "seed_db/${var.LAMBDA_SEED_DB_VERSION}.zip"
   role          = aws_iam_role.seed_db_lambda_execution_role.arn
   handler       = "seed_db.lambda_handler"
 
