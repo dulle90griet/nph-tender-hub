@@ -1,4 +1,3 @@
-import argparse
 import logging
 import json
 import boto3

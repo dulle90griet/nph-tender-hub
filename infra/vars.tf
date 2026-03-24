@@ -68,6 +68,12 @@ variable "LAMBDA_CI_CHECKS_FOR_RDS_VERSION" {
   description = "The version of the ci_checks_for_rds Lambda code to deploy"
 }
 
+variable "LAMBDA_SEED_DB_VERSION" {
+  type        = string
+  description = "The version of the seed_db Lambda code to deploy"
+}
+
+
 # Variables hardcoded here
 
 variable "NAT_GATEWAY_COUNT" {
