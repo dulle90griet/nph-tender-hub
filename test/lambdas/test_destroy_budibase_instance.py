@@ -91,8 +91,8 @@ class TestDestroyBudibaseInstanceFunction:
 class TestDestroyBudibaseInstanceLambdaHandler:
     """Unit tests for the Lambda handler."""
 
-    @patch("src.destroy_budibase_instance.destroy_budibase_instance")
-    @patch("src.destroy_budibase_instance.boto3.client")
+    @patch("src.lambdas.destroy_budibase_instance.destroy_budibase_instance")
+    @patch("src.lambdas.destroy_budibase_instance.boto3.client")
     def test_lambda_handler_invokes_destroy_budibase_instance(
         self,
         mock_boto3_client,
@@ -106,7 +106,7 @@ class TestDestroyBudibaseInstanceLambdaHandler:
 
         mock_destroy_budibase_instance.assert_called_once()
 
-    @patch("src.destroy_budibase_instance.boto3.client")
+    @patch("src.lambdas.destroy_budibase_instance.boto3.client")
     def test_lambda_handler_returns_status_code_and_string_json_result(
         self, mock_boto3_client, ecs_with_cluster, env_vars
     ):

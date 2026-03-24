@@ -259,7 +259,7 @@ def mock_boto3_client_with_test_secret(test_secret_yielder):
     mock_sm_client.get_secret_value = Mock(
         side_effect=lambda *args, **kwargs: next(test_secret)
     )
-    with patch("src.ci_checks_for_rds.boto3.client") as mock_boto3_client:
+    with patch("src.lambdas.ci_checks_for_rds.boto3.client") as mock_boto3_client:
         mock_boto3_client.return_value = mock_sm_client
         yield mock_boto3_client
 
@@ -267,8 +267,8 @@ def mock_boto3_client_with_test_secret(test_secret_yielder):
 class TestRDSChecksLambdaHandler:
     """Unit tests for the Lambda handler."""
 
-    @patch("src.ci_checks_for_rds.psycopg.connect")
-    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    @patch("src.lambdas.ci_checks_for_rds.psycopg.connect")
+    @patch("src.lambdas.ci_checks_for_rds.check_rds_port_responsive")
     def test_first_secret_requested_is_secret_specified_by_event(
         self,
         mock_check_rds_port_responsive,
@@ -280,8 +280,8 @@ class TestRDSChecksLambdaHandler:
         mock_g_s_v = mock_boto3_client_with_test_secret.return_value.get_secret_value
         assert mock_g_s_v.call_args_list[0].kwargs.get("SecretId") == "test_secret"
 
-    @patch("src.ci_checks_for_rds.psycopg.connect")
-    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    @patch("src.lambdas.ci_checks_for_rds.psycopg.connect")
+    @patch("src.lambdas.ci_checks_for_rds.check_rds_port_responsive")
     def test_rds_user_secret_requested_is_secret_specified_by_first_secret(
         self,
         mock_check_rds_port_responsive,
@@ -296,8 +296,8 @@ class TestRDSChecksLambdaHandler:
             == "test-rds-master-user-secret"
         )
 
-    @patch("src.ci_checks_for_rds.psycopg.connect")
-    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    @patch("src.lambdas.ci_checks_for_rds.psycopg.connect")
+    @patch("src.lambdas.ci_checks_for_rds.check_rds_port_responsive")
     def test_rds_port_checks_called_with_socket_object(
         self,
         mock_check_rds_port_responsive,
@@ -312,8 +312,8 @@ class TestRDSChecksLambdaHandler:
             mock_check_rds_port_responsive.call_args.args[0], socket.socket
         )
 
-    @patch("src.ci_checks_for_rds.psycopg.connect")
-    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    @patch("src.lambdas.ci_checks_for_rds.psycopg.connect")
+    @patch("src.lambdas.ci_checks_for_rds.check_rds_port_responsive")
     def test_rds_port_checks_called_with_secret_values(
         self,
         mock_check_rds_port_responsive,
@@ -325,8 +325,8 @@ class TestRDSChecksLambdaHandler:
 
         assert mock_check_rds_port_responsive.call_args.args[1:3] == ("127.0.0.1", 5432)
 
-    @patch("src.ci_checks_for_rds.psycopg.connect")
-    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    @patch("src.lambdas.ci_checks_for_rds.psycopg.connect")
+    @patch("src.lambdas.ci_checks_for_rds.check_rds_port_responsive")
     def test_psycopg_connect_called_with_secret_values(
         self,
         mock_check_rds_port_responsive,
@@ -347,9 +347,9 @@ class TestRDSChecksLambdaHandler:
         assert connection_values["user"] == "dbadmin"
         assert connection_values["password"] == "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
 
-    @patch("src.ci_checks_for_rds.psycopg.connect")
-    @patch("src.ci_checks_for_rds.check_rds_psql_select")
-    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    @patch("src.lambdas.ci_checks_for_rds.psycopg.connect")
+    @patch("src.lambdas.ci_checks_for_rds.check_rds_psql_select")
+    @patch("src.lambdas.ci_checks_for_rds.check_rds_port_responsive")
     def test_psql_select_checks_called_with_expected_connection(
         self,
         mock_check_rds_port_responsive,
@@ -365,9 +365,9 @@ class TestRDSChecksLambdaHandler:
 
         mock_check_rds_psql_select.assert_called_once_with(mock_conn)
 
-    @patch("src.ci_checks_for_rds.psycopg.connect")
-    @patch("src.ci_checks_for_rds.check_rds_psql_select")
-    @patch("src.ci_checks_for_rds.check_rds_port_responsive")
+    @patch("src.lambdas.ci_checks_for_rds.psycopg.connect")
+    @patch("src.lambdas.ci_checks_for_rds.check_rds_psql_select")
+    @patch("src.lambdas.ci_checks_for_rds.check_rds_port_responsive")
     def test_lambda_handler_returns_dict_of_check_results(
         self,
         mock_check_rds_port_responsive,

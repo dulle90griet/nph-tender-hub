@@ -83,8 +83,8 @@ class TestCreateBudibaseInstanceFunction:
 class TestCreateBudibaseInstanceLambdaHandler:
     """Unit tests for the Lambda handler."""
 
-    @patch("src.create_budibase_instance.create_budibase_instance")
-    @patch("src.create_budibase_instance.boto3.client")
+    @patch("src.lambdas.create_budibase_instance.create_budibase_instance")
+    @patch("src.lambdas.create_budibase_instance.boto3.client")
     def test_lambda_handler_invokes_create_budibase_instance(
         self,
         mock_boto3_client,
@@ -98,7 +98,7 @@ class TestCreateBudibaseInstanceLambdaHandler:
 
         mock_create_budibase_instance.assert_called_once()
 
-    @patch("src.create_budibase_instance.boto3.client")
+    @patch("src.lambdas.create_budibase_instance.boto3.client")
     def test_lambda_handler_returns_status_code_and_json_string(
         self, mock_boto3_client, ecs_with_cluster
     ):
