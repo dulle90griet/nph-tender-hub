@@ -162,4 +162,10 @@ resource "aws_lambda_function" "http_api_lambda" {
     ])
     security_group_ids = [aws_security_group.lambdas_for_rds.id]
   }
+
+  environment {
+    variables = {
+      "RDS_LOGIN_SECRET" = aws_secretsmanager_secret.rds_connection_info.name
+    }
+  }
 }
