@@ -1,18 +1,18 @@
 import os
 import json
 import logging
-import psycopg
 import psycopg_pool
-from psycopg.sql import SQL, Identifier
+from psycopg.sql import SQL
 from psycopg.rows import dict_row
-from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import (
     APIGatewayHttpResolver,
-    Response,
+    # Response,
 )
 from aws_lambda_powertools.utilities.typing.lambda_context import LambdaContext
 import boto3
 from botocore.exceptions import ClientError
+# import psycopg
+# from aws_lambda_powertools import Logger
 
 
 logger = logging.getLogger("logger")
@@ -26,10 +26,9 @@ class DatabaseManager:
         self._connection_pool = None
         self._connection = None
         self._secret_cache = None
-    
 
     def _get_secrets(self):
-        """ Fetch secrets from Secrets Manager with caching """
+        """Fetch secrets from Secrets Manager with caching"""
         if self._secret_cache is None:
             # Logic to fetch RDS connection details using SSM Secret
             # TO BE MODULARIZED
@@ -59,12 +58,11 @@ class DatabaseManager:
             except ClientError as e:
                 logger.error("Failed to fetch second secret: %s", e)
                 raise
-        
+
         return self._secret_cache
 
-
     def _init_pool(self):
-        """ Initialize connection pool """
+        """Initialize connection pool"""
         if self._connection_pool is None:
             config = self._get_secrets()
 
@@ -77,18 +75,16 @@ class DatabaseManager:
             )
 
             logger.info("Database connection initialized")
-        
-    
+
     def get_connection(self):
-        """ Get a connection from the pool """
+        """Get a connection from the pool"""
         self._init_pool()
 
         logger.info("Getting a connection from the pool")
         return self._connection_pool.connection()
 
-
     def close_all(self):
-        """ Close all connections in the pool """
+        """Close all connections in the pool"""
         if self._connection_pool:
             self._connection_pool.close()
             logger.info("All database connections closed")
@@ -99,13 +95,13 @@ db_manager = DatabaseManager()
 
 
 class DatabaseCursor:
-    """ Context manager for database operations """
+    """Context manager for database operations"""
+
     def __init__(self, row_factory=None):
         self.conn_context = None
         self.connection = None
         self.cursor = None
         self.row_factory = row_factory or dict_row
-    
 
     def __enter__(self):
         # Get connection from pool
@@ -114,7 +110,6 @@ class DatabaseCursor:
 
         self.cursor = self.connection.cursor(row_factory=self.row_factory)
         return self.cursor
-    
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type:
@@ -127,8 +122,7 @@ class DatabaseCursor:
         # Close cursor and return connection to pool
         self.cursor.close()
         self.conn_context.__exit__(exc_type, exc_val, exc_tb)
-        return False # Ensure exceptions propagate
-    
+        return False  # Ensure exceptions propagate
 
 
 @app.get("/job_title")
@@ -148,10 +142,7 @@ def get_job_title() -> None:
         FROM "job_title"
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(
-        per_page=per_page,
-        offset=offset
-    )
+    """).format(per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_sql)
@@ -159,23 +150,20 @@ def get_job_title() -> None:
 
     return results
 
-
     # access query strings as app.current_event.query_string_parameters (dict)
     # access headers as app.current_event.headers (case-insentive dict)
     # access path (?) as app.current_event.path
     # see https://docs.aws.amazon.com/powertools/python/latest/core/event_handler/api_gateway/#raising-http-errors
 
 
-
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     response = app.resolve(event, context)
-    
+
     # If Lambda is about to be destroyed, clean up
     if context.get_remaining_time_in_millis() < 100:
         db_manager.close_all()
 
     return response
-
 
 
 # to create in Terraform:

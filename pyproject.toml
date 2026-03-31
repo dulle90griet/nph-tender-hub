@@ -11,18 +11,26 @@ dev = [
     "pytest-cov>=7.0.0",  # Includes 'coverage'
     "boto3>=1.42.0",
     "moto>=5.0.0",
+    "aws-lambda-powertools>=3.26.0",
+    "pydantic>=2.12.5",
 ]
 audit = [
     "pip-audit>=2.10.0"
 ]
+audit-fixes = [
+    "cryptography>=46.0.6",
+    "pygments>=2.20.0",
+    "requests>=2.33.0",
+]
 lambda-layer = [
 ]
 psycopg-layer = [
-    "psycopg[binary]>=3.2.0",
+    "psycopg[binary,pool]>=3.2.0",
 ]
 local-dev = [
     {include-group = "dev"},
     {include-group = "audit"},
+    {include-group = "audit-fixes"},
     {include-group = "lambda-layer"},
     {include-group = "psycopg-layer"},
 ]
