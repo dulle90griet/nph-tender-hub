@@ -6,7 +6,7 @@ resource "aws_apigatewayv2_api" "http_api" {
 
 resource "aws_lambda_permission" "allow_http_api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
-  action        = "Lambda:InvokeFunction"
+  action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.http_api_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*" 
@@ -16,10 +16,15 @@ resource "aws_apigatewayv2_integration" "http_api_lambda_integration" {
   api_id           = aws_apigatewayv2_api.http_api.id
   integration_type = "AWS_PROXY"
 
-  connection_type           = "INTERNET"
-  description               = "Lambda integration for ${var.CLIENT} ${var.PROJECT} HTTP API"
-  integration_method        = "POST"
-  integration_uri           = aws_lambda_function.http_api_lambda.invoke_arn
+  connection_type        = "INTERNET"
+  description            = "Lambda integration for ${var.CLIENT} ${var.PROJECT} HTTP API"
+  integration_method     = "POST"
+  integration_uri        = aws_lambda_function.http_api_lambda.invoke_arn
+  payload_format_version = "2.0"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_apigatewayv2_route" "http_api_get_job_title_route" {
@@ -30,25 +35,7 @@ resource "aws_apigatewayv2_route" "http_api_get_job_title_route" {
 }
 
 resource "aws_apigatewayv2_stage" "http_api_default_stage" {
-  api_id = aws_apigatewayv2_api.http_api.id
-  name   = "${var.PREFIX}_${var.ENVIRONMENT}_default_stage"
-
-  deployment_id = aws_apigatewayv2_deployment.http_api_default_deployment.id
+  api_id        = aws_apigatewayv2_api.http_api.id
+  name          = "$default"
   auto_deploy   = true
-}
-
-resource "aws_apigatewayv2_deployment" "http_api_default_deployment" {
-  api_id      = aws_apigatewayv2_api.http_api.id
-  description = "Default deployment of the ${var.CLIENT} ${var.PROJECT} HTTP API"
-
-  triggers = {
-    redeployment = sha1(join(",", tolist([
-      jsonencode(aws_apigatewayv2_integration.http_api_lambda_integration),
-      jsonencode(aws_apigatewayv2_route.http_api_get_job_title_route),
-    ])))
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }
