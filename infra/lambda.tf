@@ -137,3 +137,26 @@ resource "aws_lambda_function" "seed_db_lambda" {
     security_group_ids = [aws_security_group.lambdas_for_rds.id]
   }
 }
+
+resource "aws_lambda_function" "http_api_lambda" {
+  function_name = "${var.PREFIX}-${var.ENVIRONMENT}-http-api-lambda"
+  s3_bucket     = var.CODE_BUCKET
+  s3_key        = "http_api/${var.LAMBDA_HTTP_API_VERSION}.zip"
+  role          = aws_iam_role.http_api_lambda_execution_role.arn
+  handler       = "http_api.lambda_handler"
+
+  source_code_hash = filebase64sha256("${path.module}/../src/lambdas/http_api.py")
+
+  runtime = "python3.12"
+  publish = true
+  layers  = [aws_lambda_layer_version.psycopg_layer.arn]
+  timeout = 30
+
+  vpc_config {
+    subnet_ids = tolist([
+      for key in var.SUBNETS_BY_ENV[var.ENVIRONMENT] :
+      aws_subnet.private[key].id
+    ])
+    security_group_ids = [aws_security_group.lambdas_for_rds.id]
+  }
+}
