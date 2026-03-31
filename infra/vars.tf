@@ -73,6 +73,11 @@ variable "LAMBDA_SEED_DB_VERSION" {
   description = "The version of the seed_db Lambda code to deploy"
 }
 
+variable "LAMBDA_HTTP_API_VERSION" {
+  type        = string
+  description = "The version of the http_api Lambda code to deploy"
+}
+
 
 # Variables hardcoded here
 
