@@ -149,8 +149,11 @@ resource "aws_lambda_function" "http_api_lambda" {
 
   runtime = "python3.12"
   publish = true
-  layers  = [aws_lambda_layer_version.psycopg_layer.arn]
   timeout = 30
+  layers  = [
+    aws_lambda_layer_version.psycopg_layer.arn,
+    var.LAMBDA_POWERTOOLS_LAYER_ARN,
+  ]
 
   vpc_config {
     subnet_ids = tolist([
