@@ -125,7 +125,7 @@ class DatabaseCursor:
         return False  # Ensure exceptions propagate
 
 
-@app.get("/job_title")
+@app.get("/job-title")
 def get_job_title() -> None:
     """GET method for HTTP API"""
     max_per_page = 100
