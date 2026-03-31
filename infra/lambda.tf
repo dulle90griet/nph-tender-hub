@@ -150,7 +150,7 @@ resource "aws_lambda_function" "http_api_lambda" {
   runtime = "python3.12"
   publish = true
   timeout = 30
-  layers  = [
+  layers = [
     aws_lambda_layer_version.psycopg_layer.arn,
     var.LAMBDA_POWERTOOLS_LAYER_ARN,
   ]
