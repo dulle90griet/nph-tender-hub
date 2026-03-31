@@ -100,6 +100,7 @@ deploy-to-dev:
 	$(call zip_to_bucket, src/lambdas/destroy_budibase_instance.py, $(CODE_BUCKET))
 	$(call zip_to_bucket, src/lambdas/ci_checks_for_rds.py, $(CODE_BUCKET))
 	$(call zip_to_bucket, src/lambdas/seed_db.py, $(CODE_BUCKET))
+	$(call zip_to_bucket, src/lambdas/http_api.py, $(CODE_BUCKET))
 	@printf "\n%s\n" "Switching into 'dev' Terraform environment ..."
 	@cd infra && ./switch_env.sh dev
 	@printf "\n%s\n" "Running terraform plan ..."
