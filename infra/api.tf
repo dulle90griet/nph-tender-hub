@@ -9,7 +9,7 @@ resource "aws_lambda_permission" "allow_http_api_gateway" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.http_api_lambda.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*" 
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
 
 resource "aws_apigatewayv2_integration" "http_api_lambda_integration" {
@@ -35,7 +35,7 @@ resource "aws_apigatewayv2_route" "http_api_get_job_title_route" {
 }
 
 resource "aws_apigatewayv2_stage" "http_api_default_stage" {
-  api_id        = aws_apigatewayv2_api.http_api.id
-  name          = "$default"
-  auto_deploy   = true
+  api_id      = aws_apigatewayv2_api.http_api.id
+  name        = "$default"
+  auto_deploy = true
 }
