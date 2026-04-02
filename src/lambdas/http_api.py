@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import psycopg_pool
-from psycopg.sql import SQL
+from psycopg.sql import SQL, Identifier, Placeholder
 from psycopg.rows import dict_row
 from aws_lambda_powertools.event_handler import (
     APIGatewayHttpResolver,
@@ -127,7 +127,7 @@ class DatabaseCursor:
 
 @app.get("/job-title")
 def get_job_title() -> None:
-    """GET method for HTTP API"""
+    """GET method for job_title table"""
     max_per_page = 100
 
     page = app.current_event.query_string_parameters.get("page", 1)
@@ -154,6 +154,31 @@ def get_job_title() -> None:
     # access headers as app.current_event.headers (case-insentive dict)
     # access path (?) as app.current_event.path
     # see https://docs.aws.amazon.com/powertools/python/latest/core/event_handler/api_gateway/#raising-http-errors
+
+
+@app.post("/job-title")
+def post_job_title() -> None:
+    """POST method for job-title table"""
+
+    columns = ("department", "title", "default_ft_weekly_hours",
+             "default_lunch_break_hours", "hourly_rate_gbp",
+             "default_annual_holiday_days",
+             "default_annual_training_days",
+             "default_annual_sick_days")
+    
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+    values = [row[column] for column in columns for row in rows]
+
+    post_sql = SQL("INSERT INTO job_title ({}) VALUES ({})").format(
+        SQL(", ").join(map(Identifier, columns)),
+        SQL(", ").join(Placeholder() * len(columns))
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(post_sql, values)
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
