@@ -5,7 +5,7 @@ output "lb_url" {
 
 output "http_api_url" {
   description = "URL of HTTP API endpoint"
-  value       = "http://${aws_apigatewayv2_api.http_api.api_endpoint}"
+  value       = "${aws_apigatewayv2_api.http_api.api_endpoint}"
 }
 
 output "budibase_ecs_cluster_name" {
