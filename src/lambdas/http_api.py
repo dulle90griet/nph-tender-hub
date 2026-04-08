@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import psycopg_pool
-from psycopg.sql import SQL, Identifier, Placeholder
+from psycopg.sql import SQL, Identifier, Literal, Placeholder
 from psycopg.rows import dict_row
 from aws_lambda_powertools.event_handler import (
     APIGatewayHttpResolver,
@@ -193,7 +193,20 @@ def patch_job_title(job_title_id: str) -> None:
     logger.info("Job title ID: %s", job_title_id)
     logger.info(app.current_event.body)
 
-    return
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("UPDATE job_title SET {} WHERE ID = %s").format(
+        SQL(", ").join(set_parts)
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [int(job_title_id)])
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
