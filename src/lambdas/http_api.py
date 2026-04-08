@@ -160,12 +160,17 @@ def get_job_title() -> None:
 def post_job_title() -> None:
     """POST method for job-title table"""
 
-    columns = ("department", "title", "default_ft_weekly_hours",
-             "default_lunch_break_hours", "hourly_rate_gbp",
-             "default_annual_holiday_days",
-             "default_annual_training_days",
-             "default_annual_sick_days")
-    
+    columns = (
+        "department",
+        "title",
+        "default_ft_weekly_hours",
+        "default_lunch_break_hours",
+        "hourly_rate_gbp",
+        "default_annual_holiday_days",
+        "default_annual_training_days",
+        "default_annual_sick_days",
+    )
+
     rows = json.loads(app.current_event.body)
     if isinstance(rows, dict):
         # Ensure rows is a list of dicts to support multi-row insert
@@ -174,11 +179,21 @@ def post_job_title() -> None:
 
     post_sql = SQL("INSERT INTO job_title ({}) VALUES ({})").format(
         SQL(", ").join(map(Identifier, columns)),
-        SQL(", ").join(Placeholder() * len(columns))
+        SQL(", ").join(Placeholder() * len(columns)),
     )
 
     with DatabaseCursor() as cursor:
         cursor.execute(post_sql, values)
+
+
+@app.patch("/job-title/<job_title_id>")
+def patch_job_title(job_title_id: str) -> None:
+    """PATCH method for job-title table"""
+
+    logger.info("Job title ID: %s", job_title_id)
+    logger.info(app.current_event.body)
+
+    return
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
