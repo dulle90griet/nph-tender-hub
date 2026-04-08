@@ -34,6 +34,20 @@ resource "aws_apigatewayv2_route" "http_api_get_job_title_route" {
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
 
+resource "aws_apigatewayv2_route" "http_api_post_job_title_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /job-title"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_patch_job_title_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "PATCH /job-title/{job_title_id}"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
 resource "aws_apigatewayv2_stage" "http_api_default_stage" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
