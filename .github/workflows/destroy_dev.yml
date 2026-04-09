@@ -1,0 +1,77 @@
+name: Tender Hub Terraform Destroy Dev
+
+on: workflow_dispatch
+
+jobs:
+  destroy-dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.0.0
+        with:
+          aws-access-key-id:
+            ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key:
+            ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:
+            ${{ vars.AWS_REGION }}
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+      
+      - name: Create Terraform backend and env configuration
+        working-directory: infra
+        run: |
+          # Create backend
+
+          mkdir -p envs/dev
+          cat > envs/dev/backend.hcl <<EOF
+          region      = "${{ vars.AWS_REGION }}"
+          bucket      = "${{ vars.STATE_BUCKET }}"
+          key         = "${{ vars.STATE_KEY }}"
+          EOF
+          echo "envs/dev/backend.hcl generated."       
+
+          cat > envs/dev/terraform.tfvars <<EOF
+          ENVIRONMENT = "dev"
+          CODE_BUCKET = "${{ vars.CODE_BUCKET }}"
+
+          LAMBDA_CREATE_SERVICE_VERSION    = "current"
+          LAMBDA_DESTROY_SERVICE_VERSION   = "current"
+          LAMBDA_CI_CHECKS_FOR_RDS_VERSION = "current"
+          LAMBDA_SEED_DB_VERSION           = "current"
+          LAMBDA_HTTP_API_VERSION          = "current"
+          EOF
+          echo "envs/dev/terraform.tfvars generated."
+
+          # Create global .tfvars file
+          # For REPO_NAME, sed strips "user-name/repo-name" to just "repo-name"
+
+          cat > global.auto.tfvars <<EOF
+          AWS_REGION         = "${{ vars.AWS_REGION }}"
+          IAM_USER           = "${{ secrets.IAM_USER }}"
+          REPO_NAME          = "$(echo "${{ github.repository }}" | sed -E "s/.+\///g")"
+          PREFIX             = "${{ vars.PREFIX }}"
+          CLIENT             = "${{ vars.CLIENT }}"
+          PROJECT            = "${{ vars.PROJECT }}"
+          BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
+          EOF
+          echo "global.auto.tfvars generated."
+
+      - name: Initialize Terraform
+        working-directory: infra
+        run: terraform init -reconfigure -backend-config="envs/dev/backend.hcl"
+
+      - name: Use Terraform workspace
+        working-directory: infra
+        run: ./switch_env.sh dev
+      
+      - name: Terraform destroy
+        working-directory: infra
+        run: terraform destroy -auto-approve -var-file="envs/dev/terraform.tfvars"
