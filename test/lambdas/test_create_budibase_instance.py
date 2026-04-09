@@ -4,7 +4,10 @@ import boto3
 import json
 from moto import mock_aws
 from unittest.mock import patch
-from src.destroy_budibase_instance import destroy_budibase_instance, lambda_handler
+from src.lambdas.create_budibase_instance import (
+    create_budibase_instance,
+    lambda_handler,
+)
 
 
 @pytest.fixture(scope="function")
@@ -36,35 +39,16 @@ def ecs_with_cluster(ecs_client):
     ecs_client.create_service(
         cluster=os.environ["TARGET_CLUSTER_NAME"],
         serviceName=os.environ["TARGET_SERVICE_NAME"],
-        desiredCount=1,
+        desiredCount=0,
     )
-
-    # For some reason, setting desiredCount on create currently creates
-    # a pending service in moto; setting on update creates a running service
-    ecs_client.update_service(
-        cluster=os.environ["TARGET_CLUSTER_NAME"],
-        service=os.environ["TARGET_SERVICE_NAME"],
-        desiredCount=1,
-    )
-
     yield ecs_client
 
 
-class TestDestroyBudibaseInstanceFunction:
-    """Unit tests for the destroy_budibase_instance() function."""
+class TestCreateBudibaseInstanceFunction:
+    """Unit tests for the create_budibase_instance() function."""
 
-    def test_service_desired_count_set_to_0(self, ecs_with_cluster):
-        destroy_budibase_instance(ecs_with_cluster)
-        result = ecs_with_cluster.describe_services(
-            cluster=os.environ["TARGET_CLUSTER_NAME"],
-            services=[os.environ["TARGET_SERVICE_NAME"]],
-        )
-        assert (
-            result["services"][0]["desiredCount"] == 0
-            and result["services"][0]["pendingCount"] == 0
-        )
-
-    def test_running_count_decreases_from_1_to_0(self, ecs_with_cluster):
+    def test_service_desired_count_set_to_1(self, ecs_with_cluster):
+        create_budibase_instance(ecs_with_cluster)
         result = ecs_with_cluster.describe_services(
             cluster=os.environ["TARGET_CLUSTER_NAME"],
             services=[os.environ["TARGET_SERVICE_NAME"]],
@@ -73,39 +57,50 @@ class TestDestroyBudibaseInstanceFunction:
             result["services"][0]["desiredCount"] == 1
             or result["services"][0]["pendingCount"] == 1
         )
-        destroy_budibase_instance(ecs_with_cluster)
+
+    def test_running_count_increases_from_0_to_1(self, ecs_with_cluster):
+        result = ecs_with_cluster.describe_services(
+            cluster=os.environ["TARGET_CLUSTER_NAME"],
+            services=[os.environ["TARGET_SERVICE_NAME"]],
+        )
+        assert (
+            result["services"][0]["runningCount"] == 0
+            and result["services"][0]["pendingCount"] == 0
+        )
+
+        create_budibase_instance(ecs_with_cluster)
 
         result = ecs_with_cluster.describe_services(
             cluster=os.environ["TARGET_CLUSTER_NAME"],
             services=[os.environ["TARGET_SERVICE_NAME"]],
         )
         assert (
-            result["services"][0]["desiredCount"] == 0
-            and result["services"][0]["pendingCount"] == 0
+            result["services"][0]["desiredCount"] == 1
+            or result["services"][0]["pendingCount"] == 1
         )
 
 
-class TestDestroyBudibaseInstanceLambdaHandler:
+class TestCreateBudibaseInstanceLambdaHandler:
     """Unit tests for the Lambda handler."""
 
-    @patch("src.destroy_budibase_instance.destroy_budibase_instance")
-    @patch("src.destroy_budibase_instance.boto3.client")
-    def test_lambda_handler_invokes_destroy_budibase_instance(
+    @patch("src.lambdas.create_budibase_instance.create_budibase_instance")
+    @patch("src.lambdas.create_budibase_instance.boto3.client")
+    def test_lambda_handler_invokes_create_budibase_instance(
         self,
         mock_boto3_client,
-        mock_destroy_budibase_instance,
+        mock_create_budibase_instance,
         aws_credentials,
         env_vars,
     ):
-        mock_destroy_budibase_instance.return_value = {}
+        mock_create_budibase_instance.return_value = {}
 
         lambda_handler({}, object())
 
-        mock_destroy_budibase_instance.assert_called_once()
+        mock_create_budibase_instance.assert_called_once()
 
-    @patch("src.destroy_budibase_instance.boto3.client")
-    def test_lambda_handler_returns_status_code_and_string_json_result(
-        self, mock_boto3_client, ecs_with_cluster, env_vars
+    @patch("src.lambdas.create_budibase_instance.boto3.client")
+    def test_lambda_handler_returns_status_code_and_json_string(
+        self, mock_boto3_client, ecs_with_cluster
     ):
         mock_boto3_client.return_value = ecs_with_cluster
 

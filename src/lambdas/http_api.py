@@ -1,0 +1,230 @@
+import os
+import json
+import logging
+import psycopg_pool
+from psycopg.sql import SQL, Identifier, Literal, Placeholder
+from psycopg.rows import dict_row
+from aws_lambda_powertools.event_handler import (
+    APIGatewayHttpResolver,
+    # Response,
+)
+from aws_lambda_powertools.utilities.typing.lambda_context import LambdaContext
+import boto3
+from botocore.exceptions import ClientError
+# import psycopg
+# from aws_lambda_powertools import Logger
+
+
+logger = logging.getLogger("logger")
+logger.setLevel(logging.INFO)
+
+app = APIGatewayHttpResolver()
+
+
+class DatabaseManager:
+    def __init__(self):
+        self._connection_pool = None
+        self._connection = None
+        self._secret_cache = None
+
+    def _get_secrets(self):
+        """Fetch secrets from Secrets Manager with caching"""
+        if self._secret_cache is None:
+            # Logic to fetch RDS connection details using SSM Secret
+            # TO BE MODULARIZED
+            secrets_manager = boto3.client("secretsmanager")
+            logger.info("Fetching RDS login secret")
+            try:
+                rds_secret = secrets_manager.get_secret_value(
+                    SecretId=os.environ["RDS_LOGIN_SECRET"]
+                )
+                rds_secret_json = json.loads(rds_secret["SecretString"])
+            except ClientError as e:
+                logger.error("Failed to fetch first secret: %s", e)
+                raise
+            logger.info("Fetching RDS master user secret")
+            try:
+                rds_user_secret = secrets_manager.get_secret_value(
+                    SecretId=rds_secret_json["user_secret"]
+                )
+                rds_user_secret_json = json.loads(rds_user_secret["SecretString"])
+                self._secret_cache = {
+                    "host": rds_secret_json["host"],
+                    "port": rds_secret_json["port"],
+                    "dbname": rds_secret_json["dbname"],
+                    "user": rds_user_secret_json["username"],
+                    "password": rds_user_secret_json["password"],
+                }
+            except ClientError as e:
+                logger.error("Failed to fetch second secret: %s", e)
+                raise
+
+        return self._secret_cache
+
+    def _init_pool(self):
+        """Initialize connection pool"""
+        if self._connection_pool is None:
+            config = self._get_secrets()
+
+            conninfo = " ".join(f"{key}={value}" for key, value in config.items())
+            self._connection_pool = psycopg_pool.ConnectionPool(
+                conninfo=conninfo,
+                min_size=1,
+                max_size=20,
+                open=True,  # Open the pool immediately
+            )
+
+            logger.info("Database connection initialized")
+
+    def get_connection(self):
+        """Get a connection from the pool"""
+        self._init_pool()
+
+        logger.info("Getting a connection from the pool")
+        return self._connection_pool.connection()
+
+    def close_all(self):
+        """Close all connections in the pool"""
+        if self._connection_pool:
+            self._connection_pool.close()
+            logger.info("All database connections closed")
+
+
+# Global instance persists across warm starts
+db_manager = DatabaseManager()
+
+
+class DatabaseCursor:
+    """Context manager for database operations"""
+
+    def __init__(self, row_factory=None):
+        self.conn_context = None
+        self.connection = None
+        self.cursor = None
+        self.row_factory = row_factory or dict_row
+
+    def __enter__(self):
+        # Get connection from pool
+        self.conn_context = db_manager.get_connection()
+        self.connection = self.conn_context.__enter__()
+
+        self.cursor = self.connection.cursor(row_factory=self.row_factory)
+        return self.cursor
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            # Rollback on error
+            self.connection.rollback()
+        else:
+            # Commit on success
+            self.connection.commit()
+
+        # Close cursor and return connection to pool
+        self.cursor.close()
+        self.conn_context.__exit__(exc_type, exc_val, exc_tb)
+        return False  # Ensure exceptions propagate
+
+
+@app.get("/job-title")
+def get_job_title() -> None:
+    """GET method for job_title table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT *
+        FROM "job_title"
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+    # access query strings as app.current_event.query_string_parameters (dict)
+    # access headers as app.current_event.headers (case-insentive dict)
+    # access path (?) as app.current_event.path
+    # see https://docs.aws.amazon.com/powertools/python/latest/core/event_handler/api_gateway/#raising-http-errors
+
+
+@app.post("/job-title")
+def post_job_title() -> None:
+    """POST method for job-title table"""
+
+    columns = (
+        "department",
+        "title",
+        "default_ft_weekly_hours",
+        "default_lunch_break_hours",
+        "hourly_rate_gbp",
+        "default_annual_holiday_days",
+        "default_annual_training_days",
+        "default_annual_sick_days",
+    )
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+    values = [row[column] for column in columns for row in rows]
+
+    post_sql = SQL("INSERT INTO job_title ({}) VALUES ({})").format(
+        SQL(", ").join(map(Identifier, columns)),
+        SQL(", ").join(Placeholder() * len(columns)),
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/job-title/<job_title_id>")
+def patch_job_title(job_title_id: str) -> None:
+    """PATCH method for job-title table"""
+
+    logger.info("Job title ID: %s", job_title_id)
+    logger.info(app.current_event.body)
+
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("UPDATE job_title SET {} WHERE ID = %s").format(
+        SQL(", ").join(set_parts)
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [int(job_title_id)])
+
+
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
+    response = app.resolve(event, context)
+
+    # If Lambda is about to be destroyed, clean up
+    if context.get_remaining_time_in_millis() < 100:
+        db_manager.close_all()
+
+    return response
+
+
+# to create in Terraform:
+# - Lambda HTTP-type API Gateway trigger / endpoint
+#   > added to Lambda function itself?
+#   > security = Open
+# - or, no, first create an HTTP API Gateway
+#   > add Lambda integration
+#   > add routes
+#     o GET /job-titles
+#   > add stages?

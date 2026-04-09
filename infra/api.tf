@@ -1,0 +1,55 @@
+resource "aws_apigatewayv2_api" "http_api" {
+  name          = "${var.PREFIX}-${var.ENVIRONMENT}-http-api"
+  protocol_type = "HTTP"
+  description   = "HTTP API allowing programs to interface with the ${var.CLIENT} ${var.PROJECT} database"
+}
+
+resource "aws_lambda_permission" "allow_http_api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.http_api_lambda.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+resource "aws_apigatewayv2_integration" "http_api_lambda_integration" {
+  api_id           = aws_apigatewayv2_api.http_api.id
+  integration_type = "AWS_PROXY"
+
+  connection_type        = "INTERNET"
+  description            = "Lambda integration for ${var.CLIENT} ${var.PROJECT} HTTP API"
+  integration_method     = "POST"
+  integration_uri        = aws_lambda_function.http_api_lambda.invoke_arn
+  payload_format_version = "2.0"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_apigatewayv2_route" "http_api_get_job_title_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /job-title"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_post_job_title_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /job-title"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_patch_job_title_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "PATCH /job-title/{job_title_id}"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_stage" "http_api_default_stage" {
+  api_id      = aws_apigatewayv2_api.http_api.id
+  name        = "$default"
+  auto_deploy = true
+}

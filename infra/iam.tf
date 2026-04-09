@@ -137,6 +137,16 @@ resource "aws_iam_role" "ci_checks_for_rds_lambda_execution_role" {
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
+resource "aws_iam_role" "seed_db_lambda_execution_role" {
+  name               = "${var.PREFIX}${var.ENVIRONMENT}ExecutionRoleForSeedDBLambda"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
+resource "aws_iam_role" "http_api_lambda_execution_role" {
+  name               = "${var.PREFIX}${var.ENVIRONMENT}ExecutionRoleForHTTPAPILambda"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+}
+
 data "aws_iam_policy_document" "generic_create_log_group_policy_doc" {
   statement {
     sid       = "GenericCreateLogGroup"
@@ -193,7 +203,7 @@ data "aws_iam_policy_document" "destroy_instance_lambda_policy_doc" {
   }
 }
 
-data "aws_iam_policy_document" "ci_checks_for_rds_lambda_policy_doc" {
+data "aws_iam_policy_document" "ci_checks_for_rds_lambda_logging_policy_doc" {
   source_policy_documents = [
     data.aws_iam_policy_document.generic_create_log_group_policy_doc.json
   ]
@@ -211,9 +221,45 @@ data "aws_iam_policy_document" "ci_checks_for_rds_lambda_policy_doc" {
   }
 }
 
-data "aws_iam_policy_document" "ci_checks_for_rds_lambda_secrets_access_policy_doc" {
+data "aws_iam_policy_document" "seed_db_lambda_logging_policy_doc" {
+  source_policy_documents = [
+    data.aws_iam_policy_document.generic_create_log_group_policy_doc.json
+  ]
+
   statement {
-    sid    = "CIChecksForRDSLambdaSecretsAccess"
+    sid    = "SeedDBLambdaLogging"
+    effect = "Allow"
+
+    actions = [
+      "logs:DestroyLogStream",
+      "logs:PutLogEvents",
+    ]
+
+    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-seed-db-lambda:*"]
+  }
+}
+
+data "aws_iam_policy_document" "http_api_lambda_logging_policy_doc" {
+  source_policy_documents = [
+    data.aws_iam_policy_document.generic_create_log_group_policy_doc.json
+  ]
+
+  statement {
+    sid    = "SeedDBLambdaLogging"
+    effect = "Allow"
+
+    actions = [
+      "logs:DestroyLogStream",
+      "logs:PutLogEvents",
+    ]
+
+    resources = ["arn:aws:logs:${var.AWS_REGION}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.PREFIX}-${var.ENVIRONMENT}-http-api-lambda:*"]
+  }
+}
+
+data "aws_iam_policy_document" "lambdas_for_rds_secrets_access_policy_doc" {
+  statement {
+    sid    = "LambdasForRDSSecretsAccess"
     effect = "Allow"
 
     actions = [
@@ -227,7 +273,7 @@ data "aws_iam_policy_document" "ci_checks_for_rds_lambda_secrets_access_policy_d
   }
 
   statement {
-    sid    = "CIChecksForRDSLambdaKMSAccess"
+    sid    = "LambdasForRDSKMSAccess"
     effect = "Allow"
 
     actions = [
@@ -256,16 +302,28 @@ resource "aws_iam_policy" "destroy_instance_lambda_policy" {
   policy      = data.aws_iam_policy_document.destroy_instance_lambda_policy_doc.json
 }
 
-resource "aws_iam_policy" "ci_checks_for_rds_lambda_policy" {
+resource "aws_iam_policy" "ci_checks_for_rds_lambda_logging_policy" {
   name        = "${var.PREFIX}${var.ENVIRONMENT}LoggingPolicyForCIChecksForRDSLambda"
   description = "Policy allowing the CI Checks for RDS Lambda to write logs"
-  policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_policy_doc.json
+  policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_logging_policy_doc.json
 }
 
-resource "aws_iam_policy" "ci_checks_for_rds_lambda_secrets_access_policy" {
-  name        = "${var.PREFIX}${var.ENVIRONMENT}SecretsPolicyForCIChecksForRDSLambda"
-  description = "Policy allowing the CI Checks for RDS Lambda to access required Secrets Manager secrets"
-  policy      = data.aws_iam_policy_document.ci_checks_for_rds_lambda_secrets_access_policy_doc.json
+resource "aws_iam_policy" "seed_db_lambda_logging_policy" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}LoggingPolicyForSeedDBLambda"
+  description = "Policy allowing the Seed DB Lambda to write logs"
+  policy      = data.aws_iam_policy_document.seed_db_lambda_logging_policy_doc.json
+}
+
+resource "aws_iam_policy" "http_api_lambda_logging_policy" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}LoggingPolicyForHTTPAPILambda"
+  description = "Policy allowing the HTTP API Lambda to write logs"
+  policy      = data.aws_iam_policy_document.http_api_lambda_logging_policy_doc.json
+}
+
+resource "aws_iam_policy" "lambdas_for_rds_secrets_access_policy" {
+  name        = "${var.PREFIX}${var.ENVIRONMENT}SecretsPolicyForLambdasForRDS"
+  description = "Policy allowing RDS-interfacing Lambdas to access required Secrets Manager secrets"
+  policy      = data.aws_iam_policy_document.lambdas_for_rds_secrets_access_policy_doc.json
 
 }
 
@@ -297,14 +355,14 @@ resource "aws_iam_role_policy_attachment" "destroy_instance_lambda_basic_executi
   policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
 }
 
-resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_policy_attachment" {
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_logging_policy_attachment" {
   role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
-  policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_policy.arn
+  policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_logging_policy.arn
 }
 
-resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_secrets_access_policy_attachment" {
+resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_secrets_access_policy_attachment" {
   role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
-  policy_arn = aws_iam_policy.ci_checks_for_rds_lambda_secrets_access_policy.arn
+  policy_arn = aws_iam_policy.lambdas_for_rds_secrets_access_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_basic_execution_attachment" {
@@ -314,5 +372,45 @@ resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_basic_execut
 
 resource "aws_iam_role_policy_attachment" "ci_checks_for_rds_lambda_eni_managed_policy_attachment" {
   role       = aws_iam_role.ci_checks_for_rds_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_eni_management_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "seed_db_lambda_logging_policy_attachment" {
+  role       = aws_iam_role.seed_db_lambda_execution_role.name
+  policy_arn = aws_iam_policy.seed_db_lambda_logging_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "seed_db_lambda_secrets_access_policy_attachment" {
+  role       = aws_iam_role.seed_db_lambda_execution_role.name
+  policy_arn = aws_iam_policy.lambdas_for_rds_secrets_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "seed_db_lambda_basic_execution_attachment" {
+  role       = aws_iam_role.seed_db_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "seed_db_lambda_eni_managed_policy_attachment" {
+  role       = aws_iam_role.seed_db_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_eni_management_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "http_api_lambda_logging_policy_attachment" {
+  role       = aws_iam_role.http_api_lambda_execution_role.name
+  policy_arn = aws_iam_policy.http_api_lambda_logging_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "http_api_secrets_access_policy_attachment" {
+  role       = aws_iam_role.http_api_lambda_execution_role.name
+  policy_arn = aws_iam_policy.lambdas_for_rds_secrets_access_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "http_api_lambda_basic_execution_attachment" {
+  role       = aws_iam_role.http_api_lambda_execution_role.name
+  policy_arn = data.aws_iam_policy.lambda_basic_execution_role_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "http_api_lambda_eni_managed_policy_attachment" {
+  role       = aws_iam_role.http_api_lambda_execution_role.name
   policy_arn = data.aws_iam_policy.lambda_eni_management_access_policy.arn
 }

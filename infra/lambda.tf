@@ -21,7 +21,7 @@ resource "aws_lambda_layer_version" "psycopg_layer" {
 
 # data "archive_file" "create_instance_lambda_code" {
 #   type        = "zip"
-#   source_file = "${path.module}/../src/create_budibase_instance.py"
+#   source_file = "${path.module}/../src/lambdas/create_budibase_instance.py"
 #   output_path = "${path.module}/../packages/lambda-ecs/create_budibase_instance.zip"
 
 # }
@@ -35,7 +35,7 @@ resource "aws_lambda_function" "create_instance_lambda" {
   handler       = "create_budibase_instance.lambda_handler"
   # code_sha256   = data.archive_file.create_instance_lambda_code.output_base64sha256
 
-  source_code_hash = filebase64sha256("${path.module}/../src/create_budibase_instance.py")
+  source_code_hash = filebase64sha256("${path.module}/../src/lambdas/create_budibase_instance.py")
 
   runtime = "python3.12"
   publish = true
@@ -51,7 +51,7 @@ resource "aws_lambda_function" "create_instance_lambda" {
 
 # data "archive_file" "destroy_instance_lambda_code" {
 #   type        = "zip"
-#   source_file = "${path.module}/../src/destroy_budibase_instance.py"
+#   source_file = "${path.module}/../src/lambdas/destroy_budibase_instance.py"
 #   output_path = "${path.module}/../packages/lambda-ecs/destroy_budibase_instance.zip"
 
 # }
@@ -65,7 +65,7 @@ resource "aws_lambda_function" "destroy_instance_lambda" {
   handler       = "destroy_budibase_instance.lambda_handler"
   # code_sha256   = data.archive_file.destroy_instance_lambda_code.output_base64sha256
 
-  source_code_hash = filebase64sha256(("${path.module}/../src/destroy_budibase_instance.py"))
+  source_code_hash = filebase64sha256(("${path.module}/../src/lambdas/destroy_budibase_instance.py"))
 
   runtime = "python3.12"
   publish = true
@@ -86,7 +86,7 @@ resource "aws_lambda_function" "ci_checks_for_rds_lambda" {
   role          = aws_iam_role.ci_checks_for_rds_lambda_execution_role.arn
   handler       = "ci_checks_for_rds.lambda_handler"
 
-  source_code_hash = filebase64sha256(("${path.module}/../src/ci_checks_for_rds.py"))
+  source_code_hash = filebase64sha256(("${path.module}/../src/lambdas/ci_checks_for_rds.py"))
 
   runtime = "python3.12"
   publish = true
@@ -113,4 +113,59 @@ resource "aws_lambda_function" "ci_checks_for_rds_lambda" {
   #   aws_route_table_private["0"],   # - and associations?
   #   aws_nat_gateway.ngw["0"],
   # ]
+}
+
+resource "aws_lambda_function" "seed_db_lambda" {
+  function_name = "${var.PREFIX}-${var.ENVIRONMENT}-seed-db-lambda"
+  s3_bucket     = var.CODE_BUCKET
+  s3_key        = "seed_db/${var.LAMBDA_SEED_DB_VERSION}.zip"
+  role          = aws_iam_role.seed_db_lambda_execution_role.arn
+  handler       = "seed_db.lambda_handler"
+
+  source_code_hash = filebase64sha256("${path.module}/../src/lambdas/seed_db.py")
+
+  runtime = "python3.12"
+  publish = true
+  layers  = [aws_lambda_layer_version.psycopg_layer.arn]
+  timeout = 30
+
+  vpc_config {
+    subnet_ids = tolist([
+      for key in var.SUBNETS_BY_ENV[var.ENVIRONMENT] :
+      aws_subnet.private[key].id
+    ])
+    security_group_ids = [aws_security_group.lambdas_for_rds.id]
+  }
+}
+
+resource "aws_lambda_function" "http_api_lambda" {
+  function_name = "${var.PREFIX}-${var.ENVIRONMENT}-http-api-lambda"
+  s3_bucket     = var.CODE_BUCKET
+  s3_key        = "http_api/${var.LAMBDA_HTTP_API_VERSION}.zip"
+  role          = aws_iam_role.http_api_lambda_execution_role.arn
+  handler       = "http_api.lambda_handler"
+
+  source_code_hash = filebase64sha256("${path.module}/../src/lambdas/http_api.py")
+
+  runtime = "python3.12"
+  publish = true
+  timeout = 30
+  layers = [
+    aws_lambda_layer_version.psycopg_layer.arn,
+    var.LAMBDA_POWERTOOLS_LAYER_ARN,
+  ]
+
+  vpc_config {
+    subnet_ids = tolist([
+      for key in var.SUBNETS_BY_ENV[var.ENVIRONMENT] :
+      aws_subnet.private[key].id
+    ])
+    security_group_ids = [aws_security_group.lambdas_for_rds.id]
+  }
+
+  environment {
+    variables = {
+      "RDS_LOGIN_SECRET" = aws_secretsmanager_secret.rds_connection_info.name
+    }
+  }
 }
