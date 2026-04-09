@@ -10,6 +10,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
       
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: "auto"
+
+      - name: Prepare Lambda layers
+        run: make prepare-psycopg-layer
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
