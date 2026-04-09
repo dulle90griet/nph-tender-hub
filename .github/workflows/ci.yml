@@ -575,7 +575,7 @@ jobs:
             echo "Load balancer available at $LB_URL"
 
             start_time="$SECONDS"
-            until curl -s "$LB_URL" | grep -q 'Redirecting to <a href="/builder">/builder</a>'; do
+            until curl -s "$LB_URL" | grep -qE 'Redirecting to.+\/builder'; do
               elapsed="$(( SECONDS - start_time ))"
               timestamp=""
               if [ "$elapsed" -ge 10 ]; then
