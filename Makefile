@@ -107,12 +107,35 @@ deploy-to-dev:
 	@cd infra && terraform plan -out=tfplan -no-color -var-file="envs/dev/terraform.tfvars" 2>&1 > plan.out
 	@printf "\n%s\n" "Plan successfully output."
 	@echo "If you wish to proceed with the plan in infra/plan.out, type Y: ";
-	@read RESPONSE; \
+	@read RESPONSE && \
 	if [[ "$$RESPONSE" == "Y" ]]; then \
+		printf "\n"; \
 		cd infra && terraform apply tfplan; \
 	else \
 		printf "\n%s\n" "Terraform plan will not be applied. Exiting."; \
 	fi
+
+spin-up-dev: deploy-to-dev
+	@cd infra && \
+	printf "\n%s\n" "Packaging rds_connection_info_secret_name into event JSON ..." && \
+	EVENT_JSON="$$(jq -n \
+		--arg RDS_login_secret "$$(terraform output -raw rds_connection_info_secret_name)" \
+		'{RDS_login_secret: $$RDS_login_secret}')" && \
+	PAYLOAD_B64=$$(echo -n $$EVENT_JSON | base64) && \
+	printf "\n%s\n" "Calling Lambda to seed the database ..." && \
+	printf "\n%s\n" "LAMBDA OUTPUT:" && \
+	aws lambda invoke \
+		--function-name "$$(terraform output -raw lambda_seed_db_name)" \
+		--payload "$$PAYLOAD_B64" \
+		--no-cli-pager \
+		lambda_seed_db.out
+	@cd infra && \
+	printf "\n%s\n" "Calling Lambda to create a Fargate task ..." && \
+	printf "\n%s\n" "LAMBDA OUTPUT:" && \
+	aws lambda invoke \
+		--function-name "$$(terraform output -raw lambda_create_service_name)" \
+		--no-cli-pager \
+		lambda_create_service.out
 
 clean:
 	rm -rf packages/temp build
