@@ -116,6 +116,8 @@ deploy-to-dev:
 	fi
 
 spin-up-dev: deploy-to-dev
+	@printf "\n%s\n" "Waiting for IAM permissions to propagate..."
+	@sleep 10
 	@cd infra && \
 	printf "\n%s\n" "Packaging rds_connection_info_secret_name into event JSON ..." && \
 	EVENT_JSON="$$(jq -n \
