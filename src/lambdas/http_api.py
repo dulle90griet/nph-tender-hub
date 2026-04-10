@@ -176,14 +176,18 @@ def post_job_title() -> None:
         # Ensure rows is a list of dicts to support multi-row insert
         rows = [rows]
     values = [row[column] for column in columns for row in rows]
-
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ".join(Placeholder() * len(columns))))
+        for _ in rows
+    )
     post_sql = SQL("INSERT INTO job_title ({}) VALUES ({})").format(
         SQL(", ").join(map(Identifier, columns)),
-        SQL(", ").join(Placeholder() * len(columns)),
+        placeholders,
     )
 
     with DatabaseCursor() as cursor:
         cursor.execute(post_sql, values)
+        cursor.commit()
 
 
 @app.patch("/job-title/<job_title_id>")
@@ -217,14 +221,3 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
         db_manager.close_all()
 
     return response
-
-
-# to create in Terraform:
-# - Lambda HTTP-type API Gateway trigger / endpoint
-#   > added to Lambda function itself?
-#   > security = Open
-# - or, no, first create an HTTP API Gateway
-#   > add Lambda integration
-#   > add routes
-#     o GET /job-titles
-#   > add stages?
