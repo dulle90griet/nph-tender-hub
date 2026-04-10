@@ -130,6 +130,29 @@ def seed_job_title(psql_conn):
         return res
 
 
+def seed_consumable(psql_conn, n: int):
+    gen = MedicalConsumableGenerator()
+
+    seen = set()
+    rows = []
+    while len(rows) < n:
+        name = gen.generate_name()
+        if name in seen:
+            name = f"{name} (Pack of {random.choice([10, 25, 50, 100])})"
+        if name in seen:
+            continue
+        seen.add(name)
+        cost = gen.generate_cost(name)
+        rows.append((name, cost))
+
+    with psql_conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO consumable (consumable_name, default_unit_cost_gbp) VALUES (%s, %s)",
+            rows
+        )
+        psql_conn.commit()
+
+
 def lambda_handler(event, context):
     # Logic to fetch RDS connection details using SSM Secret
     # TO BE MODULARIZED
