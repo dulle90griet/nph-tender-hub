@@ -114,5 +114,22 @@ deploy-to-dev:
 		printf "\n%s\n" "Terraform plan will not be applied. Exiting."; \
 	fi
 
+spin-up-dev: deploy-to-dev
+	@cd infra && \
+	EVENT_JSON="$$(jq -n \
+		--arg RDS_login_secret "$$(terraform output -raw rds_connection_info_secret_name)" \
+		'{RDS_login_secret: $$RDS_login_secret}')" && \
+	PAYLOAD_B64=$$(echo -n $$EVENT_JSON | base64) && \
+	aws lambda invoke \
+		--function-name "$$(terraform output -raw lambda_seed_db_name)" \
+		--payload "$$PAYLOAD_B64" \
+		--no-cli-pager \
+		lambda.out
+	@cd infra && \
+	aws lambda invoke \
+		--function-name "$$(terraform output -raw lambda_create_service_name)" \
+		--no-cli-pager \
+		lambda.out
+
 clean:
 	rm -rf packages/temp build
