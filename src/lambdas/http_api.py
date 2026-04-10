@@ -126,7 +126,7 @@ class DatabaseCursor:
 
 
 @app.get("/job-title")
-def get_job_title() -> None:
+def get_job_title() -> list:
     """GET method for job_title table"""
     max_per_page = 100
 
@@ -186,7 +186,6 @@ def post_job_title() -> None:
 
     with DatabaseCursor() as cursor:
         cursor.execute(post_sql, values)
-        cursor.commit()
 
 
 @app.patch("/job-title/<job_title_id>")
@@ -210,6 +209,32 @@ def patch_job_title(job_title_id: str) -> None:
 
     with DatabaseCursor() as cursor:
         cursor.execute(patch_sql, values + [int(job_title_id)])
+
+
+@app.get("/consumable")
+def get_consumable() -> list:
+    """GET method for consumable table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT *
+        FROM "consumable"
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
