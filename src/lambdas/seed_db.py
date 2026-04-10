@@ -25,6 +25,12 @@ def initialize_database(psql_conn):
                 ,"default_annual_training_days" decimal(3,1)
                 ,"default_annual_sick_days" decimal(3,1)
             );
+
+            CREATE TABLE "consumable" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"consumable_name" varchar(100) NOT NULL
+                ,"default_unit_cost_gbp" decimal(6,2)
+            );
         """
         cur.execute(initialize_database_sql)
 
