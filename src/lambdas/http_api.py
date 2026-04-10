@@ -158,7 +158,7 @@ def get_job_title() -> list:
 
 @app.post("/job-title")
 def post_job_title() -> None:
-    """POST method for job-title table"""
+    """POST method for job_title table"""
 
     columns = (
         "department",
@@ -175,6 +175,7 @@ def post_job_title() -> None:
     if isinstance(rows, dict):
         # Ensure rows is a list of dicts to support multi-row insert
         rows = [rows]
+
     values = [row[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ".join(Placeholder() * len(columns)))) for _ in rows
@@ -190,7 +191,7 @@ def post_job_title() -> None:
 
 @app.patch("/job-title/<job_title_id>")
 def patch_job_title(job_title_id: str) -> None:
-    """PATCH method for job-title table"""
+    """PATCH method for job_title table"""
 
     logger.info("Job title ID: %s", job_title_id)
     logger.info(app.current_event.body)
@@ -235,6 +236,53 @@ def get_consumable() -> list:
         results = cursor.fetchall()
 
     return results
+
+
+@app.post("/consumable")
+def post_consumable() -> None:
+    """POST method for consumable table"""
+
+    columns = ("consumable_name", "default_unit_cost_gbp")
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    values = [row[column] for column in columns for row in rows]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ".join(Placeholder() * len(columns)))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO consumable ({}) VALUES ({})").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/consumable/<consumable_id>")
+def patch_consumable(consumable_id: str) -> None:
+    """PATCH method for consumable table"""
+
+    logger.info("Consumable ID: %s", consumable_id)
+    logger.info(app.current_event.body)
+
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("UPDATE consumable SET {} WHERE ID = %s").format(
+        SQL(", ").join(set_parts)
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [int(consumable_id)])
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
