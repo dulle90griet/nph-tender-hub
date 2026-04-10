@@ -13,26 +13,87 @@ logger.setLevel(logging.INFO)
 
 class MedicalConsumableGenerator:
     _item_templates = [
-        ("Syringe", 0.15, 0.80), ("Needle", 0.10, 0.60), ("Glove", 0.08, 0.50),
-        ("Mask", 0.05, 1.20), ("Swab", 0.04, 0.30), ("Dressing", 0.50, 8.00),
-        ("Bandage", 0.30, 4.00), ("Test Strip", 0.20, 2.50), ("Lancet", 0.08, 0.40),
-        ("Container", 0.10, 1.50), ("Tube", 0.15, 2.00), ("Wipe", 0.03, 0.25),
-        ("Gown", 1.00, 12.00), ("Apron", 0.50, 3.00), ("Electrode", 0.20, 2.00),
-        ("Mouthpiece", 0.30, 2.50), ("Speculum", 1.50, 8.00), ("Cannula", 0.80, 5.00),
-        ("Catheter", 2.00, 20.00), ("Suture", 1.00, 15.00)
+        ("Syringe", 0.15, 0.80),
+        ("Needle", 0.10, 0.60),
+        ("Glove", 0.08, 0.50),
+        ("Mask", 0.05, 1.20),
+        ("Swab", 0.04, 0.30),
+        ("Dressing", 0.50, 8.00),
+        ("Bandage", 0.30, 4.00),
+        ("Test Strip", 0.20, 2.50),
+        ("Lancet", 0.08, 0.40),
+        ("Container", 0.10, 1.50),
+        ("Tube", 0.15, 2.00),
+        ("Wipe", 0.03, 0.25),
+        ("Gown", 1.00, 12.00),
+        ("Apron", 0.50, 3.00),
+        ("Electrode", 0.20, 2.00),
+        ("Mouthpiece", 0.30, 2.50),
+        ("Speculum", 1.50, 8.00),
+        ("Cannula", 0.80, 5.00),
+        ("Catheter", 2.00, 20.00),
+        ("Suture", 1.00, 15.00),
     ]
-    _modifiers = ["Sterile", "Disposable", "Non-Sterile", "Powder-Free", "Latex",
-                  "Nitrile", "Vinyl", "Cotton", "Gauze", "Adhesive", "Elastic"]
-    _sizes = ["Small", "Medium", "Large", "Paediatric", "Adult", "Neonatal",
-              "2ml", "5ml", "10ml", "20ml", "18G", "21G", "23G", "25G"]
-    _kits = ["Urinalysis Test Kit", "Blood Glucose Test Kit", "Cholesterol Test Kit",
-             "Pregnancy Test Kit", "Strep A Test Kit", "Influenza Test Kit",
-             "Drug Screening Kit", "Alcohol Breathalyser", "ECG Recording Paper",
-             "Spirometry Mouthpiece", "Audiometry Ear Tips", "Doppler Ultrasound Gel"]
+    _modifiers = [
+        "Sterile",
+        "Disposable",
+        "Non-Sterile",
+        "Powder-Free",
+        "Latex",
+        "Nitrile",
+        "Vinyl",
+        "Cotton",
+        "Gauze",
+        "Adhesive",
+        "Elastic",
+    ]
+    _sizes = [
+        "Small",
+        "Medium",
+        "Large",
+        "Paediatric",
+        "Adult",
+        "Neonatal",
+        "2ml",
+        "5ml",
+        "10ml",
+        "20ml",
+        "18G",
+        "21G",
+        "23G",
+        "25G",
+    ]
+    _kits = [
+        "Urinalysis Test Kit",
+        "Blood Glucose Test Kit",
+        "Cholesterol Test Kit",
+        "Pregnancy Test Kit",
+        "Strep A Test Kit",
+        "Influenza Test Kit",
+        "Drug Screening Kit",
+        "Alcohol Breathalyser",
+        "ECG Recording Paper",
+        "Spirometry Mouthpiece",
+        "Audiometry Ear Tips",
+        "Doppler Ultrasound Gel",
+    ]
 
-    _suffix_components = ["Sticks", "bottles", "gloves", "paper", "tabs", "razors",
-                          "Cotton Wool", "Sterets", "Lancets", "Test Disc", "Test Kit",
-                          "paperwork", "mouthpiece", "admin time"]
+    _suffix_components = [
+        "Sticks",
+        "bottles",
+        "gloves",
+        "paper",
+        "tabs",
+        "razors",
+        "Cotton Wool",
+        "Sterets",
+        "Lancets",
+        "Test Disc",
+        "Test Kit",
+        "paperwork",
+        "mouthpiece",
+        "admin time",
+    ]
 
     def generate_name(self) -> str:
         roll = random.random()
@@ -63,6 +124,7 @@ def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
             DROP TABLE IF EXISTS "job_title";
+            DROP TABLE IF EXISTS "consumable";
 
             CREATE TABLE "job_title" (
                 "id" SERIAL PRIMARY KEY NOT NULL
@@ -90,7 +152,7 @@ def initialize_database(psql_conn):
         """
         cur.execute(list_tables_sql)
         res = cur.fetchall()
-        logging.info("%s tables in database sent to output", len(res))
+        logger.info("%s tables in database sent to output file", len(res))
         return res
 
 
@@ -126,7 +188,7 @@ def seed_job_title(psql_conn):
         """
         cur.execute(select_from_job_title_sql)
         res = cur.fetchall()
-        logging.info("%s rows in job_title table sent to output", len(res))
+        logger.info("%s rows in job_title table sent to output file", len(res))
         return res
 
 
@@ -145,12 +207,28 @@ def seed_consumable(psql_conn, n: int):
         cost = gen.generate_cost(name)
         rows.append((name, cost))
 
+    count_consumable_sql = """
+        SELECT COUNT(*) FROM consumable;
+    """
+    select_from_consumable_sql = """
+        SELECT * FROM consumable;
+    """
+
     with psql_conn.cursor() as cur:
         cur.executemany(
             "INSERT INTO consumable (consumable_name, default_unit_cost_gbp) VALUES (%s, %s)",
-            rows
+            rows,
         )
         psql_conn.commit()
+
+        cur.execute(count_consumable_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_from_consumable_sql)
+        res = cur.fetchall()
+        logger.info(
+            "%s of %s rows in consumable table sent to output file", count, len(res)
+        )
+        return res
 
 
 def lambda_handler(event, context):
@@ -182,5 +260,7 @@ def lambda_handler(event, context):
         results["tables_in_db"] = initialize_database(conn)
         logger.info("Seeding job_title table")
         results["rows_in_job_title"] = seed_job_title(conn)
+        logger.info("Seeding consumable table")
+        results["rows_from_consumable"] = seed_consumable(conn, 100)
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}

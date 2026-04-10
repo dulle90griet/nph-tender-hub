@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import psycopg_pool
-from psycopg.sql import SQL, Identifier, Literal, Placeholder
+from psycopg.sql import SQL, Identifier, Placeholder
 from psycopg.rows import dict_row
 from aws_lambda_powertools.event_handler import (
     APIGatewayHttpResolver,
@@ -177,8 +177,7 @@ def post_job_title() -> None:
         rows = [rows]
     values = [row[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
-        SQL("({})").format(SQL(", ".join(Placeholder() * len(columns))))
-        for _ in rows
+        SQL("({})").format(SQL(", ".join(Placeholder() * len(columns)))) for _ in rows
     )
     post_sql = SQL("INSERT INTO job_title ({}) VALUES ({})").format(
         SQL(", ").join(map(Identifier, columns)),
