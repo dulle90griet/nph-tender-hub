@@ -143,6 +143,21 @@ def initialize_database(psql_conn):
                 ,"consumable_name" varchar(100) NOT NULL
                 ,"default_unit_cost_gbp" decimal(6,2)
             );
+
+            CREATE TABLE "service" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"pillar" varchar(50) NOT NULL
+                ,"category" varchar(50) NOT NULL
+                ,"service_name" varchar(75) NOT NULL
+                ,"xero_code" int NOT NULL
+                ,"overhead_recovery_on_labour_percentage" int NOT NULL
+                ,"required_profit_margin_percentage" decimal(4,2) NOT NULL
+                ,"acceptable_market_price_gbp" decimal(8,2) NOT NULL
+                ,"our_current_hourly_price_gbp" decimal(8,2) NOT NULL
+                ,"new_hourly_price_gbp" decimal(8,2)
+                ,"day_rate_gbp" decimal(9,2)
+                ,"comments" varchar(100)
+            );
         """
         cur.execute(initialize_database_sql)
 
@@ -207,12 +222,8 @@ def seed_consumable(psql_conn, n: int):
         cost = gen.generate_cost(name)
         rows.append((name, cost))
 
-    count_consumable_sql = """
-        SELECT COUNT(*) FROM consumable;
-    """
-    select_from_consumable_sql = """
-        SELECT * FROM consumable;
-    """
+    count_consumable_sql = "SELECT COUNT(*) FROM consumable;"
+    select_from_consumable_sql = "SELECT * FROM consumable LIMIT 20;"
 
     with psql_conn.cursor() as cur:
         cur.executemany(
