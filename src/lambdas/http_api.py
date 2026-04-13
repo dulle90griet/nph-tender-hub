@@ -178,9 +178,9 @@ def post_job_title() -> None:
 
     values = [row[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
-        SQL("({})").format(SQL(", ".join(Placeholder() * len(columns)))) for _ in rows
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
-    post_sql = SQL("INSERT INTO job_title ({}) VALUES ({})").format(
+    post_sql = SQL("INSERT INTO job_title ({}) VALUES {}").format(
         SQL(", ").join(map(Identifier, columns)),
         placeholders,
     )
@@ -249,16 +249,20 @@ def post_consumable() -> None:
         # Ensure rows is a list of dicts to support multi-row insert
         rows = [rows]
 
+    logger.info("POST into consumable values:")
+    logger.info(rows)
+
     values = [row[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
-        SQL("({})").format(SQL(", ".join(Placeholder() * len(columns)))) for _ in rows
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
-    post_sql = SQL("INSERT INTO consumable ({}) VALUES ({})").format(
+    post_sql = SQL("INSERT INTO consumable ({}) VALUES {}").format(
         SQL(", ").join(map(Identifier, columns)),
         placeholders,
     )
 
     with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
         cursor.execute(post_sql, values)
 
 
