@@ -360,6 +360,29 @@ def post_service() -> None:
         cursor.execute(post_sql, values)
 
 
+@app.patch("/service/<service_id>")
+def patch_service(service_id: str) -> None:
+    """PATCH method for service table"""
+
+    logger.info("PATCHing service ID: %s", service_id)
+    logger.info(app.current_event.body)
+
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("UPDATE service SET {} WHERE ID = %s").format(
+        SQL(", ").join(set_parts)
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [int(service_id)])
+
+
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     response = app.resolve(event, context)
 
