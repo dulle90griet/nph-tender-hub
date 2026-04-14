@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 import json
 import logging
 import psycopg_pool
@@ -18,7 +19,19 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
-app = APIGatewayHttpResolver()
+
+class EncoderWithStringDecimal(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        return super().default(obj)
+
+
+def custom_serializer(obj):
+    return json.dumps(obj, separators=(",", ":"), cls=EncoderWithStringDecimal)
+
+
+app = APIGatewayHttpResolver(serializer=custom_serializer)
 
 
 class DatabaseManager:
