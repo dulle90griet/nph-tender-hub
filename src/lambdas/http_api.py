@@ -316,6 +316,50 @@ def get_service() -> list:
     return results
 
 
+@app.post("/service")
+def post_service() -> None:
+    """POST method for service table"""
+
+    columns = (
+        "pillar",
+        "category",
+        "service_name",
+        "xero_code",
+        "overhead_recovery_on_labour_percentage",
+        "required_profit_margin_percentage",
+        "acceptable_market_price_gbp",
+        "our_current_hourly_price_gbp",
+        "new_hourly_price_gbp",
+        "day_rate_gbp",
+        "comments",
+    )
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into service values:")
+    logger.info(rows)
+
+    values = [
+        row[column] if row[column] != "null" else None
+        for column in columns
+        for row in rows
+    ]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO service ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     response = app.resolve(event, context)
 
