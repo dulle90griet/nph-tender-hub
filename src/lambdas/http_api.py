@@ -139,7 +139,7 @@ def get_job_title() -> list:
 
     get_sql = SQL("""
         SELECT *
-        FROM "job_title"
+        FROM job_title
         LIMIT {per_page}
         OFFSET {offset}
     """).format(per_page=per_page, offset=offset)
@@ -193,7 +193,7 @@ def post_job_title() -> None:
 def patch_job_title(job_title_id: str) -> None:
     """PATCH method for job_title table"""
 
-    logger.info("Job title ID: %s", job_title_id)
+    logger.info("PATCHing job title ID: %s", job_title_id)
     logger.info(app.current_event.body)
 
     updated_columns = json.loads(app.current_event.body)
@@ -226,7 +226,7 @@ def get_consumable() -> list:
 
     get_sql = SQL("""
         SELECT *
-        FROM "consumable"
+        FROM consumable
         LIMIT {per_page}
         OFFSET {offset}
     """).format(per_page=per_page, offset=offset)
@@ -270,7 +270,7 @@ def post_consumable() -> None:
 def patch_consumable(consumable_id: str) -> None:
     """PATCH method for consumable table"""
 
-    logger.info("Consumable ID: %s", consumable_id)
+    logger.info("PATCHing consumable ID: %s", consumable_id)
     logger.info(app.current_event.body)
 
     updated_columns = json.loads(app.current_event.body)
@@ -287,6 +287,33 @@ def patch_consumable(consumable_id: str) -> None:
 
     with DatabaseCursor() as cursor:
         cursor.execute(patch_sql, values + [int(consumable_id)])
+
+
+@app.get("/service")
+def get_service() -> list:
+    """GET method for service table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT *
+        FROM service
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    logger.info(results)
+    return results
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
