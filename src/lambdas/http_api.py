@@ -21,14 +21,14 @@ logger.setLevel(logging.INFO)
 
 
 class EncoderWithStringDecimal(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Decimal):
-            return str(obj)
-        return super().default(obj)
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return str(o)
+        return super().default(o)
 
 
-def custom_serializer(obj):
-    return json.dumps(obj, separators=(",", ":"), cls=EncoderWithStringDecimal)
+def custom_serializer(o):
+    return json.dumps(o, separators=(",", ":"), cls=EncoderWithStringDecimal)
 
 
 app = APIGatewayHttpResolver(serializer=custom_serializer)
@@ -394,6 +394,88 @@ def patch_service(service_id: str) -> None:
 
     with DatabaseCursor() as cursor:
         cursor.execute(patch_sql, values + [int(service_id)])
+
+
+@app.get("/overhead-cost")
+def get_overhead_cost() -> list:
+    """GET method for overhead_cost table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT *
+        FROM overhead_cost
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    logger.info(results)
+    return results
+
+
+@app.post("/overhead-cost")
+def post_overhead_cost() -> None:
+    """POST method for overhead_cost table"""
+
+    columns = ("cost_type", "cost_description", "budgeted_spend_gbp")
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into overhead_cost values:")
+    logger.info(rows)
+
+    values = [
+        row[column] if row[column] != "null" else None
+        for column in columns
+        for row in rows
+    ]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO overhead_cost ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/overhead-cost/<overhead_cost_id>")
+def patch_overhead_cost(overhead_cost_id: str) -> None:
+    """PATCH method for overhead_cost table"""
+
+    logger.info("PATCHing overhead_cost ID: %s", overhead_cost_id)
+    logger.info(app.current_event.body)
+
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("UPDATE overhead_cost SET {} WHERE ID = %s").format(
+        SQL(", ").join(set_parts)
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [int(overhead_cost_id)])
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:

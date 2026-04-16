@@ -11,7 +11,7 @@ logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
 
-class MedicalConsumableGenerator:
+class ConsumableGenerator:
     _item_templates = [
         ("Syringe", 0.15, 0.80),
         ("Needle", 0.10, 0.60),
@@ -297,12 +297,68 @@ class ServiceGenerator:
         )
 
 
+class OverheadCostGenerator:
+    _types = ["Facilities", "Technology", "Administrative", "Professional Fees"]
+    _types += ["Marketing", "Employee Benefits", "HR", "Business Development"]
+    _stems = {
+        "Facilities": [
+            "Office Rent",
+            "Utilities",
+            "Cleaning",
+            "Security",
+            "Maintenance",
+        ],
+        "Technology": ["Software", "Hardware", "Cloud", "Licenses", "Support"],
+        "Administrative": [
+            "Supplies",
+            "Insurance",
+            "Travel",
+            "Postage",
+            "Subscriptions",
+        ],
+        "Professional Fees": ["Accounting", "Legal", "Consulting", "Audit", "Tax Prep"],
+        "Marketing": ["Advertising", "SEO", "Content", "Social Media", "Events", "PR"],
+        "Employee Benefits": ["Health Insurance", "Pension", "Bonuses", "Perks"],
+        "HR": ["Recruitment", "Training", "Compliance", "Onboarding", "Surveys"],
+        "Business Development": ["Entertainment", "Trade Shows", "Sponsorships"],
+        "Employee Development": ["Courses", "Certifications", "Coaching", "Mentoring"],
+    }
+    _mods = ["Main", "Q1", "Q2", "Q3", "Q4", "Basic", "Premium", "Annual", "Monthly"]
+    _mods += ["On‑Site", "Remote", "EU", "UK", "Global", "Extended", "Plus"]
+
+    def generate_row(self, seen_descriptions: set) -> tuple:
+        cost_type = random.choice(self._types)
+        available = [d for d in self._stems[cost_type] if d not in seen_descriptions]
+        if not available:
+            base = random.choice(self._stems[cost_type])
+            description = (
+                f"{base} ({random.choice(self._mods)})"
+                if random.random() < 0.5
+                else f"{base} (Variant {random.randint(2, 99)})"
+            )
+            while description in seen_descriptions:
+                description = f"{base} (Variant {random.randint(2, 99)})"
+            while len(description) > 30:
+                words = description.split(" ")
+                words.pop(random.choice(len(words)))
+                description = " ".join(words)
+        else:
+            description = random.choice(available)
+        seen_descriptions.add(description)
+
+        budget = random.randint(1000, 85000)
+        budget = round(budget / 500) * 500
+
+        return (cost_type, description, budget)
+
+
 def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
             DROP TABLE IF EXISTS "job_title";
             DROP TABLE IF EXISTS "consumable";
             DROP TABLE IF EXISTS "service";
+            DROP TABLE IF EXISTS "overhead_cost";
 
             CREATE TABLE "job_title" (
                 "id" SERIAL PRIMARY KEY NOT NULL
@@ -335,6 +391,13 @@ def initialize_database(psql_conn):
                 ,"new_hourly_price_gbp" decimal(8,2)
                 ,"new_day_rate_gbp" decimal(9,2)
                 ,"comments" varchar(100)
+            );
+
+            CREATE TABLE "overhead_cost" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"cost_type" varchar(30) NOT NULL
+                ,"cost_description" varchar(30) NOT NULL
+                ,"budgeted_spend_gbp" int NOT NULL
             );
         """
         cur.execute(initialize_database_sql)
@@ -381,12 +444,12 @@ def seed_job_title(psql_conn):
         """
         cur.execute(select_from_job_title_sql)
         res = cur.fetchall()
-        logger.info("%s rows in job_title table sent to output file", len(res))
+        logger.info("%s rows in job_title table", len(res))
         return res
 
 
 def seed_consumable(psql_conn, n: int):
-    gen = MedicalConsumableGenerator()
+    gen = ConsumableGenerator()
 
     seen = set()
     rows = []
@@ -414,9 +477,7 @@ def seed_consumable(psql_conn, n: int):
         count = cur.fetchone()[0]
         cur.execute(select_from_consumable_sql)
         res = cur.fetchall()
-        logger.info(
-            "%s of %s rows in consumable table sent to output file", len(res), count
-        )
+        logger.info("Returning %s of %s rows in consumable table", len(res), count)
         return res
 
 
@@ -452,9 +513,32 @@ def seed_service(psql_conn, n: int):
         count = cur.fetchone()[0]
         cur.execute(select_service_sql)
         res = cur.fetchall()
-        logger.info(
-            "%s of %s rows in service table sent to output file", len(res), count
-        )
+        logger.info("Returning %s of %s rows in service table", len(res), count)
+        return res
+
+
+def seed_overhead_cost(psql_conn, n: int):
+    gen = OverheadCostGenerator()
+    seen = set()
+    rows = [gen.generate_row(seen) for _ in range(n)]
+
+    insert_overhead_cost_sql = """
+        INSERT INTO overhead_cost (cost_type, cost_description, budgeted_spend_gbp)
+        VALUES (%s, %s, %s)
+    """
+
+    count_overhead_cost_sql = "SELECT COUNT(*) FROM overhead_cost;"
+    select_overhead_cost_sql = "SELECT * FROM overhead_cost LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.executemany(insert_overhead_cost_sql, rows)
+        psql_conn.commit()
+
+        cur.execute(count_overhead_cost_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_overhead_cost_sql)
+        res = cur.fetchall()
+        logger.info("Returning %s of %s rows in overhead_cost table", len(res), count)
         return res
 
 
@@ -491,5 +575,7 @@ def lambda_handler(event, context):
         results["rows_from_consumable"] = seed_consumable(conn, 75)
         logger.info("Seeding service table")
         results["rows_from_service"] = seed_service(conn, 100)
+        logger.info("Seeding overhead_cost table")
+        results["rows_from_overhead_cost"] = seed_overhead_cost(conn, 100)
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
