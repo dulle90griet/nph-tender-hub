@@ -302,6 +302,7 @@ def initialize_database(psql_conn):
         initialize_database_sql = """
             DROP TABLE IF EXISTS "job_title";
             DROP TABLE IF EXISTS "consumable";
+            DROP TABLE IF EXISTS "service";
 
             CREATE TABLE "job_title" (
                 "id" SERIAL PRIMARY KEY NOT NULL
@@ -332,7 +333,7 @@ def initialize_database(psql_conn):
                 ,"acceptable_market_price_gbp" decimal(8,2) NOT NULL
                 ,"our_current_hourly_price_gbp" decimal(8,2) NOT NULL
                 ,"new_hourly_price_gbp" decimal(8,2)
-                ,"day_rate_gbp" decimal(9,2)
+                ,"new_day_rate_gbp" decimal(9,2)
                 ,"comments" varchar(100)
             );
         """
@@ -435,7 +436,7 @@ def seed_service(psql_conn, n: int):
             acceptable_market_price_gbp,
             our_current_hourly_price_gbp,
             new_hourly_price_gbp,
-            day_rate_gbp,
+            new_day_rate_gbp,
             comments
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """

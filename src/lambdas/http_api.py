@@ -343,7 +343,7 @@ def post_service() -> None:
         "acceptable_market_price_gbp",
         "our_current_hourly_price_gbp",
         "new_hourly_price_gbp",
-        "day_rate_gbp",
+        "new_day_rate_gbp",
         "comments",
     )
 
