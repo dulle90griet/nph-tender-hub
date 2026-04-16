@@ -21,14 +21,14 @@ logger.setLevel(logging.INFO)
 
 
 class EncoderWithStringDecimal(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Decimal):
-            return str(obj)
-        return super().default(obj)
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return str(o)
+        return super().default(o)
 
 
-def custom_serializer(obj):
-    return json.dumps(obj, separators=(",", ":"), cls=EncoderWithStringDecimal)
+def custom_serializer(o):
+    return json.dumps(o, separators=(",", ":"), cls=EncoderWithStringDecimal)
 
 
 app = APIGatewayHttpResolver(serializer=custom_serializer)
