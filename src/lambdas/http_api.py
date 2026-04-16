@@ -396,6 +396,33 @@ def patch_service(service_id: str) -> None:
         cursor.execute(patch_sql, values + [int(service_id)])
 
 
+@app.get("/overhead-cost")
+def get_overhead_cost() -> list:
+    """GET method for overhead_cost table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT *
+        FROM overhead_cost
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    logger.info(results)
+    return results
+
+
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     response = app.resolve(event, context)
 
