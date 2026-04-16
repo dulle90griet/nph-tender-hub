@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 import json
 import logging
 import psycopg_pool
@@ -18,7 +19,19 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
-app = APIGatewayHttpResolver()
+
+class EncoderWithStringDecimal(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        return super().default(obj)
+
+
+def custom_serializer(obj):
+    return json.dumps(obj, separators=(",", ":"), cls=EncoderWithStringDecimal)
+
+
+app = APIGatewayHttpResolver(serializer=custom_serializer)
 
 
 class DatabaseManager:
@@ -139,7 +152,7 @@ def get_job_title() -> list:
 
     get_sql = SQL("""
         SELECT *
-        FROM "job_title"
+        FROM job_title
         LIMIT {per_page}
         OFFSET {offset}
     """).format(per_page=per_page, offset=offset)
@@ -193,7 +206,7 @@ def post_job_title() -> None:
 def patch_job_title(job_title_id: str) -> None:
     """PATCH method for job_title table"""
 
-    logger.info("Job title ID: %s", job_title_id)
+    logger.info("PATCHing job title ID: %s", job_title_id)
     logger.info(app.current_event.body)
 
     updated_columns = json.loads(app.current_event.body)
@@ -226,7 +239,7 @@ def get_consumable() -> list:
 
     get_sql = SQL("""
         SELECT *
-        FROM "consumable"
+        FROM consumable
         LIMIT {per_page}
         OFFSET {offset}
     """).format(per_page=per_page, offset=offset)
@@ -270,7 +283,7 @@ def post_consumable() -> None:
 def patch_consumable(consumable_id: str) -> None:
     """PATCH method for consumable table"""
 
-    logger.info("Consumable ID: %s", consumable_id)
+    logger.info("PATCHing consumable ID: %s", consumable_id)
     logger.info(app.current_event.body)
 
     updated_columns = json.loads(app.current_event.body)
@@ -287,6 +300,100 @@ def patch_consumable(consumable_id: str) -> None:
 
     with DatabaseCursor() as cursor:
         cursor.execute(patch_sql, values + [int(consumable_id)])
+
+
+@app.get("/service")
+def get_service() -> list:
+    """GET method for service table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT *
+        FROM service
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    logger.info(results)
+    return results
+
+
+@app.post("/service")
+def post_service() -> None:
+    """POST method for service table"""
+
+    columns = (
+        "pillar",
+        "category",
+        "service_name",
+        "xero_code",
+        "overhead_recovery_on_labour_percentage",
+        "required_profit_margin_percentage",
+        "acceptable_market_price_gbp",
+        "our_current_hourly_price_gbp",
+        "new_hourly_price_gbp",
+        "new_day_rate_gbp",
+        "comments",
+    )
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into service values:")
+    logger.info(rows)
+
+    values = [
+        row[column] if row[column] != "null" else None
+        for column in columns
+        for row in rows
+    ]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO service ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/service/<service_id>")
+def patch_service(service_id: str) -> None:
+    """PATCH method for service table"""
+
+    logger.info("PATCHing service ID: %s", service_id)
+    logger.info(app.current_event.body)
+
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("UPDATE service SET {} WHERE ID = %s").format(
+        SQL(", ").join(set_parts)
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [int(service_id)])
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:

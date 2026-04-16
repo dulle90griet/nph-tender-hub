@@ -120,11 +120,189 @@ class MedicalConsumableGenerator:
         return Decimal(str(round(random.uniform(1.50, 45.00), 2)))
 
 
+class ServiceGenerator:
+    _pillars = [
+        "Attendance Management",
+        "Health Promotion",
+        "Clinical Services",
+        "Pathology",
+        "Travel Health",
+        "Unknown Pillar Name",
+    ]
+
+    _categories_by_pillar = {
+        "Attendance Management": [
+            "Onsite Service Lines (Client)",
+            "Victory House",
+            "Attendance Management",
+        ],
+        "Health Promotion": ["Private GP", "Wellbeing"],
+        "Clinical Services": [
+            "Doctor Medicals",
+            "Nurse Medicals",
+            "Physiotherapy",
+            "Counselling",
+        ],
+        "Pathology": ["Pathology Tests"],
+        "Travel Health": ["Vaccinations", "Travel Risk Assessments"],
+        "Unknown Pillar Name": [
+            "Doctor Medicals",
+            "Nurse Medicals",
+            "Pathology Tests",
+            "Vaccinations",
+            "Counselling",
+        ],
+    }
+
+    _roles = [
+        "OH Physician",
+        "OH Advisor",
+        "OH Technician",
+        "Clinic Nurse",
+        "Private GP",
+        "Specialist",
+    ]
+    _tests = [
+        "Audiometry",
+        "Spirometry",
+        "ECG",
+        "Vision Test",
+        "Drug Screen",
+        "Cholesterol Check",
+        "FBC",
+        "Lipid Profile",
+        "LFT",
+        "HbA1c",
+        "PSA",
+        "Vitamin D",
+    ]
+    _vaccines = [
+        "Flu",
+        "Hepatitis A",
+        "Hepatitis B",
+        "Typhoid",
+        "Yellow Fever",
+        "MMR",
+        "Rabies",
+    ]
+    _other = [
+        "Fit Note",
+        "Prescription",
+        "Referral Letter",
+        "Ill Health Retirement",
+        "Asbestos Medical",
+        "HAVS Assessment",
+        "Lead Medical",
+        "CAA Medical",
+        "Seafarer Medical",
+        "Initial Assessment",
+        "Follow-up Session",
+        "Case Management",
+        "Room Hire",
+    ]
+
+    _prefixes = ["Onsite", "Offsite", "Remote", "Private", "Corporate", "Rapid", ""]
+    _suffixes = [
+        "Assessment",
+        "Consultation",
+        "Review",
+        "Session",
+        "Service",
+        "Test",
+        "Screen",
+        "",
+    ]
+    _durations = ["15", "20", "30", "45", "60", "90", "120"]
+
+    _overheads = [147, 200, 220, 250, 180, 210]
+
+    _comments = [None] * 4
+    _comments += [
+        "Based on numbers ordered",
+        "Plus clinical time & minimum quantity",
+        "Minimum order applies",
+        "Includes report",
+    ]
+
+    def __init__(self, start_xero_code: int = 4000):
+        self._xero = start_xero_code
+
+    def _next_xero(self) -> int:
+        code = self._xero
+        self._xero += 1
+        return code
+
+    def _build_service_name(self) -> str:
+        core = random.choice(self._roles + self._tests + self._vaccines + self._other)
+        parts = []
+        if random.random() < 0.5:
+            parts.append(random.choice(self._prefixes))
+        parts.append(core)
+        if random.random() < 0.4:
+            parts.append(random.choice(self._suffixes))
+        name = " ".join(parts)
+        if random.random() < 0.3:
+            name += f" ({random.choice(self._durations)} mins)"
+        return name
+
+    def _price_base_for_name(self, name: str) -> float:
+        if "Physician" in name or "GP" in name:
+            return random.uniform(150, 450)
+        if "Advisor" in name or "Nurse" in name:
+            return random.uniform(80, 280)
+        if "Technician" in name:
+            return random.uniform(40, 180)
+        if any(t in name for t in self._tests) or "Pathology" in name:
+            return random.uniform(30, 500)
+        if any(v in name for v in self._vaccines) or "Vaccin" in name:
+            return random.uniform(25, 200)
+        return random.uniform(50, 300)
+
+    def generate_row(self, seen_names: set) -> tuple:
+        pillar = random.choice(self._pillars)
+        category = random.choice(self._categories_by_pillar[pillar])
+
+        name = self._build_service_name()
+        while name in seen_names:
+            name = f"{self._build_service_name()} (Variant {random.randint(2, 99)})"
+        seen_names.add(name)
+
+        overhead = random.choice(self._overheads)
+        profit = Decimal(str(round(random.uniform(10.0, 30.0), 2)))
+        base_price = self._price_base_for_name(name)
+        acceptable = Decimal(str(round(base_price, 2)))
+        current = (
+            acceptable * Decimal(str(round(random.uniform(0.92, 0.98), 2)))
+        ).quantize(Decimal("0.01"))
+        new = (
+            acceptable * Decimal(str(round(random.uniform(1.02, 1.10), 2)))
+        ).quantize(Decimal("0.01"))
+        day_rate = (new * Decimal(random.choice(["7.5", "8.0"]))).quantize(
+            Decimal("0.01")
+        )
+        comment = random.choice(self._comments)
+
+        return (
+            pillar,
+            category,
+            name,
+            self._next_xero(),
+            overhead,
+            profit,
+            acceptable,
+            current,
+            new,
+            day_rate,
+            comment,
+        )
+
+
 def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
             DROP TABLE IF EXISTS "job_title";
             DROP TABLE IF EXISTS "consumable";
+            DROP TABLE IF EXISTS "service";
 
             CREATE TABLE "job_title" (
                 "id" SERIAL PRIMARY KEY NOT NULL
@@ -142,6 +320,21 @@ def initialize_database(psql_conn):
                 "id" SERIAL PRIMARY KEY NOT NULL
                 ,"consumable_name" varchar(100) NOT NULL
                 ,"default_unit_cost_gbp" decimal(6,2)
+            );
+
+            CREATE TABLE "service" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"pillar" varchar(50) NOT NULL
+                ,"category" varchar(50) NOT NULL
+                ,"service_name" varchar(75) NOT NULL
+                ,"xero_code" int NOT NULL
+                ,"overhead_recovery_on_labour_percentage" int NOT NULL
+                ,"required_profit_margin_percentage" decimal(4,2) NOT NULL
+                ,"acceptable_market_price_gbp" decimal(8,2) NOT NULL
+                ,"our_current_hourly_price_gbp" decimal(8,2) NOT NULL
+                ,"new_hourly_price_gbp" decimal(8,2)
+                ,"new_day_rate_gbp" decimal(9,2)
+                ,"comments" varchar(100)
             );
         """
         cur.execute(initialize_database_sql)
@@ -207,12 +400,8 @@ def seed_consumable(psql_conn, n: int):
         cost = gen.generate_cost(name)
         rows.append((name, cost))
 
-    count_consumable_sql = """
-        SELECT COUNT(*) FROM consumable;
-    """
-    select_from_consumable_sql = """
-        SELECT * FROM consumable;
-    """
+    count_consumable_sql = "SELECT COUNT(*) FROM consumable;"
+    select_from_consumable_sql = "SELECT * FROM consumable LIMIT 20;"
 
     with psql_conn.cursor() as cur:
         cur.executemany(
@@ -226,7 +415,45 @@ def seed_consumable(psql_conn, n: int):
         cur.execute(select_from_consumable_sql)
         res = cur.fetchall()
         logger.info(
-            "%s of %s rows in consumable table sent to output file", count, len(res)
+            "%s of %s rows in consumable table sent to output file", len(res), count
+        )
+        return res
+
+
+def seed_service(psql_conn, n: int):
+    gen = ServiceGenerator(start_xero_code=5000)
+    seen = set()
+    rows = [gen.generate_row(seen) for _ in range(n)]
+
+    insert_service_sql = """
+        INSERT INTO service (
+            pillar,
+            category,
+            service_name,
+            xero_code,
+            overhead_recovery_on_labour_percentage,
+            required_profit_margin_percentage,
+            acceptable_market_price_gbp,
+            our_current_hourly_price_gbp,
+            new_hourly_price_gbp,
+            new_day_rate_gbp,
+            comments
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+
+    count_service_sql = "SELECT COUNT(*) FROM service;"
+    select_service_sql = "SELECT * FROM service LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.executemany(insert_service_sql, rows)
+        psql_conn.commit()
+
+        cur.execute(count_service_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_service_sql)
+        res = cur.fetchall()
+        logger.info(
+            "%s of %s rows in service table sent to output file", len(res), count
         )
         return res
 
@@ -261,6 +488,8 @@ def lambda_handler(event, context):
         logger.info("Seeding job_title table")
         results["rows_in_job_title"] = seed_job_title(conn)
         logger.info("Seeding consumable table")
-        results["rows_from_consumable"] = seed_consumable(conn, 100)
+        results["rows_from_consumable"] = seed_consumable(conn, 75)
+        logger.info("Seeding service table")
+        results["rows_from_service"] = seed_service(conn, 100)
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
