@@ -295,87 +295,53 @@ class ServiceGenerator:
             day_rate,
             comment,
         )
-    
+
 
 class OverheadCostGenerator:
-    _cost_types = [
-        "Facilities",
-        "Technology",
-        "Administrative",
-        "Professional Fees",
-        "Marketing",
-        "Employee Benefits",
-        "HR",
-        "Business Development",
-        "Employee Development",
-    ]
-
-    _descriptions_by_type = {
+    _types = ["Facilities", "Technology", "Administrative", "Professional Fees"]
+    _types += ["Marketing", "Employee Benefits", "HR", "Business Development"]
+    _stems = {
         "Facilities": [
-            "Office Rent", "Utilities", "Office Cleaning", "Security Services",
-            "Waste Disposal", "Pest Control", "Landscaping", "Parking Fees",
-            "Climate Control", "Elevator Maintenance", "Fire Safety",
-            "Access Control", "CCTV Maintenance", "First Aid Supplies",
-            "Safety Equipment", "Office Furniture",
+            "Office Rent",
+            "Utilities",
+            "Cleaning",
+            "Security",
+            "Maintenance",
         ],
-        "Technology": [
-            "Internet Service", "Software Licenses", "Hardware Maintenance",
-            "Equipment Rental", "Cloud Storage", "Phone Systems",
-            "Website Maintenance", "Data Backup", "Cybersecurity",
-            "Meeting Room Equipment", "Video Conferencing", "Project Management Tools",
-            "CRM System License", "IT Support",
-        ],
+        "Technology": ["Software", "Hardware", "Cloud", "Licenses", "Support"],
         "Administrative": [
-            "Office Supplies", "Professional Insurance", "Travel Expenses",
-            "Printing Services", "Postage and Shipping", "Bank Charges",
-            "Subscriptions", "Membership Dues", "Vehicle Maintenance",
-            "Fuel Costs", "Document Storage", "Shredding Services",
+            "Supplies",
+            "Insurance",
+            "Travel",
+            "Postage",
+            "Subscriptions",
         ],
-        "Professional Fees": [
-            "Accounting Services", "Legal Services", "Consulting Fees",
-            "Audit Fees", "Tax Preparation", "Translation Services",
-            "Notary Services", "Architect Fees",
-        ],
-        "Marketing": [
-            "Marketing Materials", "Digital Advertising", "SEO Services",
-            "Social Media Management", "Content Creation", "Public Relations",
-            "Branding", "Promotional Items",
-        ],
-        "Employee Benefits": [
-            "Health Insurance", "Pension Contributions", "Team Building Events",
-            "Employee Recognition", "Wellness Program", "Performance Bonuses",
-            "Team Lunches", "Coffee and Snacks", "Fitness Subsidy",
-            "Commuter Benefits", "Mobile Phone Allowance", "Home Office Stipend",
-        ],
-        "HR": [
-            "Recruitment Costs", "Background Checks", "Temporary Staff",
-            "Employee Handbook", "Compliance Training", "Diversity Programs",
-            "Succession Planning", "Exit Interviews", "Reference Checks",
-            "Onboarding Materials", "Employee Surveys",
-        ],
-        "Business Development": [
-            "Client Entertainment", "Trade Show Participation", "Conference Fees",
-            "Corporate Gifts", "Sponsorships", "Market Research",
-            "Customer Surveys", "Networking Events",
-        ],
-        "Employee Development": [
-            "Training Programs", "Professional Development", "Certification Fees",
-            "Industry Publications", "Mentorship Program", "Coaching Sessions",
-            "Leadership Training",
-        ],
+        "Professional Fees": ["Accounting", "Legal", "Consulting", "Audit", "Tax Prep"],
+        "Marketing": ["Advertising", "SEO", "Content", "Social Media", "Events", "PR"],
+        "Employee Benefits": ["Health Insurance", "Pension", "Bonuses", "Perks"],
+        "HR": ["Recruitment", "Training", "Compliance", "Onboarding", "Surveys"],
+        "Business Development": ["Entertainment", "Trade Shows", "Sponsorships"],
+        "Employee Development": ["Courses", "Certifications", "Coaching", "Mentoring"],
     }
+    _mods = ["Main", "Q1", "Q2", "Q3", "Q4", "Basic", "Premium", "Annual", "Monthly"]
+    _mods += ["On‑Site", "Remote", "EU", "UK", "Global", "Extended", "Plus"]
 
     def generate_row(self, seen_descriptions: set) -> tuple:
-        cost_type = random.choice(self._cost_types)
-        available = [
-            d for d in self._descriptions_by_type[cost_type]
-            if d not in seen_descriptions
-        ]
+        cost_type = random.choice(self._types)
+        available = [d for d in self._stems[cost_type] if d not in seen_descriptions]
         if not available:
-            base = random.choice(self._descriptions_by_type[cost_type])
-            description = f"{base} (Variant {random.randint(2,99)})"
+            base = random.choice(self._stems[cost_type])
+            description = (
+                f"{base} ({random.choice(self._mods)})"
+                if random.random() < 0.5
+                else f"{base} (Variant {random.randint(2, 99)})"
+            )
             while description in seen_descriptions:
-                description = f"{base} (Variant {random.randint(2,99)})"
+                description = f"{base} (Variant {random.randint(2, 99)})"
+            while len(description) > 30:
+                words = description.split(" ")
+                words.pop(random.choice(len(words)))
+                description = " ".join(words)
         else:
             description = random.choice(available)
         seen_descriptions.add(description)
@@ -427,12 +393,12 @@ def initialize_database(psql_conn):
                 ,"comments" varchar(100)
             );
 
-            CREATE TABLE "overhead_cost" {
+            CREATE TABLE "overhead_cost" (
                 "id" SERIAL PRIMARY KEY NOT NULL
                 ,"cost_type" varchar(30) NOT NULL
                 ,"cost_description" varchar(30) NOT NULL
                 ,"budgeted_spend_gbp" int NOT NULL
-            };
+            );
         """
         cur.execute(initialize_database_sql)
 
@@ -511,9 +477,7 @@ def seed_consumable(psql_conn, n: int):
         count = cur.fetchone()[0]
         cur.execute(select_from_consumable_sql)
         res = cur.fetchall()
-        logger.info(
-            "Returning %s of %s rows in consumable table", len(res), count
-        )
+        logger.info("Returning %s of %s rows in consumable table", len(res), count)
         return res
 
 
@@ -549,9 +513,7 @@ def seed_service(psql_conn, n: int):
         count = cur.fetchone()[0]
         cur.execute(select_service_sql)
         res = cur.fetchall()
-        logger.info(
-            "Returning %s of %s rows in service table", len(res), count
-        )
+        logger.info("Returning %s of %s rows in service table", len(res), count)
         return res
 
 
