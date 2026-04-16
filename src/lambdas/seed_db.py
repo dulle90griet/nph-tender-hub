@@ -11,7 +11,7 @@ logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
 
-class MedicalConsumableGenerator:
+class ConsumableGenerator:
     _item_templates = [
         ("Syringe", 0.15, 0.80),
         ("Needle", 0.10, 0.60),
@@ -295,6 +295,95 @@ class ServiceGenerator:
             day_rate,
             comment,
         )
+    
+
+class OverheadCostGenerator:
+    _cost_types = [
+        "Facilities",
+        "Technology",
+        "Administrative",
+        "Professional Fees",
+        "Marketing",
+        "Employee Benefits",
+        "HR",
+        "Business Development",
+        "Employee Development",
+    ]
+
+    _descriptions_by_type = {
+        "Facilities": [
+            "Office Rent", "Utilities", "Office Cleaning", "Security Services",
+            "Waste Disposal", "Pest Control", "Landscaping", "Parking Fees",
+            "Climate Control", "Elevator Maintenance", "Fire Safety",
+            "Access Control", "CCTV Maintenance", "First Aid Supplies",
+            "Safety Equipment", "Office Furniture",
+        ],
+        "Technology": [
+            "Internet Service", "Software Licenses", "Hardware Maintenance",
+            "Equipment Rental", "Cloud Storage", "Phone Systems",
+            "Website Maintenance", "Data Backup", "Cybersecurity",
+            "Meeting Room Equipment", "Video Conferencing", "Project Management Tools",
+            "CRM System License", "IT Support",
+        ],
+        "Administrative": [
+            "Office Supplies", "Professional Insurance", "Travel Expenses",
+            "Printing Services", "Postage and Shipping", "Bank Charges",
+            "Subscriptions", "Membership Dues", "Vehicle Maintenance",
+            "Fuel Costs", "Document Storage", "Shredding Services",
+        ],
+        "Professional Fees": [
+            "Accounting Services", "Legal Services", "Consulting Fees",
+            "Audit Fees", "Tax Preparation", "Translation Services",
+            "Notary Services", "Architect Fees",
+        ],
+        "Marketing": [
+            "Marketing Materials", "Digital Advertising", "SEO Services",
+            "Social Media Management", "Content Creation", "Public Relations",
+            "Branding", "Promotional Items",
+        ],
+        "Employee Benefits": [
+            "Health Insurance", "Pension Contributions", "Team Building Events",
+            "Employee Recognition", "Wellness Program", "Performance Bonuses",
+            "Team Lunches", "Coffee and Snacks", "Fitness Subsidy",
+            "Commuter Benefits", "Mobile Phone Allowance", "Home Office Stipend",
+        ],
+        "HR": [
+            "Recruitment Costs", "Background Checks", "Temporary Staff",
+            "Employee Handbook", "Compliance Training", "Diversity Programs",
+            "Succession Planning", "Exit Interviews", "Reference Checks",
+            "Onboarding Materials", "Employee Surveys",
+        ],
+        "Business Development": [
+            "Client Entertainment", "Trade Show Participation", "Conference Fees",
+            "Corporate Gifts", "Sponsorships", "Market Research",
+            "Customer Surveys", "Networking Events",
+        ],
+        "Employee Development": [
+            "Training Programs", "Professional Development", "Certification Fees",
+            "Industry Publications", "Mentorship Program", "Coaching Sessions",
+            "Leadership Training",
+        ],
+    }
+
+    def generate_row(self, seen_descriptions: set) -> tuple:
+        cost_type = random.choice(self._cost_types)
+        available = [
+            d for d in self._descriptions_by_type[cost_type]
+            if d not in seen_descriptions
+        ]
+        if not available:
+            base = random.choice(self._descriptions_by_type[cost_type])
+            description = f"{base} (Variant {random.randint(2,99)})"
+            while description in seen_descriptions:
+                description = f"{base} (Variant {random.randint(2,99)})"
+        else:
+            description = random.choice(available)
+        seen_descriptions.add(description)
+
+        budget = random.randint(1000, 85000)
+        budget = round(budget / 500) * 500
+
+        return (cost_type, description, budget)
 
 
 def initialize_database(psql_conn):
@@ -303,6 +392,7 @@ def initialize_database(psql_conn):
             DROP TABLE IF EXISTS "job_title";
             DROP TABLE IF EXISTS "consumable";
             DROP TABLE IF EXISTS "service";
+            DROP TABLE IF EXISTS "overhead_cost";
 
             CREATE TABLE "job_title" (
                 "id" SERIAL PRIMARY KEY NOT NULL
@@ -336,6 +426,13 @@ def initialize_database(psql_conn):
                 ,"new_day_rate_gbp" decimal(9,2)
                 ,"comments" varchar(100)
             );
+
+            CREATE TABLE "overhead_cost" {
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"cost_type" varchar(30) NOT NULL
+                ,"cost_description" varchar(30) NOT NULL
+                ,"budgeted_spend_gbp" int NOT NULL
+            };
         """
         cur.execute(initialize_database_sql)
 
@@ -381,12 +478,12 @@ def seed_job_title(psql_conn):
         """
         cur.execute(select_from_job_title_sql)
         res = cur.fetchall()
-        logger.info("%s rows in job_title table sent to output file", len(res))
+        logger.info("%s rows in job_title table", len(res))
         return res
 
 
 def seed_consumable(psql_conn, n: int):
-    gen = MedicalConsumableGenerator()
+    gen = ConsumableGenerator()
 
     seen = set()
     rows = []
@@ -415,7 +512,7 @@ def seed_consumable(psql_conn, n: int):
         cur.execute(select_from_consumable_sql)
         res = cur.fetchall()
         logger.info(
-            "%s of %s rows in consumable table sent to output file", len(res), count
+            "Returning %s of %s rows in consumable table", len(res), count
         )
         return res
 
@@ -453,8 +550,33 @@ def seed_service(psql_conn, n: int):
         cur.execute(select_service_sql)
         res = cur.fetchall()
         logger.info(
-            "%s of %s rows in service table sent to output file", len(res), count
+            "Returning %s of %s rows in service table", len(res), count
         )
+        return res
+
+
+def seed_overhead_cost(psql_conn, n: int):
+    gen = OverheadCostGenerator()
+    seen = set()
+    rows = [gen.generate_row(seen) for _ in range(n)]
+
+    insert_overhead_cost_sql = """
+        INSERT INTO overhead_cost (cost_type, cost_description, budgeted_spend_gbp)
+        VALUES (%s, %s, %s)
+    """
+
+    count_overhead_cost_sql = "SELECT COUNT(*) FROM overhead_cost;"
+    select_overhead_cost_sql = "SELECT * FROM overhead_cost LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.executemany(insert_overhead_cost_sql, rows)
+        psql_conn.commit()
+
+        cur.execute(count_overhead_cost_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_overhead_cost_sql)
+        res = cur.fetchall()
+        logger.info("Returning %s of %s rows in overhead_cost table", len(res), count)
         return res
 
 
@@ -491,5 +613,7 @@ def lambda_handler(event, context):
         results["rows_from_consumable"] = seed_consumable(conn, 75)
         logger.info("Seeding service table")
         results["rows_from_service"] = seed_service(conn, 100)
+        logger.info("Seeding overhead_cost table")
+        results["rows_from_overhead_cost"] = seed_overhead_cost(conn, 100)
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
