@@ -408,7 +408,7 @@ def get_overhead_cost() -> list:
 
     offset = per_page * (page - 1)
 
-    get_sql = SQL("""
+    get_overhead_cost_sql = SQL("""
         SELECT *
         FROM overhead_cost
         LIMIT {per_page}
@@ -416,7 +416,7 @@ def get_overhead_cost() -> list:
     """).format(per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
-        cursor.execute(get_sql)
+        cursor.execute(get_overhead_cost_sql)
         results = cursor.fetchall()
 
     logger.info(results)
@@ -445,14 +445,14 @@ def post_overhead_cost() -> None:
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
-    post_sql = SQL("INSERT INTO overhead_cost ({}) VALUES {}").format(
+    post_overhead_cost_sql = SQL("INSERT INTO overhead_cost ({}) VALUES {}").format(
         SQL(", ").join(map(Identifier, columns)),
         placeholders,
     )
 
     with DatabaseCursor() as cursor:
-        logger.info(post_sql.as_string(cursor))
-        cursor.execute(post_sql, values)
+        # logger.info(post_overhead_cost_sql.as_string(cursor))
+        cursor.execute(post_overhead_cost_sql, values)
 
 
 @app.patch("/overhead-cost/<overhead_cost_id>")
@@ -470,12 +470,146 @@ def patch_overhead_cost(overhead_cost_id: str) -> None:
         set_parts.append(SQL("{} = %s").format(Identifier(col)))
         values.append(val)
 
-    patch_sql = SQL("UPDATE overhead_cost SET {} WHERE ID = %s").format(
+    patch_overhead_cost_sql = SQL("UPDATE overhead_cost SET {} WHERE ID = %s").format(
         SQL(", ").join(set_parts)
     )
 
     with DatabaseCursor() as cursor:
-        cursor.execute(patch_sql, values + [int(overhead_cost_id)])
+        cursor.execute(patch_overhead_cost_sql, values + [int(overhead_cost_id)])
+
+
+@app.get("/labour-cost")
+def get_labour_cost() -> list:
+    """GET method for labour_cost table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_labour_cost_sql = SQL("""
+        SELECT
+            lc.service_id
+            ,s.service_name AS service
+            ,lc.title_engaged_id
+            ,jt.title AS title_engaged
+            ,lc.required_time_mins
+        FROM labour_cost lc
+        LEFT OUTER JOIN service s
+            ON lc.service_id = s.id
+        LEFT OUTER JOIN job_title jt
+            ON lc.title_engaged_id = jt.id
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_labour_cost_sql)
+        results = cursor.fetchall()
+
+    logger.info(results)
+    return results
+
+    # service_ids, title_engaged_ids = [], []
+    # for row in labour_cost_rows:
+    #     service_ids.append(row["service_id"])
+    #     title_engaged_ids.append(row["title_engaged_id"])
+
+    # get_service_sql = SQL("""
+    #         SELECT
+    #             id
+    #             ,service_name
+    #         FROM service
+    #         WHERE id IN ({})
+    #         -- ORDER BY id
+    # """).format(SQL(", ".join(map(str, service_ids))))
+    # with DatabaseCursor() as cursor:
+    #     cursor.execute(get_service_sql)
+    #     service_rows = cursor.fetchall()
+    #     service_names_dict = {
+    #         row["id"]: row["service_name"] for row in service_rows
+    #     }
+
+    # get_title_engaged_sql = SQL("""
+    #         SELECT
+    #             id
+    #             ,title
+    #         FROM job_title
+    #         WHERE id IN ({})
+    #         -- ORDER BY id
+    #     """).format(SQL(", ").join(map(str, title_engaged_ids)))
+    # with DatabaseCursor() as cursor:
+    #     cursor.execute(get_title_engaged_sql)
+    #     job_title_rows = cursor.fetchall()
+    #     job_titles_dict = {
+    #         row["id"]: row["title"] for row in service_rows
+    #     }
+    
+    # for row in labour_cost_rows:
+    #     row.update({
+    #         "service_name": service_names_dict[row["service_id"]],
+    #         "job_title": job_titles_dict[row["title_engaged_id"]]
+    #     })
+
+    # logger.info(labour_cost_rows)
+    # return labour_cost_rows
+
+
+# @app.post("/overhead-cost")
+# def post_overhead_cost() -> None:
+#     """POST method for overhead_cost table"""
+
+#     columns = ("cost_type", "cost_description", "budgeted_spend_gbp")
+
+#     rows = json.loads(app.current_event.body)
+#     if isinstance(rows, dict):
+#         # Ensure rows is a list of dicts to support multi-row insert
+#         rows = [rows]
+
+#     logger.info("POST into overhead_cost values:")
+#     logger.info(rows)
+
+#     values = [
+#         row[column] if row[column] != "null" else None
+#         for column in columns
+#         for row in rows
+#     ]
+#     placeholders = SQL(", ").join(
+#         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+#     )
+#     post_sql = SQL("INSERT INTO overhead_cost ({}) VALUES {}").format(
+#         SQL(", ").join(map(Identifier, columns)),
+#         placeholders,
+#     )
+
+#     with DatabaseCursor() as cursor:
+#         logger.info(post_sql.as_string(cursor))
+#         cursor.execute(post_sql, values)
+
+
+# @app.patch("/overhead-cost/<overhead_cost_id>")
+# def patch_overhead_cost(overhead_cost_id: str) -> None:
+#     """PATCH method for overhead_cost table"""
+
+#     logger.info("PATCHing overhead_cost ID: %s", overhead_cost_id)
+#     logger.info(app.current_event.body)
+
+#     updated_columns = json.loads(app.current_event.body)
+
+#     set_parts = []
+#     values = []
+#     for col, val in updated_columns.items():
+#         set_parts.append(SQL("{} = %s").format(Identifier(col)))
+#         values.append(val)
+
+#     patch_sql = SQL("UPDATE overhead_cost SET {} WHERE ID = %s").format(
+#         SQL(", ").join(set_parts)
+#     )
+
+#     with DatabaseCursor() as cursor:
+#         cursor.execute(patch_sql, values + [int(overhead_cost_id)])
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
