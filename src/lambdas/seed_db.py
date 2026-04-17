@@ -352,13 +352,35 @@ class OverheadCostGenerator:
         return (cost_type, description, budget)
 
 
+class LabourCostGenerator:
+    _time_options = [15, 30, 45, 60, 90, 120, 180]
+
+    def __init__(self, service_count: int, job_title_count: int):
+        self.service_count = service_count
+        self.job_title_count = job_title_count
+        self.max_combinations = service_count * job_title_count
+
+    def generate_row(self, seen_pairs: set) -> tuple | None:
+        if len(seen_pairs) >= self.max_combinations:
+            return None
+        while True:
+            service_id = random.randint(1, self.service_count)
+            title_id = random.randint(1, self.job_title_count)
+            if (service_id, title_id) not in seen_pairs:
+                seen_pairs.add((service_id, title_id))
+                break
+        time_mins = random.choice(self._time_options)
+        return (service_id, title_id, time_mins)
+
+
 def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
-            DROP TABLE IF EXISTS "job_title";
-            DROP TABLE IF EXISTS "consumable";
-            DROP TABLE IF EXISTS "service";
+            DROP TABLE IF EXISTS "labour_cost";
             DROP TABLE IF EXISTS "overhead_cost";
+            DROP TABLE IF EXISTS "service";
+            DROP TABLE IF EXISTS "consumable";
+            DROP TABLE IF EXISTS "job_title";
 
             CREATE TABLE "job_title" (
                 "id" SERIAL PRIMARY KEY NOT NULL
@@ -399,6 +421,16 @@ def initialize_database(psql_conn):
                 ,"cost_description" varchar(30) NOT NULL
                 ,"budgeted_spend_gbp" int NOT NULL
             );
+
+            CREATE TABLE "labour_cost" (
+                "service_id" int NOT NULL
+                ,"title_engaged_id" int NOT NULL
+                ,"required_time_mins" int NOT NULL
+                ,PRIMARY KEY ("service_id", "title_engaged_id")
+            );
+
+            ALTER TABLE "labour_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
+            ALTER TABLE "labour_cost" ADD FOREIGN KEY ("title_engaged_id") REFERENCES "job_title" ("id");
         """
         cur.execute(initialize_database_sql)
 
@@ -542,6 +574,48 @@ def seed_overhead_cost(psql_conn, n: int):
         return res
 
 
+def seed_labour_cost(psql_conn, n: int, service_count: int, job_title_count: int):
+    gen = LabourCostGenerator(service_count, job_title_count)
+    max_possible = service_count * job_title_count
+    if n > max_possible:
+        logger.warning(
+            "Requested %s rows but only %s combinations exist. Generating %s rows.",
+            n,
+            max_possible,
+            max_possible,
+        )
+        n = max_possible
+
+    seen = set()
+    rows = []
+    for _ in range(n):
+        row = gen.generate_row(seen)
+        if row is None:
+            break
+        rows.append(row)
+
+    insert_labour_cost_sql = """
+        INSERT INTO labour_cost (service_id, title_engaged_id, required_time_mins)
+        VALUES (%s, %s, %s)
+    """
+
+    count_labour_cost_sql = "SELECT COUNT(*) FROM labour_cost;"
+    select_labour_cost_sql = "SELECT * FROM labour_cost LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.executemany(insert_labour_cost_sql, rows)
+        psql_conn.commit()
+
+        cur.execute(count_labour_cost_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_labour_cost_sql)
+        res = cur.fetchall()
+        logger.info(
+            "%s of %s rows in labour_cost table sent to output", len(res), count
+        )
+        return res
+
+
 def lambda_handler(event, context):
     # Logic to fetch RDS connection details using SSM Secret
     # TO BE MODULARIZED
@@ -567,6 +641,9 @@ def lambda_handler(event, context):
 
     conn_info = " ".join(f"{key}={value}" for key, value in config.items())
     with psycopg.connect(conn_info) as conn:
+        num_job_titles = 14
+        num_services = 100
+
         logger.info("(Re-)initializing database")
         results["tables_in_db"] = initialize_database(conn)
         logger.info("Seeding job_title table")
@@ -577,5 +654,9 @@ def lambda_handler(event, context):
         results["rows_from_service"] = seed_service(conn, 100)
         logger.info("Seeding overhead_cost table")
         results["rows_from_overhead_cost"] = seed_overhead_cost(conn, 100)
+        logger.info("Seeding labour_cost table")
+        results["rows_from_labour_cost"] = seed_labour_cost(
+            conn, 100, num_services, num_job_titles
+        )
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
