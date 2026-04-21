@@ -138,6 +138,23 @@ class DatabaseCursor:
         return False  # Ensure exceptions propagate
 
 
+
+@app.get("/department")
+def get_department() -> None:
+    """GET method for department table"""
+
+    get_department_sql = """
+        SELECT *
+        FROM department
+    """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_department_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.get("/job-title")
 def get_job_title() -> list:
     """GET method for job_title table"""
