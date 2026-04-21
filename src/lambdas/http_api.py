@@ -138,6 +138,23 @@ class DatabaseCursor:
         return False  # Ensure exceptions propagate
 
 
+
+@app.get("/department")
+def get_department() -> None:
+    """GET method for department table"""
+
+    get_department_sql = """
+        SELECT *
+        FROM department
+    """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_department_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.get("/job-title")
 def get_job_title() -> list:
     """GET method for job_title table"""
@@ -151,8 +168,20 @@ def get_job_title() -> list:
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
-        SELECT *
-        FROM job_title
+        SELECT
+            jt.id
+            ,d.name AS department
+            ,jt.title
+            ,jt.default_ft_weekly_hours
+            ,jt.default_lunch_break_hours
+            ,jt.hourly_rate_gbp
+            ,jt.default_annual_holiday_days
+            ,jt.default_annual_training_days
+            ,jt.default_annual_sick_days
+        FROM job_title jt
+        LEFT OUTER JOIN department d
+            ON jt.department_id = d.id
+        ORDER BY jt.id
         LIMIT {per_page}
         OFFSET {offset}
     """).format(per_page=per_page, offset=offset)
