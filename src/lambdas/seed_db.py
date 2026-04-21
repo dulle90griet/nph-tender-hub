@@ -381,10 +381,16 @@ def initialize_database(psql_conn):
             DROP TABLE IF EXISTS "service";
             DROP TABLE IF EXISTS "consumable";
             DROP TABLE IF EXISTS "job_title";
+            DROP TABLE IF EXISTS "department";
+
+            CREATE TABLE "department" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"name" varchar(50) NOT NULL
+            );
 
             CREATE TABLE "job_title" (
                 "id" SERIAL PRIMARY KEY NOT NULL
-                ,"department" varchar(50) NOT NULL
+                ,"department_id" int NOT NULL
                 ,"title" varchar(50) NOT NULL
                 ,"default_ft_weekly_hours" decimal(3,1) NOT NULL
                 ,"default_lunch_break_hours" decimal(2,1) NOT NULL
@@ -429,6 +435,8 @@ def initialize_database(psql_conn):
                 ,PRIMARY KEY ("service_id", "title_engaged_id")
             );
 
+            ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
+
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("title_engaged_id") REFERENCES "job_title" ("id");
         """
@@ -442,32 +450,55 @@ def initialize_database(psql_conn):
         res = cur.fetchall()
         logger.info("%s tables in database sent to output file", len(res))
         return res
+    
+
+def seed_department(psql_conn):
+    with psql_conn.cursor() as cur:
+        seed_department_sql = """
+            INSERT INTO department
+                (name)
+            VALUES
+                ('Admin Team')
+                ,('Doctors')
+                ,('Travel Nurses')
+                ,('Occupational Health Advisers')
+                ,('Occupational Health Screening Nurses & Technicians')
+        """
+        cur.execute(seed_department_sql)
+
+        select_from_department_sql = """
+            SELECT * FROM department;
+        """
+        cur.execute(select_from_department_sql)
+        res = cur.fetchall()
+        logger.info("%s rows in department table", len(res))
+        return res
 
 
 def seed_job_title(psql_conn):
     with psql_conn.cursor() as cur:
         seed_job_title_sql = """
             INSERT INTO job_title
-                (department, title, default_ft_weekly_hours,
+                (department_id, title, default_ft_weekly_hours,
                 default_lunch_break_hours, hourly_rate_gbp,
                 default_annual_holiday_days,
                 default_annual_training_days,
                 default_annual_sick_days)
             VALUES
-                ('Occupational Health Advisers', 'Occupational Health Nurse', 37.5, 0.8, 99.27, 33, 10, 3)
-                ,('Occupational Health Screening Nurses & Technicians', 'Occupational Health Technician (Onsite/Offsite)', 37.5, 0.8, 12.13, 33, 10, 3)
-                ,('Travel Nurses', 'Travel Nurse', 37.5, 0.8, 34.56, 33, 10, 3)
-                ,('Doctors', 'Occupational Health Physician', 44.5, 0.8, 23.27, 33, 10, 2)
-                ,('Doctors', 'Associate', 38.0, 0.8, 86.29, 33, 10, 2)
-                ,('Admin Team', 'Managing Director', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Operations Manager', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Finance Manager', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Sales and Marketing Manager', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Cleaner', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Business Support Administrator', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Specialist Administrator', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Operations Controller', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Senior Nurse', 37.5, 0, 72.27, 33, 10, 3)
+                (4, 'Occupational Health Nurse', 37.5, 0.8, 99.27, 33, 10, 3)
+                ,(5, 'Occupational Health Technician (Onsite/Offsite)', 37.5, 0.8, 12.13, 33, 10, 3)
+                ,(3, 'Travel Nurse', 37.5, 0.8, 34.56, 33, 10, 3)
+                ,(2, 'Occupational Health Physician', 44.5, 0.8, 23.27, 33, 10, 2)
+                ,(2, 'Associate', 38.0, 0.8, 86.29, 33, 10, 2)
+                ,(1, 'Managing Director', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Operations Manager', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Finance Manager', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Sales and Marketing Manager', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Cleaner', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Business Support Administrator', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Specialist Administrator', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Operations Controller', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Senior Nurse', 37.5, 0, 72.27, 33, 10, 3)
         """
         cur.execute(seed_job_title_sql)
 
@@ -646,6 +677,8 @@ def lambda_handler(event, context):
 
         logger.info("(Re-)initializing database")
         results["tables_in_db"] = initialize_database(conn)
+        logger.info("Seeding department table")
+        results["rows_in_department"] = seed_department(conn)
         logger.info("Seeding job_title table")
         results["rows_in_job_title"] = seed_job_title(conn)
         logger.info("Seeding consumable table")
