@@ -91,6 +91,13 @@ resource "aws_apigatewayv2_route" "http_api_get_service_route" {
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
 
+resource "aws_apigatewayv2_route" "http_api_get_service_slug_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /service/slugs"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
 resource "aws_apigatewayv2_route" "http_api_post_service_route" {
   api_id   = aws_apigatewayv2_api.http_api.id
   route_key = "POST /service"
