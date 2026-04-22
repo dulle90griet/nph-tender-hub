@@ -4,14 +4,6 @@ resource "aws_apigatewayv2_api" "http_api" {
   description   = "HTTP API allowing programs to interface with the ${var.CLIENT} ${var.PROJECT} database"
 }
 
-resource "aws_apigatewayv2_route" "http_api_get_department_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /department"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-
-}
-
 resource "aws_lambda_permission" "allow_http_api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -35,9 +27,24 @@ resource "aws_apigatewayv2_integration" "http_api_lambda_integration" {
   }
 }
 
+resource "aws_apigatewayv2_route" "http_api_get_department_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /department"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+
+}
+
 resource "aws_apigatewayv2_route" "http_api_get_job_title_route" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "GET /job-title"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_get_job_title_titles_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /job-title/titles"
 
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
