@@ -436,6 +436,7 @@ def initialize_database(psql_conn):
             );
 
             ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
+            ALTER TABLE "job_title" ADD CONSTRAINT unique_title UNIQUE ("title");
 
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("title_engaged_id") REFERENCES "job_title" ("id");
