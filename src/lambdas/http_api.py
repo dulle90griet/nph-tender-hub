@@ -199,7 +199,7 @@ def get_job_title() -> list:
 
 
 @app.get("/job-title/titles")
-def get_job_title_titles() -> None:
+def get_job_title_titles() -> list:
     """Method to GET all titles in the job_title table"""
 
     get_titles_sql = """
@@ -377,6 +377,25 @@ def get_service() -> list:
     return results
 
 
+@app.get("/service/slugs")
+def get_service_slugs() -> list:
+    """Method to GET all service slugs in the service table"""
+
+    get_service_slugs_sql = """
+        SELECT
+            id
+            ,category || ': ' || service_name AS service_slug
+        FROM service
+        ORDER BY service_slug
+    """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_service_slugs_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.post("/service")
 def post_service() -> None:
     """POST method for service table"""
@@ -550,6 +569,9 @@ def get_labour_cost() -> list:
             ON lc.service_id = s.id
         LEFT OUTER JOIN job_title jt
             ON lc.title_engaged_id = jt.id
+        ORDER BY
+            service
+            ,title_engaged
         LIMIT {per_page}
         OFFSET {offset}
     """).format(per_page=per_page, offset=offset)
