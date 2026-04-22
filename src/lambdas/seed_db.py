@@ -240,7 +240,7 @@ class ServiceGenerator:
         parts.append(core)
         if random.random() < 0.4:
             parts.append(random.choice(self._suffixes))
-        name = " ".join(parts)
+        name = " ".join(parts).strip()
         if random.random() < 0.3:
             name += f" ({random.choice(self._durations)} mins)"
         return name
@@ -437,6 +437,8 @@ def initialize_database(psql_conn):
 
             ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
             ALTER TABLE "job_title" ADD CONSTRAINT unique_title UNIQUE ("title");
+
+            ALTER TABLE "service" ADD CONSTRAINT unique_slug UNIQUE("category", "service_name");
 
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("title_engaged_id") REFERENCES "job_title" ("id");
