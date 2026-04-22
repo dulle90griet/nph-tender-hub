@@ -582,81 +582,37 @@ def get_labour_cost() -> list:
     logger.info(results)
     return results
 
-    # service_ids, title_engaged_ids = [], []
-    # for row in labour_cost_rows:
-    #     service_ids.append(row["service_id"])
-    #     title_engaged_ids.append(row["title_engaged_id"])
 
-    # get_service_sql = SQL("""
-    #         SELECT
-    #             id
-    #             ,service_name
-    #         FROM service
-    #         WHERE id IN ({})
-    #         -- ORDER BY id
-    # """).format(SQL(", ".join(map(str, service_ids))))
-    # with DatabaseCursor() as cursor:
-    #     cursor.execute(get_service_sql)
-    #     service_rows = cursor.fetchall()
-    #     service_names_dict = {
-    #         row["id"]: row["service_name"] for row in service_rows
-    #     }
+@app.post("/labour-cost")
+def post_labour_cost() -> None:
+    """POST method for labour_cost table"""
 
-    # get_title_engaged_sql = SQL("""
-    #         SELECT
-    #             id
-    #             ,title
-    #         FROM job_title
-    #         WHERE id IN ({})
-    #         -- ORDER BY id
-    #     """).format(SQL(", ").join(map(str, title_engaged_ids)))
-    # with DatabaseCursor() as cursor:
-    #     cursor.execute(get_title_engaged_sql)
-    #     job_title_rows = cursor.fetchall()
-    #     job_titles_dict = {
-    #         row["id"]: row["title"] for row in service_rows
-    #     }
-    
-    # for row in labour_cost_rows:
-    #     row.update({
-    #         "service_name": service_names_dict[row["service_id"]],
-    #         "job_title": job_titles_dict[row["title_engaged_id"]]
-    #     })
+    columns = ("service_id", "title_engaged_id", "required_time_mins")
 
-    # logger.info(labour_cost_rows)
-    # return labour_cost_rows
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
 
+    logger.info("POST into labour_cost values:")
+    logger.info(rows)
 
-# @app.post("/overhead-cost")
-# def post_overhead_cost() -> None:
-#     """POST method for overhead_cost table"""
+    values = [
+        row[column] if row[column] != "null" else None
+        for column in columns
+        for row in rows
+    ]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO labour_cost ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
 
-#     columns = ("cost_type", "cost_description", "budgeted_spend_gbp")
-
-#     rows = json.loads(app.current_event.body)
-#     if isinstance(rows, dict):
-#         # Ensure rows is a list of dicts to support multi-row insert
-#         rows = [rows]
-
-#     logger.info("POST into overhead_cost values:")
-#     logger.info(rows)
-
-#     values = [
-#         row[column] if row[column] != "null" else None
-#         for column in columns
-#         for row in rows
-#     ]
-#     placeholders = SQL(", ").join(
-#         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
-#     )
-#     post_sql = SQL("INSERT INTO overhead_cost ({}) VALUES {}").format(
-#         SQL(", ").join(map(Identifier, columns)),
-#         placeholders,
-#     )
-
-#     with DatabaseCursor() as cursor:
-#         logger.info(post_sql.as_string(cursor))
-#         cursor.execute(post_sql, values)
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
 
 
 # @app.patch("/overhead-cost/<overhead_cost_id>")
