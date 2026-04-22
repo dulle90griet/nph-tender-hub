@@ -198,6 +198,25 @@ def get_job_title() -> list:
     # see https://docs.aws.amazon.com/powertools/python/latest/core/event_handler/api_gateway/#raising-http-errors
 
 
+@app.get("/job-title/titles")
+def get_job_title_titles() -> None:
+    """Method to GET all titles in the job_title table"""
+
+    get_titles_sql = """
+        SELECT
+            id
+            ,title
+        FROM job_title
+        ORDER BY title
+    """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_titles_sql)
+        results = cursor.fetchall()
+    
+    return results
+
+
 @app.post("/job-title")
 def post_job_title() -> None:
     """POST method for job_title table"""
