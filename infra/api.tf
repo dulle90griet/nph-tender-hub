@@ -149,7 +149,7 @@ resource "aws_apigatewayv2_route" "http_api_post_labour_cost_route" {
 
 resource "aws_apigatewayv2_route" "http_api_patch_labour_cost_route" {
   api_id   = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /labour-cost/{labour_cost_id}"
+  route_key = "PATCH /labour-cost/{service_id}/{title_engaged_id}"
 
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
