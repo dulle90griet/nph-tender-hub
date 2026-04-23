@@ -161,6 +161,27 @@ resource "aws_apigatewayv2_route" "http_api_patch_labour_cost_route" {
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
 
+resource "aws_apigatewayv2_route" "http_api_get_direct_cost_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /direct-cost"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_post_direct_cost_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /direct-cost"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_patch_direct_cost_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "PATCH /direct-cost/{service_id}/{consumable_id}"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
 resource "aws_apigatewayv2_stage" "http_api_default_stage" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
