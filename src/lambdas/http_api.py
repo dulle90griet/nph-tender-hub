@@ -138,6 +138,22 @@ class DatabaseCursor:
         return False  # Ensure exceptions propagate
 
 
+@app.get("/department")
+def get_department() -> None:
+    """GET method for department table"""
+
+    get_department_sql = """
+        SELECT *
+        FROM department
+    """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_department_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.get("/job-title")
 def get_job_title() -> list:
     """GET method for job_title table"""
@@ -151,8 +167,20 @@ def get_job_title() -> list:
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
-        SELECT *
-        FROM job_title
+        SELECT
+            jt.id
+            ,d.name AS department
+            ,jt.title
+            ,jt.default_ft_weekly_hours
+            ,jt.default_lunch_break_hours
+            ,jt.hourly_rate_gbp
+            ,jt.default_annual_holiday_days
+            ,jt.default_annual_training_days
+            ,jt.default_annual_sick_days
+        FROM job_title jt
+        LEFT OUTER JOIN department d
+            ON jt.department_id = d.id
+        ORDER BY jt.id
         LIMIT {per_page}
         OFFSET {offset}
     """).format(per_page=per_page, offset=offset)
@@ -167,6 +195,25 @@ def get_job_title() -> list:
     # access headers as app.current_event.headers (case-insentive dict)
     # access path (?) as app.current_event.path
     # see https://docs.aws.amazon.com/powertools/python/latest/core/event_handler/api_gateway/#raising-http-errors
+
+
+@app.get("/job-title/titles")
+def get_job_title_titles() -> list:
+    """Method to GET all titles in the job_title table"""
+
+    get_titles_sql = """
+        SELECT
+            id
+            ,title
+        FROM job_title
+        ORDER BY title
+    """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_titles_sql)
+        results = cursor.fetchall()
+
+    return results
 
 
 @app.post("/job-title")
@@ -329,6 +376,25 @@ def get_service() -> list:
     return results
 
 
+@app.get("/service/slugs")
+def get_service_slugs() -> list:
+    """Method to GET all service slugs in the service table"""
+
+    get_service_slugs_sql = """
+        SELECT
+            id AS service_id
+            ,category || ': ' || service_name AS service_slug
+        FROM service
+        ORDER BY service_slug
+    """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_service_slugs_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.post("/service")
 def post_service() -> None:
     """POST method for service table"""
@@ -408,7 +474,7 @@ def get_overhead_cost() -> list:
 
     offset = per_page * (page - 1)
 
-    get_sql = SQL("""
+    get_overhead_cost_sql = SQL("""
         SELECT *
         FROM overhead_cost
         LIMIT {per_page}
@@ -416,7 +482,7 @@ def get_overhead_cost() -> list:
     """).format(per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
-        cursor.execute(get_sql)
+        cursor.execute(get_overhead_cost_sql)
         results = cursor.fetchall()
 
     logger.info(results)
@@ -445,14 +511,14 @@ def post_overhead_cost() -> None:
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
-    post_sql = SQL("INSERT INTO overhead_cost ({}) VALUES {}").format(
+    post_overhead_cost_sql = SQL("INSERT INTO overhead_cost ({}) VALUES {}").format(
         SQL(", ").join(map(Identifier, columns)),
         placeholders,
     )
 
     with DatabaseCursor() as cursor:
-        logger.info(post_sql.as_string(cursor))
-        cursor.execute(post_sql, values)
+        # logger.info(post_overhead_cost_sql.as_string(cursor))
+        cursor.execute(post_overhead_cost_sql, values)
 
 
 @app.patch("/overhead-cost/<overhead_cost_id>")
@@ -470,12 +536,113 @@ def patch_overhead_cost(overhead_cost_id: str) -> None:
         set_parts.append(SQL("{} = %s").format(Identifier(col)))
         values.append(val)
 
-    patch_sql = SQL("UPDATE overhead_cost SET {} WHERE ID = %s").format(
+    patch_overhead_cost_sql = SQL("UPDATE overhead_cost SET {} WHERE ID = %s").format(
         SQL(", ").join(set_parts)
     )
 
     with DatabaseCursor() as cursor:
-        cursor.execute(patch_sql, values + [int(overhead_cost_id)])
+        cursor.execute(patch_overhead_cost_sql, values + [int(overhead_cost_id)])
+
+
+@app.get("/labour-cost")
+def get_labour_cost() -> list:
+    """GET method for labour_cost table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_labour_cost_sql = SQL("""
+        SELECT
+            lc.service_id
+            ,s.service_name AS service
+            ,lc.title_engaged_id
+            ,jt.title AS title_engaged
+            ,lc.required_time_mins
+        FROM labour_cost lc
+        LEFT OUTER JOIN service s
+            ON lc.service_id = s.id
+        LEFT OUTER JOIN job_title jt
+            ON lc.title_engaged_id = jt.id
+        ORDER BY
+            service
+            ,title_engaged
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_labour_cost_sql)
+        results = cursor.fetchall()
+
+    logger.info(results)
+    return results
+
+
+@app.post("/labour-cost")
+def post_labour_cost() -> None:
+    """POST method for labour_cost table"""
+
+    columns = ("service_id", "title_engaged_id", "required_time_mins")
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into labour_cost values:")
+    logger.info(rows)
+
+    values = [
+        row[column] if row[column] != "null" else None
+        for column in columns
+        for row in rows
+    ]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO labour_cost ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/labour-cost/<service_id>/<title_engaged_id>")
+def patch_labour_cost(service_id: str, title_engaged_id: str) -> None:
+    """PATCH method for labour_cost table"""
+
+    logger.info(
+        "PATCHing labour_cost with service ID %s and job title ID %s",
+        service_id,
+        title_engaged_id,
+    )
+    logger.info(app.current_event.body)
+
+    updated_required_time = json.loads(app.current_event.body).get(
+        "required_time_mins", None
+    )
+    if not updated_required_time:
+        return None
+
+    patch_labour_cost_sql = """
+            UPDATE labour_cost
+            SET required_time_mins = %s
+            WHERE service_id = %s
+                AND title_engaged_id = %s 
+            """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(
+            patch_labour_cost_sql,
+            [updated_required_time, int(service_id), int(title_engaged_id)],
+        )
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:

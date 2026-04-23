@@ -240,7 +240,7 @@ class ServiceGenerator:
         parts.append(core)
         if random.random() < 0.4:
             parts.append(random.choice(self._suffixes))
-        name = " ".join(parts)
+        name = " ".join(parts).strip()
         if random.random() < 0.3:
             name += f" ({random.choice(self._durations)} mins)"
         return name
@@ -352,17 +352,45 @@ class OverheadCostGenerator:
         return (cost_type, description, budget)
 
 
+class LabourCostGenerator:
+    _time_options = [15, 30, 45, 60, 90, 120, 180]
+
+    def __init__(self, service_count: int, job_title_count: int):
+        self.service_count = service_count
+        self.job_title_count = job_title_count
+        self.max_combinations = service_count * job_title_count
+
+    def generate_row(self, seen_pairs: set) -> tuple | None:
+        if len(seen_pairs) >= self.max_combinations:
+            return None
+        while True:
+            service_id = random.randint(1, self.service_count)
+            title_id = random.randint(1, self.job_title_count)
+            if (service_id, title_id) not in seen_pairs:
+                seen_pairs.add((service_id, title_id))
+                break
+        time_mins = random.choice(self._time_options)
+        return (service_id, title_id, time_mins)
+
+
 def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
-            DROP TABLE IF EXISTS "job_title";
-            DROP TABLE IF EXISTS "consumable";
-            DROP TABLE IF EXISTS "service";
+            DROP TABLE IF EXISTS "labour_cost";
             DROP TABLE IF EXISTS "overhead_cost";
+            DROP TABLE IF EXISTS "service";
+            DROP TABLE IF EXISTS "consumable";
+            DROP TABLE IF EXISTS "job_title";
+            DROP TABLE IF EXISTS "department";
+
+            CREATE TABLE "department" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"name" varchar(50) NOT NULL
+            );
 
             CREATE TABLE "job_title" (
                 "id" SERIAL PRIMARY KEY NOT NULL
-                ,"department" varchar(50) NOT NULL
+                ,"department_id" int NOT NULL
                 ,"title" varchar(50) NOT NULL
                 ,"default_ft_weekly_hours" decimal(3,1) NOT NULL
                 ,"default_lunch_break_hours" decimal(2,1) NOT NULL
@@ -399,6 +427,21 @@ def initialize_database(psql_conn):
                 ,"cost_description" varchar(30) NOT NULL
                 ,"budgeted_spend_gbp" int NOT NULL
             );
+
+            CREATE TABLE "labour_cost" (
+                "service_id" int NOT NULL
+                ,"title_engaged_id" int NOT NULL
+                ,"required_time_mins" int NOT NULL
+                ,PRIMARY KEY ("service_id", "title_engaged_id")
+            );
+
+            ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
+            ALTER TABLE "job_title" ADD CONSTRAINT unique_title UNIQUE ("title");
+
+            ALTER TABLE "service" ADD CONSTRAINT unique_slug UNIQUE("category", "service_name");
+
+            ALTER TABLE "labour_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
+            ALTER TABLE "labour_cost" ADD FOREIGN KEY ("title_engaged_id") REFERENCES "job_title" ("id");
         """
         cur.execute(initialize_database_sql)
 
@@ -410,32 +453,55 @@ def initialize_database(psql_conn):
         res = cur.fetchall()
         logger.info("%s tables in database sent to output file", len(res))
         return res
+    
+
+def seed_department(psql_conn):
+    with psql_conn.cursor() as cur:
+        seed_department_sql = """
+            INSERT INTO department
+                (name)
+            VALUES
+                ('Admin Team')
+                ,('Doctors')
+                ,('Travel Nurses')
+                ,('Occupational Health Advisers')
+                ,('Occupational Health Screening Nurses & Technicians')
+        """
+        cur.execute(seed_department_sql)
+
+        select_from_department_sql = """
+            SELECT * FROM department;
+        """
+        cur.execute(select_from_department_sql)
+        res = cur.fetchall()
+        logger.info("%s rows in department table", len(res))
+        return res
 
 
 def seed_job_title(psql_conn):
     with psql_conn.cursor() as cur:
         seed_job_title_sql = """
             INSERT INTO job_title
-                (department, title, default_ft_weekly_hours,
+                (department_id, title, default_ft_weekly_hours,
                 default_lunch_break_hours, hourly_rate_gbp,
                 default_annual_holiday_days,
                 default_annual_training_days,
                 default_annual_sick_days)
             VALUES
-                ('Occupational Health Advisers', 'Occupational Health Nurse', 37.5, 0.8, 99.27, 33, 10, 3)
-                ,('Occupational Health Screening Nurses & Technicians', 'Occupational Health Technician (Onsite/Offsite)', 37.5, 0.8, 12.13, 33, 10, 3)
-                ,('Travel Nurses', 'Travel Nurse', 37.5, 0.8, 34.56, 33, 10, 3)
-                ,('Doctors', 'Occupational Health Physician', 44.5, 0.8, 23.27, 33, 10, 2)
-                ,('Doctors', 'Associate', 38.0, 0.8, 86.29, 33, 10, 2)
-                ,('Admin Team', 'Managing Director', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Operations Manager', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Finance Manager', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Sales and Marketing Manager', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Cleaner', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Business Support Administrator', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Specialist Administrator', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Operations Controller', 37.5, 0, 72.27, 33, 10, 3)
-                ,('Admin Team', 'Senior Nurse', 37.5, 0, 72.27, 33, 10, 3)
+                (4, 'Occupational Health Nurse', 37.5, 0.8, 99.27, 33, 10, 3)
+                ,(5, 'Occupational Health Technician (Onsite/Offsite)', 37.5, 0.8, 12.13, 33, 10, 3)
+                ,(3, 'Travel Nurse', 37.5, 0.8, 34.56, 33, 10, 3)
+                ,(2, 'Occupational Health Physician', 44.5, 0.8, 23.27, 33, 10, 2)
+                ,(2, 'Associate', 38.0, 0.8, 86.29, 33, 10, 2)
+                ,(1, 'Managing Director', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Operations Manager', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Finance Manager', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Sales and Marketing Manager', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Cleaner', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Business Support Administrator', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Specialist Administrator', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Operations Controller', 37.5, 0, 72.27, 33, 10, 3)
+                ,(1, 'Senior Nurse', 37.5, 0, 72.27, 33, 10, 3)
         """
         cur.execute(seed_job_title_sql)
 
@@ -542,6 +608,48 @@ def seed_overhead_cost(psql_conn, n: int):
         return res
 
 
+def seed_labour_cost(psql_conn, n: int, service_count: int, job_title_count: int):
+    gen = LabourCostGenerator(service_count, job_title_count)
+    max_possible = service_count * job_title_count
+    if n > max_possible:
+        logger.warning(
+            "Requested %s rows but only %s combinations exist. Generating %s rows.",
+            n,
+            max_possible,
+            max_possible,
+        )
+        n = max_possible
+
+    seen = set()
+    rows = []
+    for _ in range(n):
+        row = gen.generate_row(seen)
+        if row is None:
+            break
+        rows.append(row)
+
+    insert_labour_cost_sql = """
+        INSERT INTO labour_cost (service_id, title_engaged_id, required_time_mins)
+        VALUES (%s, %s, %s)
+    """
+
+    count_labour_cost_sql = "SELECT COUNT(*) FROM labour_cost;"
+    select_labour_cost_sql = "SELECT * FROM labour_cost LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.executemany(insert_labour_cost_sql, rows)
+        psql_conn.commit()
+
+        cur.execute(count_labour_cost_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_labour_cost_sql)
+        res = cur.fetchall()
+        logger.info(
+            "%s of %s rows in labour_cost table sent to output", len(res), count
+        )
+        return res
+
+
 def lambda_handler(event, context):
     # Logic to fetch RDS connection details using SSM Secret
     # TO BE MODULARIZED
@@ -567,8 +675,13 @@ def lambda_handler(event, context):
 
     conn_info = " ".join(f"{key}={value}" for key, value in config.items())
     with psycopg.connect(conn_info) as conn:
+        num_job_titles = 14
+        num_services = 100
+
         logger.info("(Re-)initializing database")
         results["tables_in_db"] = initialize_database(conn)
+        logger.info("Seeding department table")
+        results["rows_in_department"] = seed_department(conn)
         logger.info("Seeding job_title table")
         results["rows_in_job_title"] = seed_job_title(conn)
         logger.info("Seeding consumable table")
@@ -577,5 +690,9 @@ def lambda_handler(event, context):
         results["rows_from_service"] = seed_service(conn, 100)
         logger.info("Seeding overhead_cost table")
         results["rows_from_overhead_cost"] = seed_overhead_cost(conn, 100)
+        logger.info("Seeding labour_cost table")
+        results["rows_from_labour_cost"] = seed_labour_cost(
+            conn, 100, num_services, num_job_titles
+        )
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}

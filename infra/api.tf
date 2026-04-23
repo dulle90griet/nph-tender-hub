@@ -27,9 +27,24 @@ resource "aws_apigatewayv2_integration" "http_api_lambda_integration" {
   }
 }
 
+resource "aws_apigatewayv2_route" "http_api_get_department_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /department"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+
+}
+
 resource "aws_apigatewayv2_route" "http_api_get_job_title_route" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "GET /job-title"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_get_job_title_titles_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /job-title/titles"
 
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
@@ -76,6 +91,13 @@ resource "aws_apigatewayv2_route" "http_api_get_service_route" {
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
 
+resource "aws_apigatewayv2_route" "http_api_get_service_slug_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /service/slugs"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
 resource "aws_apigatewayv2_route" "http_api_post_service_route" {
   api_id   = aws_apigatewayv2_api.http_api.id
   route_key = "POST /service"
@@ -86,6 +108,48 @@ resource "aws_apigatewayv2_route" "http_api_post_service_route" {
 resource "aws_apigatewayv2_route" "http_api_patch_service_route" {
   api_id   = aws_apigatewayv2_api.http_api.id
   route_key = "PATCH /service/{service_id}"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_get_overhead_cost_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /overhead-cost"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_post_overhead_cost_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /overhead-cost"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_patch_overhead_cost_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "PATCH /overhead-cost/{overhead_cost_id}"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_get_labour_cost_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /labour-cost"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_post_labour_cost_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /labour-cost"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_patch_labour_cost_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "PATCH /labour-cost/{service_id}/{title_engaged_id}"
 
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
