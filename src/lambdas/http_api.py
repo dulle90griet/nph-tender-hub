@@ -298,6 +298,26 @@ def get_consumable() -> list:
     return results
 
 
+@app.get("/consumable/names")
+def get_consumable_names() -> list:
+    """Method to GET all consumable names in the consumable table"""
+
+    get_consumable_names_sql = """
+        SELECT
+            id
+            ,consumable_name
+        FROM consumable
+        ORDER BY
+            consumable_name
+    """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_consumable_names_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.post("/consumable")
 def post_consumable() -> None:
     """POST method for consumable table"""
