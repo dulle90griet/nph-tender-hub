@@ -203,6 +203,20 @@ resource "aws_apigatewayv2_route" "http_api_patch_client_route" {
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
 
+resource "aws_apigatewayv2_route" "http_api_get_tender_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /tender"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "http_api_post_tender_route" {
+  api_id   = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /tender"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
 resource "aws_apigatewayv2_stage" "http_api_default_stage" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
