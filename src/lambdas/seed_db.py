@@ -510,7 +510,7 @@ def seed_department(psql_conn):
         cur.execute(seed_department_sql)
 
         select_from_department_sql = """
-            SELECT * FROM department;
+            SELECT * FROM department LIMIT 20;
         """
         cur.execute(select_from_department_sql)
         res = cur.fetchall()
@@ -546,7 +546,7 @@ def seed_job_title(psql_conn):
         cur.execute(seed_job_title_sql)
 
         select_from_job_title_sql = """
-            SELECT * FROM job_title;
+            SELECT * FROM job_title LIMIT 20;
         """
         cur.execute(select_from_job_title_sql)
         res = cur.fetchall()
@@ -716,7 +716,7 @@ def seed_direct_cost(psql_conn, n: int, service_count: int, consumable_count: in
     """
 
     count_direct_cost_sql = "SELECT COUNT(*) FROM direct_cost;"
-    select_direct_cost_sql = "SELECT * FROM direct_cost;"
+    select_direct_cost_sql = "SELECT * FROM direct_cost LIMIT 20;"
 
     with psql_conn.cursor() as cur:
         cur.executemany(insert_direct_cost_sql, rows)
