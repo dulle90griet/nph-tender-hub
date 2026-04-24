@@ -397,6 +397,7 @@ def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
             -- Dependent tables
+            DROP TABLE IF EXISTS "tender";
             DROP TABLE IF EXISTS "direct_cost";
             DROP TABLE IF EXISTS "labour_cost";
             DROP TABLE IF EXISTS "job_title";
@@ -472,6 +473,14 @@ def initialize_database(psql_conn):
                 ,"client_name" varchar(50) NOT NULL
             );
 
+            CREATE TABLE "tender" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"tender_title" varchar(50) NOT NULL
+                ,"client_id" int NOT NULL
+                ,"projected_sales_value_gbp" int NOT NULL
+                ,"date_created" timestamp NOT NULL
+            );
+
             ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
             ALTER TABLE "job_title" ADD CONSTRAINT unique_title UNIQUE ("title");
 
@@ -482,6 +491,8 @@ def initialize_database(psql_conn):
 
             ALTER TABLE "direct_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
             ALTER TABLE "direct_cost" ADD FOREIGN KEY ("consumable_id") REFERENCES "consumable" ("id");
+
+            ALTER TABLE "tender" ADD FOREIGN KEY ("client_id") REFERENCES "client" ("id");
         """
         cur.execute(initialize_database_sql)
 
@@ -792,6 +803,66 @@ def seed_client(psql_conn):
         return res
 
 
+def seed_tender(psql_conn):
+    insert_tender_sql = """
+        INSERT INTO tender
+            (tender_title, client_id, projected_sales_value_gbp, date_created)
+        VALUES
+            ('London Bridge Renovation', 1, 2500000, '2024-01-15 09:30:00'),
+            ('Manchester Hospital Wing', 2, 1800000, '2024-01-16 14:20:00'),
+            ('Birmingham Retail Complex', 3, 3200000, '2024-01-17 11:45:00'),
+            ('Glasgow School Refurbishment', 4, 850000, '2024-01-18 10:15:00'),
+            ('Leeds Office Tower', 5, 4100000, '2024-01-19 16:30:00'),
+            ('Liverpool Waterfront Park', 5, 1200000, '2024-01-20 13:10:00'),
+            ('Bristol Housing Development', 7, 2800000, '2024-01-21 08:45:00'),
+            ('Edinburgh Museum Extension', 8, 1950000, '2024-01-22 15:25:00'),
+            ('Cardiff Sports Centre', 9, 1650000, '2024-01-23 12:50:00'),
+            ('Newcastle Industrial Estate', 10, 2200000, '2024-01-24 09:15:00'),
+            ('Sheffield Tram Line Upgrade', 11, 2750000, '2024-01-25 14:40:00'),
+            ('Nottingham Shopping Mall', 12, 3350000, '2024-01-26 11:05:00'),
+            ('Southampton Port Facilities', 12, 1850000, '2024-01-27 16:20:00'),
+            ('Portsmouth Naval Base Works', 12, 4200000, '2024-01-28 13:35:00'),
+            ('Leicester University Campus', 15, 1550000, '2024-01-29 10:55:00'),
+            ('Brighton Seafront Project', 16, 1350000, '2024-01-30 08:25:00'),
+            ('Coventry Automotive Plant', 17, 2950000, '2024-01-31 15:45:00'),
+            ('Hull Dock Regeneration', 18, 1750000, '2024-02-01 12:10:00'),
+            ('Stoke Industrial Units', 19, 950000, '2024-02-02 09:35:00'),
+            ('Derby Railway Station', 20, 2100000, '2024-02-03 14:55:00'),
+            ('Reading Business Park', 21, 2450000, '2024-02-04 11:20:00'),
+            ('Newport Distribution Centre', 22, 1650000, '2024-02-05 16:40:00'),
+            ('Preston Civic Centre', 23, 1250000, '2024-02-06 13:05:00'),
+            ('Swansea Marina Development', 24, 1850000, '2024-02-07 10:30:00'),
+            ('Bradford Retail Park', 25, 1450000, '2024-02-08 08:50:00'),
+            ('Sunderland Shipyard Works', 26, 1950000, '2024-02-09 15:15:00'),
+            ('Luton Airport Expansion', 27, 3850000, '2024-02-10 12:35:00'),
+            ('Wolverhampton College', 28, 1150000, '2024-02-11 09:55:00'),
+            ('Plymouth Coastal Defence', 29, 2250000, '2024-02-12 14:15:00'),
+            ('York Heritage Restoration', 30, 950000, '2024-02-13 11:40:00'),
+            ('Bolton Town Hall Refurb', 31, 850000, '2024-02-14 16:05:00'),
+            ('Peterborough Warehouse', 32, 1350000, '2024-02-15 13:25:00'),
+            ('Stockport Bridge Works', 33, 750000, '2024-02-16 10:45:00'),
+            ('Brighton Pier Maintenance', 34, 650000, '2024-02-17 08:10:00'),
+            ('West Bromwich Factory', 35, 1850000, '2024-02-18 15:30:00'),
+            ('Milton Keynes Data Centre', 36, 2750000, '2024-02-19 12:50:00');
+    """
+
+    count_tender_sql = "SELECT COUNT(*) FROM tender;"
+    select_tender_sql = "SELECT * FROM tender LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.execute(insert_tender_sql)
+        psql_conn.commit()
+
+        cur.execute(count_tender_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_tender_sql)
+        res = cur.fetchall()
+        logger.info(
+            "%s of %s rows in tender table sent to output", len(res), count
+        )
+        return res
+
+
 def lambda_handler(event, context):
     # Logic to fetch RDS connection details using SSM Secret
     # TO BE MODULARIZED
@@ -843,5 +914,7 @@ def lambda_handler(event, context):
         )
         logger.info("Seeding client table")
         results["rows_in_client"] = seed_client(conn)
+        logger.info("Seeding tender table")
+        results["rows_in_tender"] = seed_tender(conn)
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
