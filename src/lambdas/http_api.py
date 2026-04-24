@@ -908,6 +908,29 @@ def post_tender() -> None:
         cursor.execute(post_sql, values)
 
 
+@app.patch("/tender/<tender_id>")
+def patch_tender(tender_id: str) -> None:
+    """PATCH method for tender table"""
+
+    logger.info("PATCHing tender ID: %s", tender_id)
+    logger.info(app.current_event.body)
+
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("UPDATE tender SET {} WHERE ID = %s").format(
+        SQL(", ").join(set_parts)
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [int(tender_id)])
+
+
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     response = app.resolve(event, context)
 
