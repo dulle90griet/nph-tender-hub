@@ -1,5 +1,6 @@
 import os
 from decimal import Decimal
+from datetime import datetime
 import json
 import logging
 import psycopg_pool
@@ -20,15 +21,15 @@ logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
 
-class EncoderWithStringDecimal(json.JSONEncoder):
+class CustomJSONEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, Decimal):
+        if isinstance(o, (Decimal, datetime)):
             return str(o)
         return super().default(o)
 
 
 def custom_serializer(o):
-    return json.dumps(o, separators=(",", ":"), cls=EncoderWithStringDecimal)
+    return json.dumps(o, separators=(",", ":"), cls=CustomJSONEncoder)
 
 
 app = APIGatewayHttpResolver(serializer=custom_serializer)
