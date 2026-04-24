@@ -844,6 +844,41 @@ def patch_client(client_id: str) -> None:
     return None
 
 
+@app.get("/tender")
+def get_tender() -> list:
+    """GET method for tender table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT
+            t.id
+            ,t.tender_title
+            ,t.client_id
+            ,c.client_name as client
+            ,t.projected_sales_value_gbp
+            ,t.date_created
+        FROM tender t
+        LEFT OUTER JOIN client c
+            ON t.client_id = c.id
+        ORDER BY t.id
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     response = app.resolve(event, context)
 
