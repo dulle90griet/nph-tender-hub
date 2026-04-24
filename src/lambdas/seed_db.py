@@ -396,12 +396,16 @@ class DirectCostGenerator:
 def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
+            -- Dependent tables
             DROP TABLE IF EXISTS "direct_cost";
             DROP TABLE IF EXISTS "labour_cost";
+            DROP TABLE IF EXISTS "job_title";
+
+            -- Independent tables
+            DROP TABLE IF EXISTS "client";
             DROP TABLE IF EXISTS "overhead_cost";
             DROP TABLE IF EXISTS "service";
             DROP TABLE IF EXISTS "consumable";
-            DROP TABLE IF EXISTS "job_title";
             DROP TABLE IF EXISTS "department";
 
             CREATE TABLE "department" (
@@ -461,6 +465,11 @@ def initialize_database(psql_conn):
                 ,"consumable_id" int NOT NULL
                 ,"cost_gbp" decimal(5,2) NOT NULL
                 ,PRIMARY KEY ("service_id", "consumable_id")
+            );
+
+            CREATE TABLE "client" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"client_name" varchar(50) NOT NULL
             );
 
             ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
@@ -723,6 +732,66 @@ def seed_direct_cost(psql_conn, n: int, service_count: int, consumable_count: in
         return res
 
 
+def seed_client(psql_conn):
+    insert_client_sql = """
+        INSERT INTO client
+            (client_name)
+        VALUES
+            ('Transport for London'),
+            ('NHS Trust Manchester'),
+            ('Midlands Development Co'),
+            ('Glasgow City Council'),
+            ('Yorkshire Properties Ltd'),
+            ('Liverpool City Council'),
+            ('West Country Homes'),
+            ('Scottish Heritage Trust'),
+            ('Welsh Sports Authority'),
+            ('North East Development'),
+            ('South Yorkshire Transport'),
+            ('East Midlands Retail Group'),
+            ('Maritime Services UK'),
+            ('Ministry of Defence'),
+            ('University of Leicester'),
+            ('Brighton & Hove Council'),
+            ('Automotive Industries Ltd'),
+            ('Humber Development Co'),
+            ('Potteries Development'),
+            ('Network Rail Midlands'),
+            ('Thames Valley Properties'),
+            ('Logistics Solutions UK'),
+            ('Lancashire County Council'),
+            ('Swansea Bay Development'),
+            ('Yorkshire Retail Group'),
+            ('North East Marine Ltd'),
+            ('Airport Holdings Ltd'),
+            ('West Midlands Education'),
+            ('South West Coastal Agency'),
+            ('York Historical Trust'),
+            ('Greater Manchester Council'),
+            ('Eastern Distribution Co'),
+            ('Stockport Borough Council'),
+            ('Brighton Pier Company'),
+            ('Midlands Manufacturing'),
+            ('Tech Infrastructure Ltd');
+    """
+
+    count_client_sql = "SELECT COUNT(*) FROM client;"
+    select_client_sql = "SELECT * FROM client LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.execute(insert_client_sql)
+        psql_conn.commit()
+
+        cur.execute(count_client_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_client_sql)
+        res = cur.fetchall()
+        logger.info(
+            "%s of %s rows in client table sent to output", len(res), count
+        )
+        return res
+
+
 def lambda_handler(event, context):
     # Logic to fetch RDS connection details using SSM Secret
     # TO BE MODULARIZED
@@ -772,5 +841,7 @@ def lambda_handler(event, context):
         results["rows_from_direct_cost"] = seed_direct_cost(
             conn, 100, num_services, num_consumables
         )
+        logger.info("Seeding client table")
+        results["rows_in_client"] = seed_client(conn)
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
