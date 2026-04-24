@@ -764,6 +764,86 @@ def patch_direct_cost(service_id: str, consumable_id: str) -> None:
         )
 
 
+@app.get("/client")
+def get_client() -> list:
+    """GET method for client table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT * FROM client
+        ORDER BY client_name
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
+@app.post("/client")
+def post_client() -> None:
+    """POST method for client table"""
+
+    columns = ("client_name",)
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into client values:")
+    logger.info(rows)
+
+    values = [row[column] for column in columns for row in rows]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO client ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/client/<client_id>")
+def patch_client(client_id: str) -> None:
+    """PATCH method for client table"""
+
+    logger.info("PATCHing client ID: %s", client_id)
+    logger.info(app.current_event.body)
+
+    updated_client_name = json.loads(app.current_event.body).get("client_name", None)
+    if not updated_client_name:
+        return None
+
+    patch_direct_cost_sql = """
+            UPDATE client
+            SET client_name = %s
+            WHERE id = %s
+            """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(
+            patch_direct_cost_sql,
+            [updated_client_name, int(client_id)],
+        )
+    
+    return None
+
+
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     response = app.resolve(event, context)
 
