@@ -880,6 +880,34 @@ def get_tender() -> list:
     return results
 
 
+@app.post("/tender")
+def post_tender() -> None:
+    """POST method for tender table"""
+
+    columns = ("tender_title", "client_id", "projected_sales_value_gbp", "date_created")
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into tender values:")
+    logger.info(rows)
+
+    values = [row[column] for column in columns for row in rows]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO tender ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     response = app.resolve(event, context)
 
