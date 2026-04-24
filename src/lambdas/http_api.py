@@ -298,6 +298,26 @@ def get_consumable() -> list:
     return results
 
 
+@app.get("/consumable/names")
+def get_consumable_names() -> list:
+    """Method to GET all consumable names in the consumable table"""
+
+    get_consumable_names_sql = """
+        SELECT
+            id
+            ,consumable_name
+        FROM consumable
+        ORDER BY
+            consumable_name
+    """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_consumable_names_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.post("/consumable")
 def post_consumable() -> None:
     """POST method for consumable table"""
@@ -642,6 +662,105 @@ def patch_labour_cost(service_id: str, title_engaged_id: str) -> None:
         cursor.execute(
             patch_labour_cost_sql,
             [updated_required_time, int(service_id), int(title_engaged_id)],
+        )
+
+
+@app.get("/direct-cost")
+def get_direct_cost() -> list:
+    """GET method for direct_cost table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_direct_cost_sql = SQL("""
+        SELECT
+            dc.service_id
+            ,s.service_name AS service
+            ,dc.consumable_id
+            ,c.consumable_name AS consumable
+            ,dc.cost_gbp
+        FROM direct_cost dc
+        LEFT OUTER JOIN service s
+            ON dc.service_id = s.id
+        LEFT OUTER JOIN consumable c
+            ON dc.consumable_id = c.id
+        ORDER BY
+            service
+            ,consumable
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_direct_cost_sql)
+        results = cursor.fetchall()
+
+    logger.info(results)
+    return results
+
+
+@app.post("/direct-cost")
+def post_direct_cost() -> None:
+    """POST method for direct_cost table"""
+
+    columns = ("service_id", "consumable_id", "cost_gbp")
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into direct_cost values:")
+    logger.info(rows)
+
+    values = [
+        row[column] if row[column] != "null" else None
+        for column in columns
+        for row in rows
+    ]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO direct_cost ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/direct-cost/<service_id>/<consumable_id>")
+def patch_direct_cost(service_id: str, consumable_id: str) -> None:
+    """PATCH method for direct_cost table"""
+
+    logger.info(
+        "PATCHing direct_cost with service ID %s and consumable ID %s",
+        service_id,
+        consumable_id,
+    )
+    logger.info(app.current_event.body)
+
+    updated_cost = json.loads(app.current_event.body).get("cost_gbp", None)
+    if not updated_cost:
+        return None
+
+    patch_direct_cost_sql = """
+            UPDATE direct_cost
+            SET cost_gbp = %s
+            WHERE service_id = %s
+                AND consumable_id = %s
+            """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(
+            patch_direct_cost_sql,
+            [updated_cost, int(service_id), int(consumable_id)],
         )
 
 

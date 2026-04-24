@@ -373,9 +373,30 @@ class LabourCostGenerator:
         return (service_id, title_id, time_mins)
 
 
+class DirectCostGenerator:
+    def __init__(self, service_count: int, consumable_count: int):
+        self.service_count = service_count
+        self.consumable_count = consumable_count
+        self.max_combinations = service_count * consumable_count
+
+    def generate_row(self, seen_pairs: set) -> tuple | None:
+        if len(seen_pairs) >= self.max_combinations:
+            return None
+        while True:
+            service_id = random.randint(1, self.service_count)
+            consumable_id = random.randint(1, self.consumable_count)
+            if (service_id, consumable_id) not in seen_pairs:
+                seen_pairs.add((service_id, consumable_id))
+                break
+        cost_seed = random.uniform(1, 100)
+        cost_gbp = Decimal(str(round(1 + 249 * ((cost_seed - 1) / 99) ** 7.3, 2)))
+        return (service_id, consumable_id, cost_gbp)
+
+
 def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
+            DROP TABLE IF EXISTS "direct_cost";
             DROP TABLE IF EXISTS "labour_cost";
             DROP TABLE IF EXISTS "overhead_cost";
             DROP TABLE IF EXISTS "service";
@@ -435,6 +456,13 @@ def initialize_database(psql_conn):
                 ,PRIMARY KEY ("service_id", "title_engaged_id")
             );
 
+            CREATE TABLE "direct_cost" (
+                "service_id" int NOT NULL
+                ,"consumable_id" int NOT NULL
+                ,"cost_gbp" decimal(5,2) NOT NULL
+                ,PRIMARY KEY ("service_id", "consumable_id")
+            );
+
             ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
             ALTER TABLE "job_title" ADD CONSTRAINT unique_title UNIQUE ("title");
 
@@ -442,6 +470,9 @@ def initialize_database(psql_conn):
 
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("title_engaged_id") REFERENCES "job_title" ("id");
+
+            ALTER TABLE "direct_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
+            ALTER TABLE "direct_cost" ADD FOREIGN KEY ("consumable_id") REFERENCES "consumable" ("id");
         """
         cur.execute(initialize_database_sql)
 
@@ -453,7 +484,7 @@ def initialize_database(psql_conn):
         res = cur.fetchall()
         logger.info("%s tables in database sent to output file", len(res))
         return res
-    
+
 
 def seed_department(psql_conn):
     with psql_conn.cursor() as cur:
@@ -650,6 +681,48 @@ def seed_labour_cost(psql_conn, n: int, service_count: int, job_title_count: int
         return res
 
 
+def seed_direct_cost(psql_conn, n: int, service_count: int, consumable_count: int):
+    gen = DirectCostGenerator(service_count, consumable_count)
+    max_possible = service_count * consumable_count
+    if n > max_possible:
+        logger.warning(
+            "Requested %s rows but only %s combinations exist. Generating %s rows.",
+            n,
+            max_possible,
+            max_possible,
+        )
+        n = max_possible
+
+    seen = set()
+    rows = []
+    for _ in range(n):
+        row = gen.generate_row(seen)
+        if row is None:
+            break
+        rows.append(row)
+
+    insert_direct_cost_sql = """
+        INSERT INTO direct_cost (service_id, consumable_id, cost_gbp)
+        VALUES (%s, %s, %s)
+    """
+
+    count_direct_cost_sql = "SELECT COUNT(*) FROM direct_cost;"
+    select_direct_cost_sql = "SELECT * FROM direct_cost;"
+
+    with psql_conn.cursor() as cur:
+        cur.executemany(insert_direct_cost_sql, rows)
+        psql_conn.commit()
+
+        cur.execute(count_direct_cost_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_direct_cost_sql)
+        res = cur.fetchall()
+        logger.info(
+            "%s of %s rows in direct_cost table sent to output", len(res), count
+        )
+        return res
+
+
 def lambda_handler(event, context):
     # Logic to fetch RDS connection details using SSM Secret
     # TO BE MODULARIZED
@@ -677,6 +750,7 @@ def lambda_handler(event, context):
     with psycopg.connect(conn_info) as conn:
         num_job_titles = 14
         num_services = 100
+        num_consumables = 100
 
         logger.info("(Re-)initializing database")
         results["tables_in_db"] = initialize_database(conn)
@@ -685,14 +759,18 @@ def lambda_handler(event, context):
         logger.info("Seeding job_title table")
         results["rows_in_job_title"] = seed_job_title(conn)
         logger.info("Seeding consumable table")
-        results["rows_from_consumable"] = seed_consumable(conn, 75)
+        results["rows_from_consumable"] = seed_consumable(conn, num_consumables)
         logger.info("Seeding service table")
-        results["rows_from_service"] = seed_service(conn, 100)
+        results["rows_from_service"] = seed_service(conn, num_services)
         logger.info("Seeding overhead_cost table")
         results["rows_from_overhead_cost"] = seed_overhead_cost(conn, 100)
         logger.info("Seeding labour_cost table")
         results["rows_from_labour_cost"] = seed_labour_cost(
             conn, 100, num_services, num_job_titles
+        )
+        logger.info("Seeding direct_cost table")
+        results["rows_from_direct_cost"] = seed_direct_cost(
+            conn, 100, num_services, num_consumables
         )
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
