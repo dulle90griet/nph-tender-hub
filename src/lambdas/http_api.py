@@ -986,6 +986,42 @@ def get_tender_line_items(tender_id: str) -> list:
     return results
 
 
+@app.patch("/tender/line-items/<tender_id>/<service_id>/<title_engaged_id>")
+def patch_tender_line_item(
+    tender_id: str, service_id: str, title_engaged_id: str
+) -> None:
+    """PATCH method for tenders_services_job_titles table"""
+
+    logger.info(
+        "PATCHing tenders_services_job_titles ID %s, service ID %s, job title ID %s",
+        tender_id,
+        service_id,
+        title_engaged_id,
+    )
+    logger.info(app.current_event.body)
+
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("""
+        UPDATE tenders_services_job_titles
+        SET {}
+        WHERE tender_id = %s
+          AND service_id = %s
+          AND title_engaged_id = %s
+    """).format(
+        SQL(", ").join(set_parts)
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [tender_id, service_id, title_engaged_id])
+
+
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     response = app.resolve(event, context)
 
