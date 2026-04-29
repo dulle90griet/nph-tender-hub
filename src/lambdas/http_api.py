@@ -986,6 +986,41 @@ def get_tender_line_items(tender_id: str) -> list:
     return results
 
 
+@app.post("/tender/line-items")
+def post_tender_line_items() -> None:
+    """POST method for tenders_services_job_titles table"""
+
+    columns = (
+        "tender_id",
+        "service_id",
+        "title_engaged_id",
+        "quantity_pa",
+        # "duration_minutes",
+        "hourly_price_override_gbp",
+    )
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into tenders_services_job_titles values:")
+    logger.info(rows)
+
+    values = [row[column] for column in columns for row in rows]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO tenders_services_job_titles ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
 @app.patch("/tender/line-items/<tender_id>/<service_id>/<title_engaged_id>")
 def patch_tender_line_item(
     tender_id: str, service_id: str, title_engaged_id: str
