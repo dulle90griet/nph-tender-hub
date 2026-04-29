@@ -393,10 +393,58 @@ class DirectCostGenerator:
         return (service_id, consumable_id, cost_gbp)
 
 
+class TenderLineItemGenerator:
+    def __init__(
+        self,
+        num_tenders: int,
+        num_services: int,
+        num_job_titles: int,
+        min_rows_per_tender: int,
+        max_rows_per_tender: int,
+        valid_labour_pairs: set,
+    ):
+        self.num_tenders = num_tenders
+        self.num_services = num_services
+        self.num_job_titles = num_job_titles
+        self.min_rows = min_rows_per_tender
+        self.max_rows = max_rows_per_tender
+        self.valid_labour_pairs = valid_labour_pairs
+
+    def generate_rows(self) -> list:
+        seen = set()
+        rows = []
+        for tender_id in range(1, self.num_tenders + 1):
+            n_rows = random.randint(self.min_rows, self.max_rows)
+            attempts = 0
+            while (
+                len([r for r in rows if r[0] == tender_id]) < n_rows and attempts < 100
+            ):
+                # Pick a valid service/title pair that references labour_cost
+                if self.valid_labour_pairs:
+                    service_id, title_id = random.choice(list(self.valid_labour_pairs))
+                else:
+                    service_id = random.randint(1, self.num_services)
+                    title_id = random.randint(1, self.num_job_titles)
+
+                if (tender_id, service_id, title_id) not in seen:
+                    seen.add((tender_id, service_id, title_id))
+                    quantity = random.randint(1, 20)
+                    # duration = random.choice([15, 30, 45, 60, 90, 120, 150, 180])
+                    override = (
+                        Decimal(str(round(random.uniform(20.0, 200.0), 2)))
+                        if random.random() < 0.3
+                        else None
+                    )
+                    rows.append((tender_id, service_id, title_id, quantity, override))
+                attempts += 1
+        return rows
+
+
 def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
             -- Dependent tables
+            DROP TABLE IF EXISTS "tenders_services_job_titles";
             DROP TABLE IF EXISTS "tender";
             DROP TABLE IF EXISTS "direct_cost";
             DROP TABLE IF EXISTS "labour_cost";
@@ -481,6 +529,15 @@ def initialize_database(psql_conn):
                 ,"date_created" timestamp NOT NULL
             );
 
+            CREATE TABLE "tenders_services_job_titles" (
+                "tender_id" int NOT NULL
+                ,"service_id" int NOT NULL
+                ,"title_engaged_id" int NOT NULL
+                ,"quantity_pa" int NOT NULL
+                ,"hourly_price_override_gbp" decimal(8,2)
+                ,PRIMARY KEY ("tender_id", "service_id", "title_engaged_id")
+            );
+
             ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
             ALTER TABLE "job_title" ADD CONSTRAINT unique_title UNIQUE ("title");
 
@@ -493,6 +550,10 @@ def initialize_database(psql_conn):
             ALTER TABLE "direct_cost" ADD FOREIGN KEY ("consumable_id") REFERENCES "consumable" ("id");
 
             ALTER TABLE "tender" ADD FOREIGN KEY ("client_id") REFERENCES "client" ("id");
+
+            ALTER TABLE "tenders_services_job_titles" ADD FOREIGN KEY ("tender_id") REFERENCES "tender" ("id");
+            ALTER TABLE "tenders_services_job_titles" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
+            ALTER TABLE "tenders_services_job_titles" ADD FOREIGN KEY ("title_engaged_id") REFERENCES "job_title" ("id");
         """
         cur.execute(initialize_database_sql)
 
@@ -797,9 +858,7 @@ def seed_client(psql_conn):
         count = cur.fetchone()[0]
         cur.execute(select_client_sql)
         res = cur.fetchall()
-        logger.info(
-            "%s of %s rows in client table sent to output", len(res), count
-        )
+        logger.info("%s of %s rows in client table sent to output", len(res), count)
         return res
 
 
@@ -857,9 +916,51 @@ def seed_tender(psql_conn):
         count = cur.fetchone()[0]
         cur.execute(select_tender_sql)
         res = cur.fetchall()
-        logger.info(
-            "%s of %s rows in tender table sent to output", len(res), count
-        )
+        logger.info("%s of %s rows in tender table sent to output", len(res), count)
+        return res
+
+
+def seed_tender_line_item(
+    psql_conn,
+    num_tenders: int,
+    num_services: int,
+    num_job_titles: int,
+    min_rows_per_tender: int,
+    max_rows_per_tender: int,
+):
+    # Fetch valid labour_cost pairs from the database
+    with psql_conn.cursor() as cur:
+        cur.execute("SELECT service_id, title_engaged_id FROM labour_cost")
+        valid_pairs = set((row[0], row[1]) for row in cur.fetchall())
+
+    gen = TenderLineItemGenerator(
+        num_tenders,
+        num_services,
+        num_job_titles,
+        min_rows_per_tender,
+        max_rows_per_tender,
+        valid_pairs,
+    )
+    rows = gen.generate_rows()
+
+    insert_sql = """
+        INSERT INTO tenders_services_job_titles
+            (tender_id, service_id, title_engaged_id, quantity_pa, hourly_price_override_gbp)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+
+    count_sql = "SELECT COUNT(*) FROM tenders_services_job_titles;"
+    select_sql = "SELECT * FROM tenders_services_job_titles LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.executemany(insert_sql, rows)
+        psql_conn.commit()
+
+        cur.execute(count_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_sql)
+        res = cur.fetchall()
+        logger.info("%s rows in table, %s rows fetched", count, len(res))
         return res
 
 
@@ -916,5 +1017,9 @@ def lambda_handler(event, context):
         results["rows_in_client"] = seed_client(conn)
         logger.info("Seeding tender table")
         results["rows_in_tender"] = seed_tender(conn)
+        logger.info("Seeding tenders_services_job_titles")
+        results["rows_in_tenders_services_job_titles"] = seed_tender_line_item(
+            conn, 36, num_services, num_job_titles, 5, 20
+        )
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}
