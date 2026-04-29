@@ -841,7 +841,7 @@ def patch_client(client_id: str) -> None:
             patch_direct_cost_sql,
             [updated_client_name, int(client_id)],
         )
-    
+
     return None
 
 
@@ -929,6 +929,61 @@ def patch_tender(tender_id: str) -> None:
 
     with DatabaseCursor() as cursor:
         cursor.execute(patch_sql, values + [int(tender_id)])
+
+
+@app.get("/tender/line-items/<tender_id>")
+def get_tender_line_items(tender_id: str) -> list:
+    """GET method for tenders_services_job_titles table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        WITH filtered_tender_line_items AS (
+            SELECT *
+            FROM tenders_services_job_titles
+            WHERE tender_id = {tender_id}
+        )
+        SELECT
+            ft.tender_id
+            ,t.tender_title
+            ,ft.service_id
+            ,s.service_name AS service
+            ,ft.title_engaged_id
+            ,jt.title AS title_engaged
+            ,ft.quantity_pa
+            ,lc.required_time_mins AS duration_mins
+            ,ft.hourly_price_override_gbp
+        FROM filtered_tender_line_items ft
+        LEFT OUTER JOIN tender t
+            ON ft.tender_id = t.id
+        LEFT OUTER JOIN service s
+            ON ft.service_id = s.id
+        LEFT OUTER JOIN job_title jt
+            ON ft.title_engaged_id = jt.id
+        LEFT OUTER JOIN labour_cost lc
+            ON (
+                ft.service_id = lc.service_id
+                AND ft.title_engaged_id = lc.title_engaged_id
+            )
+        ORDER BY
+            ft.tender_id
+            ,ft.service_id
+            ,ft.title_engaged_id
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(tender_id=tender_id, per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
