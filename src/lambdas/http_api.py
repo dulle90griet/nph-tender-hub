@@ -986,6 +986,132 @@ def get_tender_line_items(tender_id: str) -> list:
     return results
 
 
+@app.get("/tender/line-items/rich/<tender_id>")
+def get_rich_tender_line_items(tender_id: str) -> list:
+    """GET method for tenders_services_job_titles table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    overhead_recovery_on_labour_cost_gbp = """
+        base.labour_cost_gbp * base.overhead_recovery_on_labour_percentage / 100
+    """
+    fully_absorbed_cost_gbp = f"""
+        base.labour_cost_gbp + ({overhead_recovery_on_labour_cost_gbp}) + base.direct_cost_gbp
+    """
+    profit_margin_gbp = f"""
+        ({fully_absorbed_cost_gbp})
+        / (1 - base.required_profit_margin_percentage)
+        * required_profit_margin_percentage
+    """
+    recommended_hourly_price_gbp = f"""
+        ({fully_absorbed_cost_gbp}) + ({profit_margin_gbp})
+    """
+    hourly_price_to_use = """
+        COALESCE(base.tender_override_hourly_price_gbp, base.current_nph_hourly_price_gbp)
+    """
+    annual_sales_gbp = f"({hourly_price_to_use}) * * base.quantity_pa"
+    annual_labour_gbp = "base.labour_cost_gbp * base.quantity_pa"
+    annual_direct_gbp = "base.direct_cost_gbp * base.quantity_pa"
+    annual_overhead_gbp = f"({overhead_recovery_on_labour_cost_gbp}) * base.quantity_pa"
+    annual_total_gbp = f"""
+        ({annual_labour_gbp}) + ({annual_direct_gbp}) + ({annual_overhead_gbp})
+    """
+    annual_profit_gbp = f"""
+        ({annual_sales_gbp}) - ({annual_total_gbp})
+    """
+
+    get_sql = SQL(f"""
+        WITH
+            tender_line_items_filtered AS (
+                SELECT *
+                FROM tenders_services_job_titles
+                WHERE tender_id = {{tender_id}}
+            )
+            ,direct_costs_summed AS (
+                SELECT
+                    service_id
+                    ,SUM(cost_gbp) AS total_cost_gbp
+                FROM direct_cost
+                GROUP BY service_id          
+            )
+            ,base AS (
+                SELECT
+                    ft.tender_id
+                    ,t.tender_title
+                    ,s.category AS service_category
+                    ,ft.service_id
+                    ,s.service_name AS service
+                    ,ft.title_engaged_id
+                    ,jt.title AS title_engaged
+                    ,ft.quantity_pa
+                    ,lc.required_time_mins AS duration_mins
+                    ,jt.hourly_rate_gbp * lc.required_time_mins / 60 AS labour_cost_gbp
+                    ,200 AS overhead_recovery_on_labour_percentage
+                    ,dc.total_cost_gbp AS direct_cost_gbp
+                    ,s.required_profit_margin_percentage
+                    ,s.current_nph_hourly_price_gbp
+                    ,ft.hourly_price_override gbp AS tender_override_hourly_price_gbp
+                FROM tender_line_items_filtered ft
+                LEFT OUTER JOIN tender t
+                    ON ft.tender_id = t.id
+                LEFT OUTER JOIN service s
+                    ON ft.service_id = s.id
+                LEFT OUTER JOIN job_title jt
+                    ON ft.title_engaged_id = jt.id
+                LEFT OUTER JOIN labour_cost lc
+                    ON ft.service_id = lc.service_id
+                    AND ft.title_engaged_id = lc.title_engaged_id
+                LEFT OUTER JOIN direct_costs_summed dc
+                    ON ft.service_id = dc.service_id
+            )
+        SELECT
+            base.tender_id
+            ,base.tender_title
+            ,base.service_category
+            ,base.service_id
+            ,base.service
+            ,base.title_engaged_id
+            ,base.title_engaged
+            ,base.quantity_pa
+            ,base.duration_mins
+            ,base.labour_cost_gbp AS unit_labour_cost_gbp
+            ,base.overhead_recovery_on_labour_percentage
+            ,ROUND({overhead_recovery_on_labour_cost_gbp}, 2) AS overhead_recovery_on_labour_cost_gbp
+            ,base.direct_cost_gbp AS unit_direct_cost_gbp
+            ,ROUND({fully_absorbed_cost_gbp}, 2) AS fully_absorbed_cost_gbp
+            ,base.required_profit_margin_percentage
+            ,ROUND({profit_margin_gbp}, 2) AS profit_margin_gbp
+            ,ROUND({recommended_hourly_price_gbp}, 2) AS recommended_hourly_price_gbp
+            ,base.current_nph_hourly_price_gbp
+            ,base.tender_override_hourly_price_gbp
+            ,ROUND({annual_sales_gbp}, 2) AS annual_sales_gbp
+            ,ROUND({annual_labour_gbp}, 2) AS annual_labour_gbp
+            ,ROUND({annual_direct_gbp}, 2) as annual_direct_gbp
+            ,ROUND({annual_overhead_gbp}, 2) as annual_overhead_gbp
+            ,ROUND({annual_total_gbp}, 2) AS annual_total_gbp
+            ,ROUND({annual_profit_gbp}, 2) AS annual_profit_gbp
+        FROM base
+        ORDER BY
+            base.tender_id
+            ,base.service_id
+            ,base.title_engaged_id
+        LIMIT {{per_page}}
+        OFFSET {{offset}}
+    """).format(tender_id=tender_id, per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.post("/tender/line-items")
 def post_tender_line_items() -> None:
     """POST method for tenders_services_job_titles table"""
