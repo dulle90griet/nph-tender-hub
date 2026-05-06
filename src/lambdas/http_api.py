@@ -1006,16 +1006,16 @@ def get_rich_tender_line_items(tender_id: str) -> list:
     """
     profit_margin_gbp = f"""
         ({fully_absorbed_cost_gbp})
-        / (1 - base.required_profit_margin_percentage)
-        * required_profit_margin_percentage
+        / (1 - (base.required_profit_margin_percentage / 100))
+        * (base.required_profit_margin_percentage / 100)
     """
     recommended_hourly_price_gbp = f"""
         ({fully_absorbed_cost_gbp}) + ({profit_margin_gbp})
     """
     hourly_price_to_use = """
-        COALESCE(base.tender_override_hourly_price_gbp, base.current_nph_hourly_price_gbp)
+        COALESCE(base.tender_override_hourly_price_gbp, base.our_current_hourly_price_gbp)
     """
-    annual_sales_gbp = f"({hourly_price_to_use}) * * base.quantity_pa"
+    annual_sales_gbp = f"({hourly_price_to_use}) * base.quantity_pa"
     annual_labour_gbp = "base.labour_cost_gbp * base.quantity_pa"
     annual_direct_gbp = "base.direct_cost_gbp * base.quantity_pa"
     annual_overhead_gbp = f"({overhead_recovery_on_labour_cost_gbp}) * base.quantity_pa"
@@ -1038,7 +1038,7 @@ def get_rich_tender_line_items(tender_id: str) -> list:
                     service_id
                     ,SUM(cost_gbp) AS total_cost_gbp
                 FROM direct_cost
-                GROUP BY service_id          
+                GROUP BY service_id
             )
             ,base AS (
                 SELECT
@@ -1055,8 +1055,8 @@ def get_rich_tender_line_items(tender_id: str) -> list:
                     ,200 AS overhead_recovery_on_labour_percentage
                     ,dc.total_cost_gbp AS direct_cost_gbp
                     ,s.required_profit_margin_percentage
-                    ,s.current_nph_hourly_price_gbp
-                    ,ft.hourly_price_override gbp AS tender_override_hourly_price_gbp
+                    ,s.our_current_hourly_price_gbp
+                    ,ft.hourly_price_override_gbp AS tender_override_hourly_price_gbp
                 FROM tender_line_items_filtered ft
                 LEFT OUTER JOIN tender t
                     ON ft.tender_id = t.id
@@ -1088,7 +1088,7 @@ def get_rich_tender_line_items(tender_id: str) -> list:
             ,base.required_profit_margin_percentage
             ,ROUND({profit_margin_gbp}, 2) AS profit_margin_gbp
             ,ROUND({recommended_hourly_price_gbp}, 2) AS recommended_hourly_price_gbp
-            ,base.current_nph_hourly_price_gbp
+            ,base.our_current_hourly_price_gbp
             ,base.tender_override_hourly_price_gbp
             ,ROUND({annual_sales_gbp}, 2) AS annual_sales_gbp
             ,ROUND({annual_labour_gbp}, 2) AS annual_labour_gbp
