@@ -1175,9 +1175,7 @@ def patch_tender_line_item(
         WHERE tender_id = %s
           AND service_id = %s
           AND title_engaged_id = %s
-    """).format(
-        SQL(", ").join(set_parts)
-    )
+    """).format(SQL(", ").join(set_parts))
 
     with DatabaseCursor() as cursor:
         cursor.execute(patch_sql, values + [tender_id, service_id, title_engaged_id])
