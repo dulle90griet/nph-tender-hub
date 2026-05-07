@@ -533,7 +533,7 @@ def initialize_database(psql_conn):
                 "tender_id" int NOT NULL
                 ,"service_id" int NOT NULL
                 ,"title_engaged_id" int NOT NULL
-                ,"quantity_pa" int NOT NULL
+                ,"total_number_pa" int NOT NULL
                 ,"hourly_price_override_gbp" decimal(8,2)
                 ,PRIMARY KEY ("tender_id", "service_id", "title_engaged_id")
             );
@@ -945,7 +945,7 @@ def seed_tender_line_item(
 
     insert_sql = """
         INSERT INTO tenders_services_job_titles
-            (tender_id, service_id, title_engaged_id, quantity_pa, hourly_price_override_gbp)
+            (tender_id, service_id, title_engaged_id, total_number_pa, hourly_price_override_gbp)
         VALUES (%s, %s, %s, %s, %s)
     """
 

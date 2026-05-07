@@ -954,27 +954,16 @@ def get_tender_line_items(tender_id: str) -> list:
             ,t.tender_title
             ,ft.service_id
             ,s.service_name AS service
-            ,ft.title_engaged_id
-            ,jt.title AS title_engaged
-            ,ft.quantity_pa
-            ,lc.required_time_mins AS duration_mins
+            ,ft.total_number_pa
             ,ft.hourly_price_override_gbp
         FROM filtered_tender_line_items ft
         LEFT OUTER JOIN tender t
             ON ft.tender_id = t.id
         LEFT OUTER JOIN service s
             ON ft.service_id = s.id
-        LEFT OUTER JOIN job_title jt
-            ON ft.title_engaged_id = jt.id
-        LEFT OUTER JOIN labour_cost lc
-            ON (
-                ft.service_id = lc.service_id
-                AND ft.title_engaged_id = lc.title_engaged_id
-            )
         ORDER BY
             ft.tender_id
             ,ft.service_id
-            ,ft.title_engaged_id
         LIMIT {per_page}
         OFFSET {offset}
     """).format(tender_id=tender_id, per_page=per_page, offset=offset)
@@ -1015,10 +1004,10 @@ def get_rich_tender_line_items(tender_id: str) -> list:
     hourly_price_to_use = """
         COALESCE(base.tender_override_hourly_price_gbp, base.our_current_hourly_price_gbp)
     """
-    annual_sales_gbp = f"({hourly_price_to_use}) * base.quantity_pa"
-    annual_labour_gbp = "base.labour_cost_gbp * base.quantity_pa"
-    annual_direct_gbp = "base.direct_cost_gbp * base.quantity_pa"
-    annual_overhead_gbp = f"({overhead_recovery_on_labour_cost_gbp}) * base.quantity_pa"
+    annual_sales_gbp = f"({hourly_price_to_use}) * base.total_number_pa"
+    annual_labour_gbp = "base.labour_cost_gbp * base.total_number_pa"
+    annual_direct_gbp = "base.direct_cost_gbp * base.total_number_pa"
+    annual_overhead_gbp = f"({overhead_recovery_on_labour_cost_gbp}) * base.total_number_pa"
     annual_total_gbp = f"""
         ({annual_labour_gbp}) + ({annual_direct_gbp}) + ({annual_overhead_gbp})
     """
@@ -1049,7 +1038,7 @@ def get_rich_tender_line_items(tender_id: str) -> list:
                     ,s.service_name AS service
                     ,ft.title_engaged_id
                     ,jt.title AS title_engaged
-                    ,ft.quantity_pa
+                    ,ft.total_number_pa
                     ,lc.required_time_mins AS duration_mins
                     ,jt.hourly_rate_gbp * lc.required_time_mins / 60 AS labour_cost_gbp
                     ,200 AS overhead_recovery_on_labour_percentage
@@ -1078,11 +1067,12 @@ def get_rich_tender_line_items(tender_id: str) -> list:
             ,base.service
             ,base.title_engaged_id
             ,base.title_engaged
-            ,base.quantity_pa
+            ,base.total_number_pa
             ,base.duration_mins
             ,base.labour_cost_gbp AS unit_labour_cost_gbp
             ,base.overhead_recovery_on_labour_percentage
-            ,ROUND({overhead_recovery_on_labour_cost_gbp}, 2) AS overhead_recovery_on_labour_cost_gbp
+            ,ROUND({overhead_recovery_on_labour_cost_gbp}, 2)
+                AS overhead_recovery_on_labour_cost_gbp
             ,base.direct_cost_gbp AS unit_direct_cost_gbp
             ,ROUND({fully_absorbed_cost_gbp}, 2) AS fully_absorbed_cost_gbp
             ,base.required_profit_margin_percentage
@@ -1120,8 +1110,8 @@ def post_tender_line_items() -> None:
         "tender_id",
         "service_id",
         "title_engaged_id",
-        "quantity_pa",
         # "duration_minutes",
+        "total_number_pa",
         "hourly_price_override_gbp",
     )
 
