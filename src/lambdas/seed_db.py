@@ -393,15 +393,59 @@ class DirectCostGenerator:
         return (service_id, consumable_id, cost_gbp)
 
 
+class TenderLineItemGenerator:
+    def __init__(
+        self,
+        num_tenders: int,
+        num_services: int,
+        min_rows_per_tender: int,
+        max_rows_per_tender: int,
+    ):
+        self.num_tenders = num_tenders
+        self.num_services = num_services
+        self.min_rows = min_rows_per_tender
+        self.max_rows = max_rows_per_tender
+
+    def generate_rows(self) -> list:
+        seen = set()
+        rows = []
+        for tender_id in range(1, self.num_tenders + 1):
+            n_rows = random.randint(self.min_rows, self.max_rows)
+            attempts = 0
+            while (
+                len([r for r in rows if r[0] == tender_id]) < n_rows and attempts < 100
+            ):
+                service_id = random.randint(1, self.num_services)
+
+                if (tender_id, service_id) not in seen:
+                    seen.add((tender_id, service_id))
+                    quantity = random.randint(1, 20)
+                    # duration = random.choice([15, 30, 45, 60, 90, 120, 150, 180])
+                    override = (
+                        Decimal(str(round(random.uniform(20.0, 200.0), 2)))
+                        if random.random() < 0.3
+                        else None
+                    )
+                    rows.append((tender_id, service_id, quantity, override))
+                attempts += 1
+        return rows
+
+
 def initialize_database(psql_conn):
     with psql_conn.cursor() as cur:
         initialize_database_sql = """
+            -- Dependent tables
+            DROP TABLE IF EXISTS "tenders_services";
+            DROP TABLE IF EXISTS "tender";
             DROP TABLE IF EXISTS "direct_cost";
             DROP TABLE IF EXISTS "labour_cost";
+            DROP TABLE IF EXISTS "job_title";
+
+            -- Independent tables
+            DROP TABLE IF EXISTS "client";
             DROP TABLE IF EXISTS "overhead_cost";
             DROP TABLE IF EXISTS "service";
             DROP TABLE IF EXISTS "consumable";
-            DROP TABLE IF EXISTS "job_title";
             DROP TABLE IF EXISTS "department";
 
             CREATE TABLE "department" (
@@ -463,6 +507,27 @@ def initialize_database(psql_conn):
                 ,PRIMARY KEY ("service_id", "consumable_id")
             );
 
+            CREATE TABLE "client" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"client_name" varchar(50) NOT NULL
+            );
+
+            CREATE TABLE "tender" (
+                "id" SERIAL PRIMARY KEY NOT NULL
+                ,"tender_title" varchar(50) NOT NULL
+                ,"client_id" int NOT NULL
+                ,"projected_sales_value_gbp" int NOT NULL
+                ,"date_created" timestamp NOT NULL
+            );
+
+            CREATE TABLE "tenders_services" (
+                "tender_id" int NOT NULL
+                ,"service_id" int NOT NULL
+                ,"total_number_pa" int NOT NULL
+                ,"hourly_price_override_gbp" decimal(8,2)
+                ,PRIMARY KEY ("tender_id", "service_id")
+            );
+
             ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
             ALTER TABLE "job_title" ADD CONSTRAINT unique_title UNIQUE ("title");
 
@@ -473,6 +538,11 @@ def initialize_database(psql_conn):
 
             ALTER TABLE "direct_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
             ALTER TABLE "direct_cost" ADD FOREIGN KEY ("consumable_id") REFERENCES "consumable" ("id");
+
+            ALTER TABLE "tender" ADD FOREIGN KEY ("client_id") REFERENCES "client" ("id");
+
+            ALTER TABLE "tenders_services" ADD FOREIGN KEY ("tender_id") REFERENCES "tender" ("id");
+            ALTER TABLE "tenders_services" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
         """
         cur.execute(initialize_database_sql)
 
@@ -501,7 +571,7 @@ def seed_department(psql_conn):
         cur.execute(seed_department_sql)
 
         select_from_department_sql = """
-            SELECT * FROM department;
+            SELECT * FROM department LIMIT 20;
         """
         cur.execute(select_from_department_sql)
         res = cur.fetchall()
@@ -537,7 +607,7 @@ def seed_job_title(psql_conn):
         cur.execute(seed_job_title_sql)
 
         select_from_job_title_sql = """
-            SELECT * FROM job_title;
+            SELECT * FROM job_title LIMIT 20;
         """
         cur.execute(select_from_job_title_sql)
         res = cur.fetchall()
@@ -707,7 +777,7 @@ def seed_direct_cost(psql_conn, n: int, service_count: int, consumable_count: in
     """
 
     count_direct_cost_sql = "SELECT COUNT(*) FROM direct_cost;"
-    select_direct_cost_sql = "SELECT * FROM direct_cost;"
+    select_direct_cost_sql = "SELECT * FROM direct_cost LIMIT 20;"
 
     with psql_conn.cursor() as cur:
         cur.executemany(insert_direct_cost_sql, rows)
@@ -720,6 +790,158 @@ def seed_direct_cost(psql_conn, n: int, service_count: int, consumable_count: in
         logger.info(
             "%s of %s rows in direct_cost table sent to output", len(res), count
         )
+        return res
+
+
+def seed_client(psql_conn):
+    insert_client_sql = """
+        INSERT INTO client
+            (client_name)
+        VALUES
+            ('Transport for London'),
+            ('NHS Trust Manchester'),
+            ('Midlands Development Co'),
+            ('Glasgow City Council'),
+            ('Yorkshire Properties Ltd'),
+            ('Liverpool City Council'),
+            ('West Country Homes'),
+            ('Scottish Heritage Trust'),
+            ('Welsh Sports Authority'),
+            ('North East Development'),
+            ('South Yorkshire Transport'),
+            ('East Midlands Retail Group'),
+            ('Maritime Services UK'),
+            ('Ministry of Defence'),
+            ('University of Leicester'),
+            ('Brighton & Hove Council'),
+            ('Automotive Industries Ltd'),
+            ('Humber Development Co'),
+            ('Potteries Development'),
+            ('Network Rail Midlands'),
+            ('Thames Valley Properties'),
+            ('Logistics Solutions UK'),
+            ('Lancashire County Council'),
+            ('Swansea Bay Development'),
+            ('Yorkshire Retail Group'),
+            ('North East Marine Ltd'),
+            ('Airport Holdings Ltd'),
+            ('West Midlands Education'),
+            ('South West Coastal Agency'),
+            ('York Historical Trust'),
+            ('Greater Manchester Council'),
+            ('Eastern Distribution Co'),
+            ('Stockport Borough Council'),
+            ('Brighton Pier Company'),
+            ('Midlands Manufacturing'),
+            ('Tech Infrastructure Ltd');
+    """
+
+    count_client_sql = "SELECT COUNT(*) FROM client;"
+    select_client_sql = "SELECT * FROM client LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.execute(insert_client_sql)
+        psql_conn.commit()
+
+        cur.execute(count_client_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_client_sql)
+        res = cur.fetchall()
+        logger.info("%s of %s rows in client table sent to output", len(res), count)
+        return res
+
+
+def seed_tender(psql_conn):
+    insert_tender_sql = """
+        INSERT INTO tender
+            (tender_title, client_id, projected_sales_value_gbp, date_created)
+        VALUES
+            ('London Bridge Renovation', 1, 2500000, '2024-01-15 09:30:00'),
+            ('Manchester Hospital Wing', 2, 1800000, '2024-01-16 14:20:00'),
+            ('Birmingham Retail Complex', 3, 3200000, '2024-01-17 11:45:00'),
+            ('Glasgow School Refurbishment', 4, 850000, '2024-01-18 10:15:00'),
+            ('Leeds Office Tower', 5, 4100000, '2024-01-19 16:30:00'),
+            ('Liverpool Waterfront Park', 5, 1200000, '2024-01-20 13:10:00'),
+            ('Bristol Housing Development', 7, 2800000, '2024-01-21 08:45:00'),
+            ('Edinburgh Museum Extension', 8, 1950000, '2024-01-22 15:25:00'),
+            ('Cardiff Sports Centre', 9, 1650000, '2024-01-23 12:50:00'),
+            ('Newcastle Industrial Estate', 10, 2200000, '2024-01-24 09:15:00'),
+            ('Sheffield Tram Line Upgrade', 11, 2750000, '2024-01-25 14:40:00'),
+            ('Nottingham Shopping Mall', 12, 3350000, '2024-01-26 11:05:00'),
+            ('Southampton Port Facilities', 12, 1850000, '2024-01-27 16:20:00'),
+            ('Portsmouth Naval Base Works', 12, 4200000, '2024-01-28 13:35:00'),
+            ('Leicester University Campus', 15, 1550000, '2024-01-29 10:55:00'),
+            ('Brighton Seafront Project', 16, 1350000, '2024-01-30 08:25:00'),
+            ('Coventry Automotive Plant', 17, 2950000, '2024-01-31 15:45:00'),
+            ('Hull Dock Regeneration', 18, 1750000, '2024-02-01 12:10:00'),
+            ('Stoke Industrial Units', 19, 950000, '2024-02-02 09:35:00'),
+            ('Derby Railway Station', 20, 2100000, '2024-02-03 14:55:00'),
+            ('Reading Business Park', 21, 2450000, '2024-02-04 11:20:00'),
+            ('Newport Distribution Centre', 22, 1650000, '2024-02-05 16:40:00'),
+            ('Preston Civic Centre', 23, 1250000, '2024-02-06 13:05:00'),
+            ('Swansea Marina Development', 24, 1850000, '2024-02-07 10:30:00'),
+            ('Bradford Retail Park', 25, 1450000, '2024-02-08 08:50:00'),
+            ('Sunderland Shipyard Works', 26, 1950000, '2024-02-09 15:15:00'),
+            ('Luton Airport Expansion', 27, 3850000, '2024-02-10 12:35:00'),
+            ('Wolverhampton College', 28, 1150000, '2024-02-11 09:55:00'),
+            ('Plymouth Coastal Defence', 29, 2250000, '2024-02-12 14:15:00'),
+            ('York Heritage Restoration', 30, 950000, '2024-02-13 11:40:00'),
+            ('Bolton Town Hall Refurb', 31, 850000, '2024-02-14 16:05:00'),
+            ('Peterborough Warehouse', 32, 1350000, '2024-02-15 13:25:00'),
+            ('Stockport Bridge Works', 33, 750000, '2024-02-16 10:45:00'),
+            ('Brighton Pier Maintenance', 34, 650000, '2024-02-17 08:10:00'),
+            ('West Bromwich Factory', 35, 1850000, '2024-02-18 15:30:00'),
+            ('Milton Keynes Data Centre', 36, 2750000, '2024-02-19 12:50:00');
+    """
+
+    count_tender_sql = "SELECT COUNT(*) FROM tender;"
+    select_tender_sql = "SELECT * FROM tender LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.execute(insert_tender_sql)
+        psql_conn.commit()
+
+        cur.execute(count_tender_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_tender_sql)
+        res = cur.fetchall()
+        logger.info("%s of %s rows in tender table sent to output", len(res), count)
+        return res
+
+
+def seed_tender_line_item(
+    psql_conn,
+    num_tenders: int,
+    num_services: int,
+    min_rows_per_tender: int,
+    max_rows_per_tender: int,
+):
+    gen = TenderLineItemGenerator(
+        num_tenders,
+        num_services,
+        min_rows_per_tender,
+        max_rows_per_tender,
+    )
+    rows = gen.generate_rows()
+
+    insert_sql = """
+        INSERT INTO tenders_services
+            (tender_id, service_id, total_number_pa, hourly_price_override_gbp)
+        VALUES (%s, %s, %s, %s)
+    """
+
+    count_sql = "SELECT COUNT(*) FROM tenders_services;"
+    select_sql = "SELECT * FROM tenders_services LIMIT 20;"
+
+    with psql_conn.cursor() as cur:
+        cur.executemany(insert_sql, rows)
+        psql_conn.commit()
+
+        cur.execute(count_sql)
+        count = cur.fetchone()[0]
+        cur.execute(select_sql)
+        res = cur.fetchall()
+        logger.info("%s rows in table, %s rows fetched", count, len(res))
         return res
 
 
@@ -771,6 +993,14 @@ def lambda_handler(event, context):
         logger.info("Seeding direct_cost table")
         results["rows_from_direct_cost"] = seed_direct_cost(
             conn, 100, num_services, num_consumables
+        )
+        logger.info("Seeding client table")
+        results["rows_in_client"] = seed_client(conn)
+        logger.info("Seeding tender table")
+        results["rows_in_tender"] = seed_tender(conn)
+        logger.info("Seeding tenders_services")
+        results["rows_in_tenders_services"] = seed_tender_line_item(
+            conn, 36, num_services, 5, 20
         )
 
     return {"statusCode": 200, "body": json.dumps(results, default=str)}

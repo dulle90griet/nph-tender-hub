@@ -1,5 +1,6 @@
 import os
 from decimal import Decimal
+from datetime import datetime
 import json
 import logging
 import psycopg_pool
@@ -20,15 +21,15 @@ logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
 
-class EncoderWithStringDecimal(json.JSONEncoder):
+class CustomJSONEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, Decimal):
+        if isinstance(o, (Decimal, datetime)):
             return str(o)
         return super().default(o)
 
 
 def custom_serializer(o):
-    return json.dumps(o, separators=(",", ":"), cls=EncoderWithStringDecimal)
+    return json.dumps(o, separators=(",", ":"), cls=CustomJSONEncoder)
 
 
 app = APIGatewayHttpResolver(serializer=custom_serializer)
@@ -762,6 +763,408 @@ def patch_direct_cost(service_id: str, consumable_id: str) -> None:
             patch_direct_cost_sql,
             [updated_cost, int(service_id), int(consumable_id)],
         )
+
+
+@app.get("/client")
+def get_client() -> list:
+    """GET method for client table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT * FROM client
+        ORDER BY client_name
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
+@app.post("/client")
+def post_client() -> None:
+    """POST method for client table"""
+
+    columns = ("client_name",)
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into client values:")
+    logger.info(rows)
+
+    values = [row[column] for column in columns for row in rows]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO client ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/client/<client_id>")
+def patch_client(client_id: str) -> None:
+    """PATCH method for client table"""
+
+    logger.info("PATCHing client ID: %s", client_id)
+    logger.info(app.current_event.body)
+
+    updated_client_name = json.loads(app.current_event.body).get("client_name", None)
+    if not updated_client_name:
+        return None
+
+    patch_direct_cost_sql = """
+            UPDATE client
+            SET client_name = %s
+            WHERE id = %s
+            """
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(
+            patch_direct_cost_sql,
+            [updated_client_name, int(client_id)],
+        )
+
+    return None
+
+
+@app.get("/tender")
+def get_tender() -> list:
+    """GET method for tender table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        SELECT
+            t.id
+            ,t.tender_title
+            ,t.client_id
+            ,c.client_name as client
+            ,t.projected_sales_value_gbp
+            ,t.date_created
+        FROM tender t
+        LEFT OUTER JOIN client c
+            ON t.client_id = c.id
+        ORDER BY t.id
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
+@app.post("/tender")
+def post_tender() -> None:
+    """POST method for tender table"""
+
+    columns = ("tender_title", "client_id", "projected_sales_value_gbp", "date_created")
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into tender values:")
+    logger.info(rows)
+
+    values = [row[column] for column in columns for row in rows]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO tender ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/tender/<tender_id>")
+def patch_tender(tender_id: str) -> None:
+    """PATCH method for tender table"""
+
+    logger.info("PATCHing tender ID: %s", tender_id)
+    logger.info(app.current_event.body)
+
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("UPDATE tender SET {} WHERE ID = %s").format(
+        SQL(", ").join(set_parts)
+    )
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [int(tender_id)])
+
+
+@app.get("/tender/line-items/<tender_id>")
+def get_tender_line_items(tender_id: str) -> list:
+    """GET method for tenders_services table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    get_sql = SQL("""
+        WITH filtered_tender_line_items AS (
+            SELECT *
+            FROM tenders_services
+            WHERE tender_id = {tender_id}
+        )
+        SELECT
+            ft.tender_id
+            ,t.tender_title
+            ,ft.service_id
+            ,s.service_name AS service
+            ,ft.total_number_pa
+            ,ft.hourly_price_override_gbp
+        FROM filtered_tender_line_items ft
+        LEFT OUTER JOIN tender t
+            ON ft.tender_id = t.id
+        LEFT OUTER JOIN service s
+            ON ft.service_id = s.id
+        ORDER BY
+            ft.tender_id
+            ,ft.service_id
+        LIMIT {per_page}
+        OFFSET {offset}
+    """).format(tender_id=tender_id, per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
+@app.get("/tender/line-items/rich/<tender_id>")
+def get_rich_tender_line_items(tender_id: str) -> list:
+    """Enriched GET method for tenders_services table"""
+    max_per_page = 100
+
+    page = app.current_event.query_string_parameters.get("page", 1)
+    page = max(int(page), 1)
+    per_page = app.current_event.query_string_parameters.get("per_page", 10)
+    per_page = min(max(int(per_page), 1), max_per_page)
+
+    offset = per_page * (page - 1)
+
+    overhead_recovery_on_labour_cost_gbp = """
+        base.labour_cost_gbp * base.overhead_recovery_on_labour_percentage / 100
+    """
+    fully_absorbed_cost_gbp = f"""
+        base.labour_cost_gbp + ({overhead_recovery_on_labour_cost_gbp}) + base.direct_cost_gbp
+    """
+    profit_margin_gbp = f"""
+        ({fully_absorbed_cost_gbp})
+        / (1 - (base.required_profit_margin_percentage / 100))
+        * (base.required_profit_margin_percentage / 100)
+    """
+    recommended_hourly_price_gbp = f"""
+        ({fully_absorbed_cost_gbp}) + ({profit_margin_gbp})
+    """
+    hourly_price_to_use = """
+        COALESCE(base.tender_override_hourly_price_gbp, base.our_current_hourly_price_gbp)
+    """
+    annual_sales_gbp = f"({hourly_price_to_use}) * base.total_number_pa"
+    annual_labour_gbp = "base.labour_cost_gbp * base.total_number_pa"
+    annual_direct_gbp = "base.direct_cost_gbp * base.total_number_pa"
+    annual_overhead_gbp = f"({overhead_recovery_on_labour_cost_gbp}) * base.total_number_pa"
+    annual_total_gbp = f"""
+        ({annual_labour_gbp}) + ({annual_direct_gbp}) + ({annual_overhead_gbp})
+    """
+    annual_profit_gbp = f"""
+        ({annual_sales_gbp}) - ({annual_total_gbp})
+    """
+
+    get_sql = SQL(f"""
+        WITH
+            tender_line_items_filtered AS (
+                SELECT *
+                FROM tenders_services
+                WHERE tender_id = {{tender_id}}
+            )
+            ,labour_costs_summed AS (
+                SELECT
+                    service_id
+                    ,SUM(jt.hourly_rate_gbp * lc.required_time_mins / 60)
+                        AS total_cost_gbp
+                FROM labour_cost lc
+                LEFT OUTER JOIN job_title jt
+                    ON lc.title_engaged_id = jt.id
+                GROUP BY service_id
+            )
+            ,direct_costs_summed AS (
+                SELECT
+                    service_id
+                    ,SUM(cost_gbp) AS total_cost_gbp
+                FROM direct_cost
+                GROUP BY service_id
+            )
+            ,base AS (
+                SELECT
+                    ft.tender_id
+                    ,t.tender_title
+                    ,s.category AS service_category
+                    ,ft.service_id
+                    ,s.service_name AS service
+                    ,ft.total_number_pa
+                    ,lc.total_cost_gbp AS labour_cost_gbp
+                    ,200 AS overhead_recovery_on_labour_percentage
+                    ,dc.total_cost_gbp AS direct_cost_gbp
+                    ,s.required_profit_margin_percentage
+                    ,s.our_current_hourly_price_gbp
+                    ,ft.hourly_price_override_gbp AS tender_override_hourly_price_gbp
+                FROM tender_line_items_filtered ft
+                LEFT OUTER JOIN tender t
+                    ON ft.tender_id = t.id
+                LEFT OUTER JOIN service s
+                    ON ft.service_id = s.id
+                LEFT OUTER JOIN labour_costs_summed lc
+                    ON ft.service_id = lc.service_id
+                LEFT OUTER JOIN direct_costs_summed dc
+                    ON ft.service_id = dc.service_id
+            )
+        SELECT
+            base.tender_id
+            ,base.tender_title
+            ,base.service_category
+            ,base.service_id
+            ,base.service
+            ,base.total_number_pa
+            ,ROUND(base.labour_cost_gbp, 2) AS unit_labour_cost_gbp
+            ,base.overhead_recovery_on_labour_percentage
+            ,ROUND({overhead_recovery_on_labour_cost_gbp}, 2)
+                AS overhead_recovery_on_labour_cost_gbp
+            ,ROUND(base.direct_cost_gbp, 2) AS unit_direct_cost_gbp
+            ,ROUND({fully_absorbed_cost_gbp}, 2) AS fully_absorbed_cost_gbp
+            ,base.required_profit_margin_percentage
+            ,ROUND({profit_margin_gbp}, 2) AS profit_margin_gbp
+            ,ROUND({recommended_hourly_price_gbp}, 2) AS recommended_hourly_price_gbp
+            ,base.our_current_hourly_price_gbp
+            ,base.tender_override_hourly_price_gbp
+            ,ROUND({annual_sales_gbp}, 2) AS annual_sales_gbp
+            ,ROUND({annual_labour_gbp}, 2) AS annual_labour_gbp
+            ,ROUND({annual_direct_gbp}, 2) as annual_direct_gbp
+            ,ROUND({annual_overhead_gbp}, 2) as annual_overhead_gbp
+            ,ROUND({annual_total_gbp}, 2) AS annual_total_gbp
+            ,ROUND({annual_profit_gbp}, 2) AS annual_profit_gbp
+        FROM base
+        ORDER BY
+            base.tender_id
+            ,base.service_id
+        LIMIT {{per_page}}
+        OFFSET {{offset}}
+    """).format(tender_id=tender_id, per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
+@app.post("/tender/line-items")
+def post_tender_line_items() -> None:
+    """POST method for tenders_services table"""
+
+    columns = (
+        "tender_id",
+        "service_id",
+        "total_number_pa",
+        "hourly_price_override_gbp",
+    )
+
+    rows = json.loads(app.current_event.body)
+    if isinstance(rows, dict):
+        # Ensure rows is a list of dicts to support multi-row insert
+        rows = [rows]
+
+    logger.info("POST into tenders_services values:")
+    logger.info(rows)
+
+    values = [row[column] for column in columns for row in rows]
+    placeholders = SQL(", ").join(
+        SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
+    )
+    post_sql = SQL("INSERT INTO tenders_services ({}) VALUES {}").format(
+        SQL(", ").join(map(Identifier, columns)),
+        placeholders,
+    )
+
+    with DatabaseCursor() as cursor:
+        logger.info(post_sql.as_string(cursor))
+        cursor.execute(post_sql, values)
+
+
+@app.patch("/tender/line-items/<tender_id>/<service_id>/<title_engaged_id>")
+def patch_tender_line_item(
+    tender_id: str, service_id: str
+) -> None:
+    """PATCH method for tenders_services table"""
+
+    logger.info(
+        "PATCHing tenders_services ID %s, service ID %s",
+        tender_id,
+        service_id,
+    )
+    logger.info(app.current_event.body)
+
+    updated_columns = json.loads(app.current_event.body)
+
+    set_parts = []
+    values = []
+    for col, val in updated_columns.items():
+        set_parts.append(SQL("{} = %s").format(Identifier(col)))
+        values.append(val)
+
+    patch_sql = SQL("""
+        UPDATE tenders_services
+        SET {}
+        WHERE tender_id = %s
+          AND service_id = %s
+    """).format(SQL(", ").join(set_parts))
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(patch_sql, values + [tender_id, service_id])
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
