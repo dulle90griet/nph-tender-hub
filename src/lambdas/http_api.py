@@ -977,7 +977,7 @@ def get_tender_line_items(tender_id: str) -> list:
 
 @app.get("/tender/line-items/rich/<tender_id>")
 def get_rich_tender_line_items(tender_id: str) -> list:
-    """GET method for tenders_services table"""
+    """Enriched GET method for tenders_services table"""
     max_per_page = 100
 
     page = app.current_event.query_string_parameters.get("page", 1)
