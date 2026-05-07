@@ -1137,7 +1137,7 @@ def post_tender_line_items() -> None:
 
 @app.patch("/tender/line-items/<tender_id>/<service_id>/<title_engaged_id>")
 def patch_tender_line_item(
-    tender_id: str, service_id: str, title_engaged_id: str
+    tender_id: str, service_id: str
 ) -> None:
     """PATCH method for tenders_services table"""
 
