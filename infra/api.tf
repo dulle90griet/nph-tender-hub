@@ -245,6 +245,13 @@ resource "aws_apigatewayv2_route" "http_api_patch_tender_line_items_route" {
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
 
+resource "aws_apigatewayv2_route" "http_api_get_rich_tender_line_items_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /tender/line-items/rich/{tender_id}"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
 resource "aws_apigatewayv2_stage" "http_api_default_stage" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
