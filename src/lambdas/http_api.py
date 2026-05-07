@@ -1022,6 +1022,16 @@ def get_rich_tender_line_items(tender_id: str) -> list:
                 FROM tenders_services
                 WHERE tender_id = {{tender_id}}
             )
+            ,labour_costs_summed AS (
+                SELECT
+                    service_id
+                    ,SUM(jt.hourly_rate_gbp * lc.required_time_mins / 60)
+                        AS total_cost_gbp
+                FROM labour_cost lc
+                LEFT OUTER JOIN job_title jt
+                    ON lc.title_engaged_id = jt.id
+                GROUP BY service_id
+            )
             ,direct_costs_summed AS (
                 SELECT
                     service_id
@@ -1036,11 +1046,8 @@ def get_rich_tender_line_items(tender_id: str) -> list:
                     ,s.category AS service_category
                     ,ft.service_id
                     ,s.service_name AS service
-                    ,ft.title_engaged_id
-                    ,jt.title AS title_engaged
                     ,ft.total_number_pa
-                    ,lc.required_time_mins AS duration_mins
-                    ,jt.hourly_rate_gbp * lc.required_time_mins / 60 AS labour_cost_gbp
+                    ,lc.total_cost_gbp AS labour_cost_gbp
                     ,200 AS overhead_recovery_on_labour_percentage
                     ,dc.total_cost_gbp AS direct_cost_gbp
                     ,s.required_profit_margin_percentage
@@ -1051,11 +1058,8 @@ def get_rich_tender_line_items(tender_id: str) -> list:
                     ON ft.tender_id = t.id
                 LEFT OUTER JOIN service s
                     ON ft.service_id = s.id
-                LEFT OUTER JOIN job_title jt
-                    ON ft.title_engaged_id = jt.id
-                LEFT OUTER JOIN labour_cost lc
+                LEFT OUTER JOIN labour_costs_summed lc
                     ON ft.service_id = lc.service_id
-                    AND ft.title_engaged_id = lc.title_engaged_id
                 LEFT OUTER JOIN direct_costs_summed dc
                     ON ft.service_id = dc.service_id
             )
@@ -1065,15 +1069,12 @@ def get_rich_tender_line_items(tender_id: str) -> list:
             ,base.service_category
             ,base.service_id
             ,base.service
-            ,base.title_engaged_id
-            ,base.title_engaged
             ,base.total_number_pa
-            ,base.duration_mins
-            ,base.labour_cost_gbp AS unit_labour_cost_gbp
+            ,ROUND(base.labour_cost_gbp, 2) AS unit_labour_cost_gbp
             ,base.overhead_recovery_on_labour_percentage
             ,ROUND({overhead_recovery_on_labour_cost_gbp}, 2)
                 AS overhead_recovery_on_labour_cost_gbp
-            ,base.direct_cost_gbp AS unit_direct_cost_gbp
+            ,ROUND(base.direct_cost_gbp, 2) AS unit_direct_cost_gbp
             ,ROUND({fully_absorbed_cost_gbp}, 2) AS fully_absorbed_cost_gbp
             ,base.required_profit_margin_percentage
             ,ROUND({profit_margin_gbp}, 2) AS profit_margin_gbp
@@ -1090,7 +1091,6 @@ def get_rich_tender_line_items(tender_id: str) -> list:
         ORDER BY
             base.tender_id
             ,base.service_id
-            ,base.title_engaged_id
         LIMIT {{per_page}}
         OFFSET {{offset}}
     """).format(tender_id=tender_id, per_page=per_page, offset=offset)
