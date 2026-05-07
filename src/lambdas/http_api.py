@@ -933,7 +933,7 @@ def patch_tender(tender_id: str) -> None:
 
 @app.get("/tender/line-items/<tender_id>")
 def get_tender_line_items(tender_id: str) -> list:
-    """GET method for tenders_services_job_titles table"""
+    """GET method for tenders_services table"""
     max_per_page = 100
 
     page = app.current_event.query_string_parameters.get("page", 1)
@@ -946,7 +946,7 @@ def get_tender_line_items(tender_id: str) -> list:
     get_sql = SQL("""
         WITH filtered_tender_line_items AS (
             SELECT *
-            FROM tenders_services_job_titles
+            FROM tenders_services
             WHERE tender_id = {tender_id}
         )
         SELECT
@@ -977,7 +977,7 @@ def get_tender_line_items(tender_id: str) -> list:
 
 @app.get("/tender/line-items/rich/<tender_id>")
 def get_rich_tender_line_items(tender_id: str) -> list:
-    """GET method for tenders_services_job_titles table"""
+    """GET method for tenders_services table"""
     max_per_page = 100
 
     page = app.current_event.query_string_parameters.get("page", 1)
@@ -1019,7 +1019,7 @@ def get_rich_tender_line_items(tender_id: str) -> list:
         WITH
             tender_line_items_filtered AS (
                 SELECT *
-                FROM tenders_services_job_titles
+                FROM tenders_services
                 WHERE tender_id = {{tender_id}}
             )
             ,direct_costs_summed AS (
@@ -1104,13 +1104,11 @@ def get_rich_tender_line_items(tender_id: str) -> list:
 
 @app.post("/tender/line-items")
 def post_tender_line_items() -> None:
-    """POST method for tenders_services_job_titles table"""
+    """POST method for tenders_services table"""
 
     columns = (
         "tender_id",
         "service_id",
-        "title_engaged_id",
-        # "duration_minutes",
         "total_number_pa",
         "hourly_price_override_gbp",
     )
@@ -1120,14 +1118,14 @@ def post_tender_line_items() -> None:
         # Ensure rows is a list of dicts to support multi-row insert
         rows = [rows]
 
-    logger.info("POST into tenders_services_job_titles values:")
+    logger.info("POST into tenders_services values:")
     logger.info(rows)
 
     values = [row[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
-    post_sql = SQL("INSERT INTO tenders_services_job_titles ({}) VALUES {}").format(
+    post_sql = SQL("INSERT INTO tenders_services ({}) VALUES {}").format(
         SQL(", ").join(map(Identifier, columns)),
         placeholders,
     )
@@ -1141,13 +1139,12 @@ def post_tender_line_items() -> None:
 def patch_tender_line_item(
     tender_id: str, service_id: str, title_engaged_id: str
 ) -> None:
-    """PATCH method for tenders_services_job_titles table"""
+    """PATCH method for tenders_services table"""
 
     logger.info(
-        "PATCHing tenders_services_job_titles ID %s, service ID %s, job title ID %s",
+        "PATCHing tenders_services ID %s, service ID %s",
         tender_id,
         service_id,
-        title_engaged_id,
     )
     logger.info(app.current_event.body)
 
@@ -1160,15 +1157,14 @@ def patch_tender_line_item(
         values.append(val)
 
     patch_sql = SQL("""
-        UPDATE tenders_services_job_titles
+        UPDATE tenders_services
         SET {}
         WHERE tender_id = %s
           AND service_id = %s
-          AND title_engaged_id = %s
     """).format(SQL(", ").join(set_parts))
 
     with DatabaseCursor() as cursor:
-        cursor.execute(patch_sql, values + [tender_id, service_id, title_engaged_id])
+        cursor.execute(patch_sql, values + [tender_id, service_id])
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
