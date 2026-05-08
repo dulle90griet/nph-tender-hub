@@ -9,8 +9,8 @@ const columnNames = [
   ,"overhead_recovery_on_labour_percentage"
   ,"required_profit_margin_percentage"
   ,"acceptable_market_price_gbp"
-  ,"our_current_hourly_price_gbp"
-  ,"new_hourly_price_gbp"
+  ,"our_current_unit_price_gbp"
+  ,"new_unit_price_gbp"
   ,"new_day_rate_gbp"
   ,"comments"
 ];

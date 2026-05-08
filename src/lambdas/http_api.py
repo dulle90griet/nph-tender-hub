@@ -428,8 +428,8 @@ def post_service() -> None:
         "overhead_recovery_on_labour_percentage",
         "required_profit_margin_percentage",
         "acceptable_market_price_gbp",
-        "our_current_hourly_price_gbp",
-        "new_hourly_price_gbp",
+        "our_current_unit_price_gbp",
+        "new_unit_price_gbp",
         "new_day_rate_gbp",
         "comments",
     )
@@ -955,7 +955,7 @@ def get_tender_line_items(tender_id: str) -> list:
             ,ft.service_id
             ,s.service_name AS service
             ,ft.total_number_pa
-            ,ft.hourly_price_override_gbp
+            ,ft.unit_price_override_gbp
         FROM filtered_tender_line_items ft
         LEFT OUTER JOIN tender t
             ON ft.tender_id = t.id
@@ -998,13 +998,13 @@ def get_rich_tender_line_items(tender_id: str) -> list:
         / (1 - (base.required_profit_margin_percentage / 100))
         * (base.required_profit_margin_percentage / 100)
     """
-    recommended_hourly_price_gbp = f"""
+    recommended_unit_price_gbp = f"""
         ({fully_absorbed_cost_gbp}) + ({profit_margin_gbp})
     """
-    hourly_price_to_use = """
-        COALESCE(base.tender_override_hourly_price_gbp, base.our_current_hourly_price_gbp)
+    unit_price_to_use = """
+        COALESCE(base.tender_override_unit_price_gbp, base.our_current_unit_price_gbp)
     """
-    annual_sales_gbp = f"({hourly_price_to_use}) * base.total_number_pa"
+    annual_sales_gbp = f"({unit_price_to_use}) * base.total_number_pa"
     annual_labour_gbp = "base.labour_cost_gbp * base.total_number_pa"
     annual_direct_gbp = "base.direct_cost_gbp * base.total_number_pa"
     annual_overhead_gbp = f"({overhead_recovery_on_labour_cost_gbp}) * base.total_number_pa"
@@ -1051,8 +1051,8 @@ def get_rich_tender_line_items(tender_id: str) -> list:
                     ,200 AS overhead_recovery_on_labour_percentage
                     ,dc.total_cost_gbp AS direct_cost_gbp
                     ,s.required_profit_margin_percentage
-                    ,s.our_current_hourly_price_gbp
-                    ,ft.hourly_price_override_gbp AS tender_override_hourly_price_gbp
+                    ,s.our_current_unit_price_gbp
+                    ,ft.unit_price_override_gbp AS tender_override_unit_price_gbp
                 FROM tender_line_items_filtered ft
                 LEFT OUTER JOIN tender t
                     ON ft.tender_id = t.id
@@ -1078,9 +1078,9 @@ def get_rich_tender_line_items(tender_id: str) -> list:
             ,ROUND({fully_absorbed_cost_gbp}, 2) AS fully_absorbed_cost_gbp
             ,base.required_profit_margin_percentage
             ,ROUND({profit_margin_gbp}, 2) AS profit_margin_gbp
-            ,ROUND({recommended_hourly_price_gbp}, 2) AS recommended_hourly_price_gbp
-            ,base.our_current_hourly_price_gbp
-            ,base.tender_override_hourly_price_gbp
+            ,ROUND({recommended_unit_price_gbp}, 2) AS recommended_unit_price_gbp
+            ,base.our_current_unit_price_gbp
+            ,base.tender_override_unit_price_gbp
             ,ROUND({annual_sales_gbp}, 2) AS annual_sales_gbp
             ,ROUND({annual_labour_gbp}, 2) AS annual_labour_gbp
             ,ROUND({annual_direct_gbp}, 2) as annual_direct_gbp
@@ -1110,7 +1110,7 @@ def post_tender_line_items() -> None:
         "tender_id",
         "service_id",
         "total_number_pa",
-        "hourly_price_override_gbp",
+        "unit_price_override_gbp",
     )
 
     rows = json.loads(app.current_event.body)

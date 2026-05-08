@@ -480,8 +480,8 @@ def initialize_database(psql_conn):
                 ,"overhead_recovery_on_labour_percentage" int NOT NULL
                 ,"required_profit_margin_percentage" decimal(4,2) NOT NULL
                 ,"acceptable_market_price_gbp" decimal(8,2) NOT NULL
-                ,"our_current_hourly_price_gbp" decimal(8,2) NOT NULL
-                ,"new_hourly_price_gbp" decimal(8,2)
+                ,"our_current_unit_price_gbp" decimal(8,2) NOT NULL
+                ,"new_unit_price_gbp" decimal(8,2)
                 ,"new_day_rate_gbp" decimal(9,2)
                 ,"comments" varchar(100)
             );
@@ -524,7 +524,7 @@ def initialize_database(psql_conn):
                 "tender_id" int NOT NULL
                 ,"service_id" int NOT NULL
                 ,"total_number_pa" int NOT NULL
-                ,"hourly_price_override_gbp" decimal(8,2)
+                ,"unit_price_override_gbp" decimal(8,2)
                 ,PRIMARY KEY ("tender_id", "service_id")
             );
 
@@ -662,8 +662,8 @@ def seed_service(psql_conn, n: int):
             overhead_recovery_on_labour_percentage,
             required_profit_margin_percentage,
             acceptable_market_price_gbp,
-            our_current_hourly_price_gbp,
-            new_hourly_price_gbp,
+            our_current_unit_price_gbp,
+            new_unit_price_gbp,
             new_day_rate_gbp,
             comments
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -926,7 +926,7 @@ def seed_tender_line_item(
 
     insert_sql = """
         INSERT INTO tenders_services
-            (tender_id, service_id, total_number_pa, hourly_price_override_gbp)
+            (tender_id, service_id, total_number_pa, unit_price_override_gbp)
         VALUES (%s, %s, %s, %s)
     """
 
