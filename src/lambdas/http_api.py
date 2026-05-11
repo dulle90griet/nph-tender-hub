@@ -13,7 +13,6 @@ from aws_lambda_powertools.event_handler import (
 from aws_lambda_powertools.utilities.typing.lambda_context import LambdaContext
 import boto3
 from botocore.exceptions import ClientError
-# import psycopg
 # from aws_lambda_powertools import Logger
 
 
@@ -44,7 +43,7 @@ class DatabaseManager:
     def _get_secrets(self):
         """Fetch secrets from Secrets Manager with caching"""
         if self._secret_cache is None:
-            # Logic to fetch RDS connection details using SSM Secret
+            # Logic to fetch RDS connection details using SSM Secretn
             # TO BE MODULARIZED
             secrets_manager = boto3.client("secretsmanager")
             logger.info("Fetching RDS login secret")
@@ -1007,7 +1006,9 @@ def get_rich_tender_line_items(tender_id: str) -> list:
     annual_sales_gbp = f"({unit_price_to_use}) * base.total_number_pa"
     annual_labour_gbp = "base.labour_cost_gbp * base.total_number_pa"
     annual_direct_gbp = "base.direct_cost_gbp * base.total_number_pa"
-    annual_overhead_gbp = f"({overhead_recovery_on_labour_cost_gbp}) * base.total_number_pa"
+    annual_overhead_gbp = (
+        f"({overhead_recovery_on_labour_cost_gbp}) * base.total_number_pa"
+    )
     annual_total_gbp = f"""
         ({annual_labour_gbp}) + ({annual_direct_gbp}) + ({annual_overhead_gbp})
     """
@@ -1136,9 +1137,7 @@ def post_tender_line_items() -> None:
 
 
 @app.patch("/tender/line-items/<tender_id>/<service_id>/<title_engaged_id>")
-def patch_tender_line_item(
-    tender_id: str, service_id: str
-) -> None:
+def patch_tender_line_item(tender_id: str, service_id: str) -> None:
     """PATCH method for tenders_services table"""
 
     logger.info(
