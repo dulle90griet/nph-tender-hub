@@ -221,7 +221,7 @@ def post_job_title() -> None:
     """POST method for job_title table"""
 
     columns = (
-        "department",
+        "department_id",
         "title",
         "default_ft_weekly_hours",
         "default_lunch_break_hours",
