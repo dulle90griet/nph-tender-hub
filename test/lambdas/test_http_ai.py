@@ -17,17 +17,26 @@ from src.lambdas.http_api import (
     get_department,
     get_job_title,
     get_job_title_titles,
+    post_job_title,
     get_consumable,
     get_consumable_names,
+    post_consumable,
     get_service,
     get_service_slugs,
+    post_service,
     get_overhead_cost,
+    post_overhead_cost,
     get_labour_cost,
+    post_labour_cost,
     get_direct_cost,
+    post_direct_cost,
     get_client,
+    post_client,
     get_tender,
+    post_tender,
     get_tender_line_items,
     get_rich_tender_line_items,
+    post_tender_line_items,
 )
 
 logger.setLevel(logging.ERROR)
@@ -58,6 +67,89 @@ GET_HANDLERS_NO_PATH = [
     get_tender,
 ]
 
+ALL_POST_HANDLERS = [
+    (
+        post_job_title,
+        "/job-title",
+        {
+            "department_id": 1,
+            "title": "Dev",
+            "default_ft_weekly_hours": Decimal("37.5"),
+            "default_lunch_break_hours": Decimal("0.5"),
+            "hourly_rate_gbp": Decimal("50.00"),
+            "default_annual_holiday_days": 30,
+            "default_annual_training_days": 15,
+            "default_annual_sick_days": 10,
+        },
+    ),
+    (
+        post_consumable,
+        "/consumable",
+        {"consumable_name": "Widget", "default_unit_cost_gbp": Decimal("9.99")},
+    ),
+    (
+        post_service,
+        "/service",
+        {
+            "pillar": "Tech",
+            "category": "Dev",
+            "service_name": "Svc",
+            "xero_code": 1,
+            "overhead_recovery_on_labour_percentage": 200,
+            "required_profit_margin_percentage": Decimal("30.00"),
+            "acceptable_market_price_gbp": Decimal("500.00"),
+            "our_current_unit_price_gbp": Decimal("300.00"),
+            "new_unit_price_gbp": Decimal("450.00"),
+            "new_day_rate_gbp": None,
+            "comments": None,
+        },
+    ),
+    (
+        post_overhead_cost,
+        "/overhead-cost",
+        {
+            "cost_type": "Rent",
+            "cost_description": "Office",
+            "budgeted_spend_gbp": 12000,
+        },
+    ),
+    (
+        post_labour_cost,
+        "/labour-cost",
+        {"service_id": 1, "title_engaged_id": 2, "required_time_mins": 30},
+    ),
+    (
+        post_direct_cost,
+        "/direct-cost",
+        {"service_id": 1, "consumable_id": 2, "cost_gbp": Decimal("12.50")},
+    ),
+    (
+        post_client,
+        "/client",
+        {"client_name": "Acme Corp"},
+    ),
+    (
+        post_tender,
+        "/tender",
+        {
+            "tender_title": "Big Project",
+            "client_id": 1,
+            "projected_sales_value_gbp": 75000,
+            "date_created": "2026-05-06T12:00:00",
+        },
+    ),
+    (
+        post_tender_line_items,
+        "/tender/line-items",
+        {
+            "tender_id": 1,
+            "service_id": 2,
+            "total_number_pa": 500,
+            "unit_price_override_gbp": Decimal("99.95"),
+        },
+    ),
+]
+
 
 # ── Fixtures ──────────────────────────────────────────────────────
 @pytest.fixture
@@ -66,6 +158,12 @@ def mock_cursor():
     with patch("src.lambdas.http_api.DatabaseCursor") as mock:
         cursor = MagicMock()
         cursor.fetchall.return_value = []
+
+        # Add properties needed by psycopg3 SQL.as_string(Cursor)
+        mock_adapters = MagicMock()
+        cursor.adapters = mock_adapters
+        cursor.connection = None
+
         mock.return_value.__enter__.return_value = cursor
         mock.return_value.__exit__.return_value = False
         yield cursor
@@ -523,8 +621,18 @@ class TestHandlersCallExecuteOnce:
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize("tender_id", ["5", "999"])
-    def test_get_rich_tender_line_items_calls_execute_once(self, mock_cursor, tender_id):
+    def test_get_rich_tender_line_items_calls_execute_once(
+        self, mock_cursor, tender_id
+    ):
         get_rich_tender_line_items(tender_id)
+        assert mock_cursor.execute.call_count == 1
+
+    # ── POST handlers ─────────────────────────────────────────
+
+    @pytest.mark.parametrize("handler, _, body", ALL_POST_HANDLERS)
+    def test_post_handler_calls_execute_once(self, mock_cursor, handler, _, body):
+        app.current_event.body = json.dumps(body)
+        handler()
         assert mock_cursor.execute.call_count == 1
 
 
