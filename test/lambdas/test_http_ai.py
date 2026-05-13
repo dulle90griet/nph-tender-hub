@@ -350,37 +350,77 @@ class TestGetHandlersReturnCursorRows:
             max_size=50,
         )
     )
-    @settings(max_examples=20)
+    @settings(max_examples=50)
     @example(rows=[])
     def test_tender_line_items_returns_all_rows(self, mock_cursor, tender_id, rows):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
         assert get_tender_line_items(tender_id) == orig_rows
 
-    @pytest.mark.parametrize(
-        "tender_id, rows",
-        [
-            (
-                "1",
-                [
-                    {
-                        "tender_id": 1,
-                        "tender_title": "T" * 50,
-                        "service_id": 2,
-                        "service": "S" * 75,
-                        "total_number_pa": 999999,
-                        "unit_price_override_gbp": Decimal("999999.99"),
-                    }
-                ],
+    def test_tender_line_items_boundary_case(self, mock_cursor):
+        rows = [
+            {
+                "tender_id": 1,
+                "tender_title": "T" * 50,
+                "service_id": 2,
+                "service": "S" * 75,
+                "total_number_pa": 999999,
+                "unit_price_override_gbp": Decimal("999999.99"),
+            }
+        ]
+        orig_rows = deepcopy(rows)
+        mock_cursor.fetchall.return_value = rows
+        assert get_tender_line_items(1) == orig_rows
+
+    @pytest.mark.parametrize("tender_id", ["1", "42"])
+    @given(
+        rows=st.lists(
+            st.dictionaries(
+                keys=st.text(), values=st.none() | st.integers() | st.text()
             ),
-        ],
+            min_size=0,
+            max_size=20,
+        )
     )
-    def test_tender_line_items_boundary_case(
+    @settings(max_examples=50)
+    @example(rows=[])
+    def test_rich_tender_line_items_returns_all_rows(
         self, mock_cursor, tender_id, rows
     ):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        assert get_tender_line_items(tender_id) == orig_rows
+        assert get_rich_tender_line_items(tender_id) == orig_rows
+
+    def test_rich_tender_line_items_boundary_case(self, mock_cursor):
+        rows = [
+            {
+                "tender_id": 1,
+                "tender_title": "A" * 50,
+                "service_category": "A" * 50,
+                "service_id": 2147483647,
+                "service": "A" * 75,
+                "total_number_pa": 2147483647,
+                "unit_labour_cost_gbp": Decimal("999999.99"),
+                "overhead_recovery_on_labour_percentage": 2147483647,
+                "overhead_recovery_on_labour_cost_gbp": Decimal("999999.99"),
+                "unit_direct_cost_gbp": Decimal("999.99"),
+                "fully_absorbed_cost_gbp": Decimal("999999.99"),
+                "required_profit_margin_percentage": Decimal("99.99"),
+                "profit_margin_gbp": Decimal("999999.99"),
+                "recommended_unit_price_gbp": Decimal("999999.99"),
+                "our_current_unit_price_gbp": Decimal("999999.99"),
+                "tender_override_hourly_price_gbp": Decimal("999999.99"),
+                "annual_sales_gbp": Decimal("10000000000.00"),
+                "annual_labour_gbp": Decimal("10000000000.00"),
+                "annual_direct_gbp": Decimal("10000000000.00"),
+                "annual_overhead_gbp": Decimal("10000000000.00"),
+                "annual_total_gbp": Decimal("10000000000.00"),
+                "annual_profit_gbp": Decimal("-10000000000.00"),
+            }
+        ]
+        orig_rows = deepcopy(rows)
+        mock_cursor.fetchall.return_value = rows
+        assert get_rich_tender_line_items(1) == rows
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────
