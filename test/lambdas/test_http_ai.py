@@ -435,7 +435,7 @@ class TestGetHandlersReturnCursorRows:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 3. Pagination clamping
+# 2. Pagination clamping
 # ══════════════════════════════════════════════════════════════════
 class TestPaginationClamping:
     @pytest.mark.parametrize(
@@ -502,6 +502,20 @@ class TestPaginationClamping:
         sql = mock_cursor.execute.call_args[0][0].as_string()
         expected_offset = expected_limit * (expected_page - 1)
         assert_sql_contains(sql, f"LIMIT {expected_limit}", f"OFFSET {expected_offset}")
+
+
+# ══════════════════════════════════════════════════════════════════
+# 3. Handlers call cursor.execute the expected number of times
+# ══════════════════════════════════════════════════════════════════
+class TestHandlersCallExecuteOnce:
+    """Every handler must call cursor.execute exactly once."""
+
+    # ── GET handlers ──────────────────────────────────────────
+
+    @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
+    def test_get_handler_calls_execute_once(self, mock_cursor, handler):
+        handler()
+        assert mock_cursor.execute.call_count == 1
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────
