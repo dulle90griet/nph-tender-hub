@@ -1,4 +1,5 @@
 import json
+import re
 import logging
 from copy import deepcopy
 from datetime import datetime
@@ -77,6 +78,16 @@ def set_current_event():
     event.query_string_parameters = {}
     event.body = None
     app.current_event = event
+
+
+# ── Helper: case‑/whitespace‑insensitive regex ────────────────────
+def assert_sql_contains(sql_str, *phrases):
+    """Assert that sql_str (after collapsing whitespace) contains each phrase."""
+    collapsed = re.sub(r"\s+", " ", sql_str)
+    for phrase in phrases:
+        assert re.search(re.escape(phrase), collapsed, re.IGNORECASE), (
+            f"{phrase!r} not found in {collapsed}"
+        )
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -421,6 +432,76 @@ class TestGetHandlersReturnCursorRows:
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
         assert get_rich_tender_line_items(1) == rows
+
+
+# ══════════════════════════════════════════════════════════════════
+# 3. Pagination clamping
+# ══════════════════════════════════════════════════════════════════
+class TestPaginationClamping:
+    @pytest.mark.parametrize(
+        "handler, page, per_page, expected_page, expected_limit",
+        [
+            # get_job_title
+            (get_job_title, -5, 10, 1, 10),
+            (get_job_title, 1, -5, 1, 1),
+            (get_job_title, 1, 10, 1, 10),
+            (get_job_title, 1, 200, 1, 100),
+            (get_job_title, -3, 400, 1, 100),
+            # get_consumable
+            (get_consumable, -1, 15, 1, 15),
+            (get_consumable, 1, -1, 1, 1),
+            (get_consumable, 2, 15, 2, 15),
+            (get_consumable, 1, 500, 1, 100),
+            (get_consumable, -5, 300, 1, 100),
+            # get_service
+            (get_service, -99, 50, 1, 50),
+            (get_service, 2, -99, 2, 1),
+            (get_service, 3, 50, 3, 50),
+            (get_service, 2, 101, 2, 100),
+            (get_service, -2, 100000, 1, 100),
+            # get_overhead_cost
+            (get_overhead_cost, -3, 10, 1, 10),
+            (get_overhead_cost, 3, -3, 3, 1),
+            (get_overhead_cost, 4, 10, 4, 10),
+            (get_overhead_cost, 3, 99999, 3, 100),
+            (get_overhead_cost, -9, 999, 1, 100),
+            # get_labour_cost
+            (get_labour_cost, -7, 20, 1, 20),
+            (get_labour_cost, 1, -7, 1, 1),
+            (get_labour_cost, 1, 20, 1, 20),
+            (get_labour_cost, 1, 150, 1, 100),
+            (get_labour_cost, -20, 101, 1, 100),
+            # get_direct_cost
+            (get_direct_cost, -2, 5, 1, 5),
+            (get_direct_cost, 2, -2, 2, 1),
+            (get_direct_cost, 5, 5, 5, 5),
+            (get_direct_cost, 2, 200, 2, 100),
+            (get_direct_cost, -10, 800, 1, 100),
+            # get_client
+            (get_client, -10, 100, 1, 100),
+            (get_client, 1, -10, 1, 1),
+            (get_client, 2, 100, 2, 100),
+            (get_client, 1, 1000, 1, 100),
+            (get_client, -80, 170, 1, 100),
+            # get_tender
+            (get_tender, -1, 10, 1, 10),
+            (get_tender, 3, -1, 3, 1),
+            (get_tender, 10, 10, 10, 10),
+            (get_tender, 3, 250, 3, 100),
+            (get_tender, -700, 10000, 1, 100),
+        ],
+    )
+    def test_pagination_clamped(
+        self, mock_cursor, handler, page, per_page, expected_page, expected_limit
+    ):
+        app.current_event.query_string_parameters = {
+            "page": str(page),
+            "per_page": str(per_page),
+        }
+        handler()
+        sql = mock_cursor.execute.call_args[0][0].as_string()
+        expected_offset = expected_limit * (expected_page - 1)
+        assert_sql_contains(sql, f"LIMIT {expected_limit}", f"OFFSET {expected_offset}")
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────
