@@ -517,6 +517,16 @@ class TestHandlersCallExecuteOnce:
         handler()
         assert mock_cursor.execute.call_count == 1
 
+    @pytest.mark.parametrize("tender_id", ["1", "42"])
+    def test_get_tender_line_items_calls_execute_once(self, mock_cursor, tender_id):
+        get_tender_line_items(tender_id)
+        assert mock_cursor.execute.call_count == 1
+
+    @pytest.mark.parametrize("tender_id", ["5", "999"])
+    def test_get_rich_tender_line_items_calls_execute_once(self, mock_cursor, tender_id):
+        get_rich_tender_line_items(tender_id)
+        assert mock_cursor.execute.call_count == 1
+
 
 # ──────────────────── CustomJSONEncoder ────────────────────
 class TestCustomJSONEncoder:
