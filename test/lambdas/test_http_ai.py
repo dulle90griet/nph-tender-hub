@@ -5,7 +5,7 @@ from decimal import Decimal
 from unittest.mock import patch, MagicMock
 
 import pytest
-from hypothesis import given, settings, HealthCheck
+from hypothesis import given, example, settings, HealthCheck
 from hypothesis import strategies as st
 
 from src.lambdas.http_api import (
@@ -79,7 +79,7 @@ def set_current_event():
 
 
 # ══════════════════════════════════════════════════════════════════
-# 1. Serialization safety tests
+# 0. Serialization safety tests
 # ══════════════════════════════════════════════════════════════════
 class TestHandlerOutputSerializable:
     """Every GET handler must return output that can be serialized by CustomJSONEncoder."""
@@ -268,9 +268,54 @@ class TestHandlerOutputSerializable:
         json.dumps(result, cls=CustomJSONEncoder)
 
 
+# ══════════════════════════════════════════════════════════════════
+# 1. Handler returns exactly what cursor produced
+# ══════════════════════════════════════════════════════════════════
+class TestGetHandlersReturnCursorRows:
+    """Property: every GET handler returns exactly what the cursor produced."""
+
+    @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
+    @given(
+        rows=st.lists(
+            st.dictionaries(
+                keys=st.text(min_size=1, max_size=50),
+                values=st.none()
+                | st.booleans()
+                | st.integers()
+                | st.floats(allow_nan=False)
+                | st.text(max_size=200),
+            ),
+            min_size=0,
+            max_size=200,
+        )
+    )
+    @settings(max_examples=50)
+    @example(rows=[])
+    def test_returns_all_cursor_rows(self, mock_cursor, handler, rows):
+        mock_cursor.fetchall.return_value = rows
+        assert handler() == rows
+
+    @pytest.mark.parametrize("handler, rows", [
+        (get_department, [{"id": 1, "name": "A" * 50}]),
+        (get_job_title, [{"id": 1, "title": "A" * 50, "hourly_rate_gbp": Decimal("99999.99")}]),
+        (get_job_title_titles, [{"id": 1, "title": "A" * 50}]),
+        (get_consumable, [{"id": 1, "default_unit_cost_gbp": Decimal("9999.99")}]),
+        (get_consumable_names, [{"id": 1, "consumable_name": "A" * 100}]),
+        (get_service, [{"id": 1, "required_profit_margin_percentage": Decimal("100.00")}]),
+        (get_service_slugs, [{"service_id": 1, "service_slug": "A" * 50 + ": " + "B" * 75}]),
+        (get_overhead_cost, [{"id": 1, "budgeted_spend_gbp": 2147483647}]),
+        (get_labour_cost, [{"service_id": 1, "required_time_mins": 0}]),
+        (get_direct_cost, [{"service_id": 1, "cost_gbp": Decimal("999.99")}]),
+        (get_client, [{"id": 1, "client_name": "A" * 50}]),
+        (get_tender, [{"id": 1, "projected_sales_value_gbp": 2147483647, "date_created": datetime(2026, 1, 1)}]),
+    ])
+    def test_returns_all_cursor_rows_in_boundary_cases(self, mock_cursor, handler, rows):
+        """Each handler handles schema-limit values without error."""
+        mock_cursor.fetchall.return_value = rows
+        assert handler() == rows
+
+
 # ──────────────────── CustomJSONEncoder ────────────────────
-
-
 class TestCustomJSONEncoder:
     @pytest.mark.parametrize(
         "value,expected",
@@ -296,28 +341,3 @@ class TestCustomJSONEncoder:
     def test_raises_typeerror_for_unknown(self):
         with pytest.raises(TypeError):
             CustomJSONEncoder().default(object())
-
-
-# ───────────────── GET handlers ─────────────────
-class TestGetHandlersReturnCursorRows:
-    """Property: every GET handler returns exactly what the cursor produced."""
-
-    @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
-    @given(
-        rows=st.lists(
-            st.dictionaries(
-                keys=st.text(min_size=1, max_size=50),
-                values=st.none()
-                | st.booleans()
-                | st.integers()
-                | st.floats(allow_nan=False)
-                | st.text(max_size=200),
-            ),
-            min_size=0,
-            max_size=200,
-        )
-    )
-    @settings(max_examples=50)
-    def test_returns_all_cursor_rows(self, mock_cursor, handler, rows):
-        mock_cursor.fetchall.return_value = rows
-        assert handler() == rows
