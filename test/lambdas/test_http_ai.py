@@ -340,6 +340,48 @@ class TestGetHandlersReturnCursorRows:
         orig_rows = deepcopy(rows)
         assert handler() == orig_rows
 
+    @pytest.mark.parametrize("tender_id", ["5", "1", "999"])
+    @given(
+        rows=st.lists(
+            st.dictionaries(
+                keys=st.text(), values=st.none() | st.integers() | st.text()
+            ),
+            min_size=0,
+            max_size=50,
+        )
+    )
+    @settings(max_examples=20)
+    @example(rows=[])
+    def test_tender_line_items_returns_all_rows(self, mock_cursor, tender_id, rows):
+        mock_cursor.fetchall.return_value = rows
+        orig_rows = deepcopy(rows)
+        assert get_tender_line_items(tender_id) == orig_rows
+
+    @pytest.mark.parametrize(
+        "tender_id, rows",
+        [
+            (
+                "1",
+                [
+                    {
+                        "tender_id": 1,
+                        "tender_title": "T" * 50,
+                        "service_id": 2,
+                        "service": "S" * 75,
+                        "total_number_pa": 999999,
+                        "unit_price_override_gbp": Decimal("999999.99"),
+                    }
+                ],
+            ),
+        ],
+    )
+    def test_tender_line_items_boundary_case(
+        self, mock_cursor, tender_id, rows
+    ):
+        mock_cursor.fetchall.return_value = rows
+        orig_rows = deepcopy(rows)
+        assert get_tender_line_items(tender_id) == orig_rows
+
 
 # ──────────────────── CustomJSONEncoder ────────────────────
 class TestCustomJSONEncoder:
