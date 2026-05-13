@@ -18,25 +18,34 @@ from src.lambdas.http_api import (
     get_job_title,
     get_job_title_titles,
     post_job_title,
+    patch_job_title,
     get_consumable,
     get_consumable_names,
     post_consumable,
+    patch_consumable,
     get_service,
     get_service_slugs,
     post_service,
+    patch_service,
     get_overhead_cost,
     post_overhead_cost,
+    patch_overhead_cost,
     get_labour_cost,
     post_labour_cost,
+    patch_labour_cost,
     get_direct_cost,
     post_direct_cost,
+    patch_direct_cost,
     get_client,
     post_client,
+    patch_client,
     get_tender,
     post_tender,
+    patch_tender,
     get_tender_line_items,
     get_rich_tender_line_items,
     post_tender_line_items,
+    patch_tender_line_item,
 )
 
 logger.setLevel(logging.ERROR)
@@ -146,6 +155,114 @@ ALL_POST_HANDLERS = [
             "service_id": 2,
             "total_number_pa": 500,
             "unit_price_override_gbp": Decimal("99.95"),
+        },
+    ),
+]
+
+ALL_PATCH_HANDLERS_SINGLE_PATCH = [
+    (
+        patch_job_title,
+        "/job-title/42",
+        ("42",),
+        {"title": "New"},
+    ),
+    (
+        patch_consumable,
+        "/consumable/7",
+        ("7",),
+        {"default_unit_cost_gbp": 1},
+    ),
+    (
+        patch_service,
+        "/service/1",
+        ("1",),
+        {"service_name": "New"},
+    ),
+    (
+        patch_overhead_cost,
+        "/overhead-cost/1",
+        ("1",),
+        {"budgeted_spend_gbp": 1},
+    ),
+    (
+        patch_labour_cost,
+        "/labour-cost/10/20",
+        ("10","20"),
+        {"required_time_mins": 30},
+    ),
+    (
+        patch_direct_cost,
+        "/direct-cost/1/2",
+        ("1","2"),
+        {"cost_gbp": 1},
+    ),
+    (
+        patch_client,
+        "/client/12",
+        ("12",),
+        {"client_name": "New"},
+    ),
+    (
+        patch_tender,
+        "/tender/1",
+        ("1",),
+        {"projected_sales_value_gbp": 1},
+    ),
+    (
+        patch_tender_line_item,
+        "/tender/line-items/1/2",
+        ("1","2"),
+        {"total_number_pa": 1},
+    ),
+]
+
+ALL_PATCH_HANDLERS_MULTI_PATCH = [
+    (
+        patch_job_title,
+        "/job-title/7",
+        ("7",),
+        {
+            "title": "Updated Title",
+            "hourly_rate_gbp": Decimal("75.00"),
+            "default_annual_holiday_days": 30,
+        },
+    ),
+    (
+        patch_service,
+        "/service/999",
+        ("999",),
+        {
+            "service_name": "Renamed Service",
+            "our_current_unit_price_gbp": Decimal("450.00"),
+            "required_profit_margin_percentage": Decimal("25.00"),
+        },
+    ),
+    (
+        patch_overhead_cost,
+        "/overhead-cost/112",
+        ("112",),
+        {
+            "cost_type": "Utilities",
+            "budgeted_spend_gbp": 5000,
+        },
+    ),
+    (
+        patch_tender,
+        "/tender/56",
+        ("56",),
+        {
+            "tender_title": "Updated Tender",
+            "projected_sales_value_gbp": 90000,
+            "date_created": "2026-06-01T00:00:00",
+        },
+    ),
+    (
+        patch_tender_line_item,
+        "/tender/line-items/16/32",
+        ("16", "32"),
+        {
+            "total_number_pa": 750,
+            "unit_price_override_gbp": Decimal("150.00"),
         },
     ),
 ]
@@ -631,8 +748,19 @@ class TestHandlersCallExecuteOnce:
 
     @pytest.mark.parametrize("handler, _, body", ALL_POST_HANDLERS)
     def test_post_handler_calls_execute_once(self, mock_cursor, handler, _, body):
-        app.current_event.body = json.dumps(body)
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
         handler()
+        assert mock_cursor.execute.call_count == 1
+
+    # ── PATCH handlers ────────────────────────────────────────
+
+    @pytest.mark.parametrize(
+        "handler, _, path_args, body",
+        ALL_PATCH_HANDLERS_SINGLE_PATCH + ALL_PATCH_HANDLERS_MULTI_PATCH
+    )
+    def test_patch_handler_calls_execute_once(self, mock_cursor, handler, _, path_args, body):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        handler(*path_args)
         assert mock_cursor.execute.call_count == 1
 
 
