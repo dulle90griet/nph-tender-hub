@@ -24,6 +24,8 @@ from src.lambdas.http_api import (
     get_direct_cost,
     get_client,
     get_tender,
+    get_tender_line_items,
+    get_rich_tender_line_items,
 )
 
 logger.setLevel(logging.ERROR)
@@ -79,7 +81,6 @@ def set_current_event():
 # ══════════════════════════════════════════════════════════════════
 # 1. Serialization safety tests
 # ══════════════════════════════════════════════════════════════════
-
 class TestHandlerOutputSerializable:
     """Every GET handler must return output that can be serialized by CustomJSONEncoder."""
 
@@ -89,6 +90,181 @@ class TestHandlerOutputSerializable:
             {"id": 2, "name": "A" * 50},  # max varchar(50)
         ]
         result = get_department()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_job_title_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "id": 1,
+                "department": "Eng",
+                "title": "Dev",
+                "default_ft_weekly_hours": Decimal("37.5"),
+                "default_lunch_break_hours": Decimal("0.5"),
+                "hourly_rate_gbp": Decimal("50.00"),
+                "default_annual_holiday_days": Decimal("25.0"),
+                "default_annual_training_days": Decimal("5.0"),
+                "default_annual_sick_days": Decimal("3.0"),
+            },
+        ]
+        result = get_job_title()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_job_title_titles_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {"id": 1, "title": "A" * 50},  # max varchar(50)
+        ]
+        result = get_job_title_titles()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_consumable_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "id": 1,
+                "consumable_name": "Widget",
+                "default_unit_cost_gbp": Decimal("9999.99"),
+            },  # near max decimal(6,2)
+        ]
+        result = get_consumable()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_consumable_names_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {"id": 1, "consumable_name": "A" * 100},  # max varchar(100)
+        ]
+        result = get_consumable_names()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_service_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "id": 1,
+                "pillar": "Tech",
+                "category": "Dev",
+                "service_name": "Svc",
+                "xero_code": 999999,
+                "overhead_recovery_on_labour_percentage": 200,
+                "required_profit_margin_percentage": Decimal("99.99"),
+                "acceptable_market_price_gbp": Decimal("99999999.99"),
+                "our_current_unit_price_gbp": Decimal("99999999.99"),
+                "new_unit_price_gbp": None,
+                "new_day_rate_gbp": None,
+                "comments": None,
+            },
+        ]
+        result = get_service()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_service_slugs_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "service_id": 1,
+                "service_slug": "A" * 50 + ": " + "B" * 75,
+            },  # max varchar(50) + ": " + max varchar(75)
+        ]
+        result = get_service_slugs()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_overhead_cost_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "id": 1,
+                "cost_type": "Rent",
+                "cost_description": "Office",
+                "budgeted_spend_gbp": 2147483647,
+            },
+        ]
+        result = get_overhead_cost()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_labour_cost_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "service_id": 1,
+                "service": "Svc",
+                "title_engaged_id": 2,
+                "title_engaged": "Dev",
+                "required_time_mins": 480,
+            },
+        ]
+        result = get_labour_cost()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_direct_cost_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "service_id": 1,
+                "service": "Svc",
+                "consumable_id": 2,
+                "consumable": "Widget",
+                "cost_gbp": Decimal("999.99"),
+            },  # max decimal(5,2)
+        ]
+        result = get_direct_cost()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_client_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {"id": 1, "client_name": "A" * 50},  # max varchar(50)
+        ]
+        result = get_client()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_tender_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "id": 1,
+                "tender_title": "T",
+                "client_id": 1,
+                "client": "Acme",
+                "projected_sales_value_gbp": 2147483647,
+                "date_created": datetime(2026, 5, 6, 12, 0, 0),
+            },
+        ]
+        result = get_tender()
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_tender_line_items_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "tender_id": 1,
+                "tender_title": "T",
+                "service_id": 2,
+                "service": "Svc",
+                "total_number_pa": 999999,
+                "unit_price_override_gbp": Decimal("99999999.99"),
+            },
+        ]
+        result = get_tender_line_items("1")
+        json.dumps(result, cls=CustomJSONEncoder)
+
+    def test_rich_tender_line_items_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {
+                "tender_id": 1,
+                "tender_title": "T",
+                "service_category": "Dev",
+                "service_id": 2,
+                "service": "Svc",
+                "total_number_pa": 100,
+                "unit_labour_cost_gbp": "80.00",
+                "overhead_recovery_on_labour_percentage": 200,
+                "overhead_recovery_on_labour_cost_gbp": "160.00",
+                "unit_direct_cost_gbp": "100.00",
+                "fully_absorbed_cost_gbp": "340.00",
+                "required_profit_margin_percentage": Decimal("30.00"),
+                "profit_margin_gbp": "145.71",
+                "recommended_unit_price_gbp": "485.71",
+                "our_current_unit_price_gbp": Decimal("150.00"),
+                "tender_override_hourly_price_gbp": Decimal("200.00"),
+                "annual_sales_gbp": "20000.00",
+                "annual_labour_gbp": "8000.00",
+                "annual_direct_gbp": "10000.00",
+                "annual_overhead_gbp": "16000.00",
+                "annual_total_gbp": "34000.00",
+                "annual_profit_gbp": "-14000.00",
+            },
+        ]
+        result = get_rich_tender_line_items("1")
         json.dumps(result, cls=CustomJSONEncoder)
 
 
