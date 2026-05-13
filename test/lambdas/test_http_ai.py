@@ -1,13 +1,13 @@
-# import json
+import json
 import logging
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import patch, MagicMock
 
 import pytest
-from hypothesis import given, settings, strategies as st, HealthCheck
+from hypothesis import given, settings, HealthCheck
+from hypothesis import strategies as st
 
-# import src.lambdas.http_api
 from src.lambdas.http_api import (
     logger,
     app,
@@ -28,6 +28,8 @@ from src.lambdas.http_api import (
 
 logger.setLevel(logging.ERROR)
 
+
+# ── Module-level Hypothesis profile ──────────────────────────────
 settings.register_profile(
     "this_module",
     parent=settings.get_profile("default"),
@@ -36,12 +38,27 @@ settings.register_profile(
 settings.load_profile("this_module")
 
 
-# ───────────────────────── fixtures ────────────────────────
+# ── Constants ─────────────────────────────────────────────────────
+GET_HANDLERS_NO_PATH = [
+    get_department,
+    get_job_title,
+    get_job_title_titles,
+    get_consumable,
+    get_consumable_names,
+    get_service,
+    get_service_slugs,
+    get_overhead_cost,
+    get_labour_cost,
+    get_direct_cost,
+    get_client,
+    get_tender,
+]
 
 
+# ── Fixtures ──────────────────────────────────────────────────────
 @pytest.fixture
 def mock_cursor():
-    """Patch DatabaseCursor and yield a MagicMock cursor that returns [] by default."""
+    """Patch DatabaseCursor; yield a fresh MagicMock cursor each test."""
     with patch("src.lambdas.http_api.DatabaseCursor") as mock:
         cursor = MagicMock()
         cursor.fetchall.return_value = []
@@ -50,19 +67,29 @@ def mock_cursor():
         yield cursor
 
 
-@pytest.fixture
-def set_current_event(monkeypatch):
-    """Set app.current_event to an empty mock (query params = {}, no body)."""
+@pytest.fixture(autouse=True)
+def set_current_event():
+    """Set a clean app.current_event before every test."""
     event = MagicMock()
     event.query_string_parameters = {}
     event.body = None
     app.current_event = event
 
 
-@pytest.fixture(autouse=True)
-def _auto_set_event(set_current_event):
-    """All unit tests get a default empty current_event (harmless for handlers that ignore it)."""
-    pass
+# ══════════════════════════════════════════════════════════════════
+# 1. Serialization safety tests
+# ══════════════════════════════════════════════════════════════════
+
+class TestHandlerOutputSerializable:
+    """Every GET handler must return output that can be serialized by CustomJSONEncoder."""
+
+    def test_department_serializable(self, mock_cursor):
+        mock_cursor.fetchall.return_value = [
+            {"id": 1, "name": "Engineering"},
+            {"id": 2, "name": "A" * 50},  # max varchar(50)
+        ]
+        result = get_department()
+        json.dumps(result, cls=CustomJSONEncoder)
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────
@@ -95,26 +122,10 @@ class TestCustomJSONEncoder:
             CustomJSONEncoder().default(object())
 
 
-# ───────────────── GET handlers (universal) ─────────────────
-
-# All GET handlers that take NO path parameters
-GET_HANDLERS_NO_PATH = [
-    get_department,
-    get_job_title,
-    get_job_title_titles,
-    get_consumable,
-    get_consumable_names,
-    get_service,
-    get_service_slugs,
-    get_overhead_cost,
-    get_labour_cost,
-    get_direct_cost,
-    get_client,
-    get_tender,
-]
-
-
+# ───────────────── GET handlers ─────────────────
 class TestGetHandlersReturnCursorRows:
+    """Property: every GET handler returns exactly what the cursor produced."""
+
     @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
     @given(
         rows=st.lists(
