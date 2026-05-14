@@ -296,13 +296,18 @@ def set_current_event():
 
 
 # ── Helper: case‑/whitespace‑insensitive regex ────────────────────
-def assert_sql_contains(sql_str, *phrases):
+def assert_sql_contains(sql_str, *phrases, in_order=False):
     """Assert that sql_str (after collapsing whitespace) contains each phrase."""
     collapsed = re.sub(r"\s+", " ", sql_str)
     for phrase in phrases:
-        assert re.search(re.escape(phrase), collapsed, re.IGNORECASE), (
+        match = re.search(re.escape(phrase), collapsed, re.IGNORECASE)
+        assert match, (
             f"{phrase!r} not found in {collapsed}"
+            if not in_order else
+            f"{phrase!r} not found in expected place in {collapsed}"
         )
+        if in_order:
+            collapsed = collapsed[match.end():]
 
 
 # ══════════════════════════════════════════════════════════════════
