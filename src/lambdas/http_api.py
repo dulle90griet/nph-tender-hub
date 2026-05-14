@@ -829,11 +829,11 @@ def patch_client(client_id: str) -> None:
     if not updated_client_name:
         return None
 
-    patch_direct_cost_sql = """
+    patch_direct_cost_sql = SQL("""
             UPDATE client
             SET client_name = %s
             WHERE id = %s
-            """
+    """)
 
     with DatabaseCursor() as cursor:
         cursor.execute(

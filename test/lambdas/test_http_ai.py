@@ -1099,6 +1099,119 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         )
         assert args[1] == expected_params
 
+    # ── PATCH /client ─────────────────────────────────────────
+    @pytest.mark.parametrize(
+        "path_args, body, expected_sql_phrases, expected_params",
+        [
+            (
+                ("12",),
+                {"client_name": "New Corp"},
+                ["UPDATE client SET", "client_name =", "WHERE id = %s"],
+                ["New Corp", 12],
+            ),
+            (
+                ("12",),
+                {"client_name": "C" * 50},
+                ["UPDATE client SET", "client_name =", "WHERE id = %s"],
+                ["C" * 50, 12],
+            ),
+        ],
+    )
+    def test_patch_client_sql_and_params(
+        self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
+    ):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        patch_client(*path_args)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(
+            args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
+        )
+        assert args[1] == expected_params
+
+    # ── PATCH /tender ─────────────────────────────────────────
+    @pytest.mark.parametrize(
+        "path_args, body, expected_sql_phrases, expected_params",
+        [
+            (
+                ("1",),
+                {
+                    "tender_title": "New Tender Title, Long In Tooth (Don't Delete!)",
+                    "projected_sales_value_gbp": 90000,
+                    "date_created": "2026-06-01T00:00:00",
+                },
+                [
+                    "UPDATE tender SET",
+                    '"tender_title" =',
+                    '"projected_sales_value_gbp" =',
+                    '"date_created" =',
+                    "WHERE ID = %s",
+                ],
+                [
+                    "New Tender Title, Long In Tooth (Don't Delete!)",
+                    90000,
+                    "2026-06-01T00:00:00",
+                    1,
+                ],
+            ),
+            (
+                ("5",),
+                {"projected_sales_value_gbp": 80000},
+                ["UPDATE tender SET", '"projected_sales_value_gbp" =', "WHERE ID = %s"],
+                [80000, 5],
+            ),
+        ],
+    )
+    def test_patch_tender_sql_and_params(
+        self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
+    ):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        patch_tender(*path_args)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(
+            args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
+        )
+        assert args[1] == expected_params
+
+    # ── PATCH /tender/line-item ───────────────────────────────
+    @pytest.mark.parametrize(
+        "path_args, body, expected_sql_phrases, expected_params",
+        [
+            (
+                ("1", "2"),
+                {
+                    "total_number_pa": 750,
+                    "unit_price_override_gbp": "123456.78",
+                },
+                [
+                    "UPDATE tenders_services SET",
+                    "WHERE tender_id = %s",
+                    "AND service_id = %s",
+                ],
+                [750, "123456.78", "1", "2"],
+            ),
+            (
+                ("99", "100"),
+                {"total_number_pa": 25000},
+                [
+                    "UPDATE tenders_services SET",
+                    "WHERE tender_id = %s",
+                    "AND service_id = %s",
+                ],
+                [25000, "99", "100"],
+            ),
+        ],
+    )
+    def test_patch_tender_line_item_sql_and_params(
+        self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
+    ):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        patch_tender_line_item(*path_args)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(
+            args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
+        )
+        assert args[1] == expected_params
+
 
 # ──────────────────── CustomJSONEncoder ────────────────────
 class TestCustomJSONEncoder:
