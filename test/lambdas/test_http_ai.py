@@ -945,6 +945,45 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         )
         assert args[1] == expected_params
 
+    # ── PATCH /service ────────────────────────────────────────
+    @pytest.mark.parametrize(
+        "path_args, body, expected_sql_phrases, expected_params",
+        [
+            (
+                ("1",),
+                {
+                    "service_name": "Updated",
+                    "our_current_unit_price_gbp": "450.00",
+                    "required_profit_margin_percentage": "25.00",
+                },
+                [
+                    "UPDATE service SET",
+                    '"service_name" =',
+                    '"our_current_unit_price_gbp" =',
+                    '"required_profit_margin_percentage" =',
+                    "WHERE ID = %s",
+                ],
+                ["Updated", "450.00", "25.00", 1],
+            ),
+            (
+                ("99",),
+                {"service_name": "S" * 75},
+                ["UPDATE service SET", '"service_name" =', "WHERE ID = %s"],
+                ["S" * 75, 99],
+            ),
+        ],
+    )
+    def test_patch_service_sql_and_params(
+        self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
+    ):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        patch_service(*path_args)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(
+            args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
+        )
+        assert args[1] == expected_params
+
 
 # ──────────────────── CustomJSONEncoder ────────────────────
 class TestCustomJSONEncoder:
