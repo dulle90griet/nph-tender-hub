@@ -983,6 +983,56 @@ class TestPostHandlersSQLReflectsParams:
         post_client()
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
+    @pytest.mark.parametrize("body, expected_params", [
+        (
+            {
+                "tender_title": "Big Project",
+                "client_id": 1,
+                "projected_sales_value_gbp": 75000,
+                "date_created": "2026-05-06T12:00:00",
+            },
+            ["Big Project", 1, 75000, "2026-05-06T12:00:00"],
+        ),
+        (
+            {
+                "tender_title": "Small Project, in Elements Dismayingly Various",
+                "client_id": 3,
+                "projected_sales_value_gbp": 5000,
+                "date_created": "2026-01-01T00:00:00",
+            },
+            ["Small Project, in Elements Dismayingly Various", 3, 5000, "2026-01-01T00:00:00"],
+        ),
+    ])
+    def test_post_tender_insert_values(self, mock_cursor, body, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        post_tender()
+        assert mock_cursor.execute.call_args[0][1] == expected_params
+
+    @pytest.mark.parametrize("body, expected_params", [
+        (
+            {
+                "tender_id": 1,
+                "service_id": 2,
+                "total_number_pa": 500,
+                "unit_price_override_gbp": "99.95",
+            },
+            [1, 2, 500, "99.95"],
+        ),
+        (
+            {
+                "tender_id": 10,
+                "service_id": 20,
+                "total_number_pa": 1000,
+                "unit_price_override_gbp": None,
+            },
+            [10, 20, 1000, None],
+        ),
+    ])
+    def test_post_tender_line_items_insert_values(self, mock_cursor, body, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        post_tender_line_items()
+        assert mock_cursor.execute.call_args[0][1] == expected_params
+
 
 # ──────────────────── CustomJSONEncoder ────────────────────
 class TestCustomJSONEncoder:
