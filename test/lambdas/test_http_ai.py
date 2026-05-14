@@ -798,6 +798,7 @@ class TestPostHandlersSQLReflectsParams:
         post_client()
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
+    # ── POST /tender ──────────────────────────────────────────
     @pytest.mark.parametrize("body, expected_params", [
         (
             {
@@ -823,6 +824,7 @@ class TestPostHandlersSQLReflectsParams:
         post_tender()
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
+    # ── POST /tender/line-items ──────────────────────────────
     @pytest.mark.parametrize("body, expected_params", [
         (
             {
@@ -847,6 +849,35 @@ class TestPostHandlersSQLReflectsParams:
         app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
         post_tender_line_items()
         assert mock_cursor.execute.call_args[0][1] == expected_params
+
+
+class TestPatchHandlersSQLAndParamsReflectBody:
+
+    # ── PATCH /job-title ──────────────────────────────────────
+    @pytest.mark.parametrize("path_args, body, expected_sql_phrases, expected_params", [
+        (
+            ("42",),
+            {
+                "title": "New Title",
+                "hourly_rate_gbp": "75.00",
+                "default_annual_holiday_days": 30,
+            },
+            ["UPDATE job_title SET", '"hourly_rate_gbp" =', '"default_annual_holiday_days" =', "WHERE ID = %s"],
+            ["New Title", "75.00", 30, 42],
+        ),
+        (
+            ("1",),
+            {"title": "R" * 50},
+            ["UPDATE job_title SET", '"title" =', "WHERE ID = %s"],
+            ["R" * 50, 1],
+        ),
+    ])
+    def test_patch_job_title_sql_and_params(self, mock_cursor, path_args, body, expected_sql_phrases, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        patch_job_title(*path_args)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True)
+        assert args[1] == expected_params
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────
