@@ -769,8 +769,6 @@ class TestHandlersCallExecuteOnce:
 # ══════════════════════════════════════════════════════════════════
 # 5. POST/PATCH SQL reflects request body as expected
 # ══════════════════════════════════════════════════════════════════
-
-
 class TestPostHandlersSQLReflectsParams:
     # ── POST /job-title ─────────────────────────────────────
     @pytest.mark.parametrize(
@@ -816,6 +814,92 @@ class TestPostHandlersSQLReflectsParams:
     def test_post_job_title_insert_values(self, mock_cursor, body, expected_params):
         app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
         post_job_title()
+        assert mock_cursor.execute.call_args[0][1] == expected_params
+
+    # ── POST /consumable ──────────────────────────────────────
+    @pytest.mark.parametrize(
+        "body, expected_params",
+        [
+            (
+                {"consumable_name": "Widget", "default_unit_cost_gbp": "9.99"},
+                ["Widget", "9.99"],
+            ),
+            (
+                {"consumable_name": "Gadget", "default_unit_cost_gbp": None},
+                ["Gadget", None],
+            ),
+        ],
+    )
+    def test_post_consumable_insert_values(self, mock_cursor, body, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        post_consumable()
+        assert mock_cursor.execute.call_args[0][1] == expected_params
+
+    # ── POST /service ─────────────────────────────────────────
+    @pytest.mark.parametrize(
+        "body, expected_params",
+        [
+            (
+                {
+                    "pillar": "Tech",
+                    "category": "Dev",
+                    "service_name": "Consulting",
+                    "xero_code": 100,
+                    "overhead_recovery_on_labour_percentage": 200,
+                    "required_profit_margin_percentage": "30.00",
+                    "acceptable_market_price_gbp": "500.00",
+                    "our_current_unit_price_gbp": "300.00",
+                    "new_unit_price_gbp": None,
+                    "new_day_rate_gbp": None,
+                    "comments": None,
+                },
+                [
+                    "Tech",
+                    "Dev",
+                    "Consulting",
+                    100,
+                    200,
+                    "30.00",
+                    "500.00",
+                    "300.00",
+                    None,
+                    None,
+                    None,
+                ],
+            ),
+            (
+                {
+                    "pillar": "Ops",
+                    "category": "Support",
+                    "service_name": "Helpdesk",
+                    "xero_code": 200,
+                    "overhead_recovery_on_labour_percentage": 150,
+                    "required_profit_margin_percentage": "20.00",
+                    "acceptable_market_price_gbp": "200.00",
+                    "our_current_unit_price_gbp": "150.00",
+                    "new_unit_price_gbp": "175.00",
+                    "new_day_rate_gbp": "1400.00",
+                    "comments": "Urgent setup",
+                },
+                [
+                    "Ops",
+                    "Support",
+                    "Helpdesk",
+                    200,
+                    150,
+                    "20.00",
+                    "200.00",
+                    "150.00",
+                    "175.00",
+                    "1400.00",
+                    "Urgent setup",
+                ],
+            ),
+        ],
+    )
+    def test_post_service_insert_values(self, mock_cursor, body, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        post_service()
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
 
