@@ -1021,6 +1021,45 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         )
         assert args[1] == expected_params
 
+    # ── PATCH /labour-cost ────────────────────────────────────
+    @pytest.mark.parametrize(
+        "path_args, body, expected_sql_phrases, expected_params",
+        [
+            (
+                ("10", "20"),
+                {"required_time_mins": 45},
+                [
+                    "UPDATE labour_cost SET",
+                    'required_time_mins =',
+                    "WHERE service_id = %s",
+                    "AND title_engaged_id = %s",
+                ],
+                [45, 10, 20],
+            ),
+            (
+                ("9", "800"),
+                {"required_time_mins": 120},
+                [
+                    "UPDATE labour_cost SET",
+                    'required_time_mins =',
+                    "WHERE service_id = %s",
+                    "AND title_engaged_id = %s",
+                ],
+                [120, 9, 800],
+            ),
+        ],
+    )
+    def test_patch_labour_cost_sql_and_params(
+        self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
+    ):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        patch_labour_cost(*path_args)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(
+            args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
+        )
+        assert args[1] == expected_params
+
 
 # ──────────────────── CustomJSONEncoder ────────────────────
 class TestCustomJSONEncoder:
