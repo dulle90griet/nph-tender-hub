@@ -651,12 +651,12 @@ def patch_labour_cost(service_id: str, title_engaged_id: str) -> None:
     if not updated_required_time:
         return None
 
-    patch_labour_cost_sql = """
+    patch_labour_cost_sql = SQL("""
             UPDATE labour_cost
             SET required_time_mins = %s
             WHERE service_id = %s
                 AND title_engaged_id = %s 
-            """
+    """)
 
     with DatabaseCursor() as cursor:
         cursor.execute(
@@ -750,12 +750,12 @@ def patch_direct_cost(service_id: str, consumable_id: str) -> None:
     if not updated_cost:
         return None
 
-    patch_direct_cost_sql = """
+    patch_direct_cost_sql = SQL("""
             UPDATE direct_cost
             SET cost_gbp = %s
             WHERE service_id = %s
                 AND consumable_id = %s
-            """
+    """)
 
     with DatabaseCursor() as cursor:
         cursor.execute(

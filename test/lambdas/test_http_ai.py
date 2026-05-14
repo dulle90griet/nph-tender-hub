@@ -1030,7 +1030,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
                 {"required_time_mins": 45},
                 [
                     "UPDATE labour_cost SET",
-                    'required_time_mins =',
+                    "required_time_mins =",
                     "WHERE service_id = %s",
                     "AND title_engaged_id = %s",
                 ],
@@ -1041,7 +1041,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
                 {"required_time_mins": 120},
                 [
                     "UPDATE labour_cost SET",
-                    'required_time_mins =',
+                    "required_time_mins =",
                     "WHERE service_id = %s",
                     "AND title_engaged_id = %s",
                 ],
@@ -1054,6 +1054,45 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     ):
         app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
         patch_labour_cost(*path_args)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(
+            args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
+        )
+        assert args[1] == expected_params
+
+    # ── PATCH /direct-cost ────────────────────────────────────
+    @pytest.mark.parametrize(
+        "path_args, body, expected_sql_phrases, expected_params",
+        [
+            (
+                ("1", "2"),
+                {"cost_gbp": "15.00"},
+                [
+                    "UPDATE direct_cost SET",
+                    "cost_gbp =",
+                    "WHERE service_id = %s",
+                    "AND consumable_id = %s",
+                ],
+                ["15.00", 1, 2],
+            ),
+            (
+                ("1000", "27"),
+                {"cost_gbp": "999.99"},
+                [
+                    "UPDATE direct_cost SET",
+                    "cost_gbp =",
+                    "WHERE service_id = %s",
+                    "AND consumable_id = %s",
+                ],
+                ["999.99", 1000, 27],
+            ),
+        ],
+    )
+    def test_patch_direct_cost_sql_and_params(
+        self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
+    ):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        patch_direct_cost(*path_args)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
