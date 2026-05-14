@@ -902,6 +902,87 @@ class TestPostHandlersSQLReflectsParams:
         post_service()
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
+    # ── POST /overhead-cost ───────────────────────────────────
+    @pytest.mark.parametrize(
+        "body, expected_params",
+        [
+            (
+                {
+                    "cost_type": "Rent",
+                    "cost_description": "Office",
+                    "budgeted_spend_gbp": 12000,
+                },
+                ["Rent", "Office", 12000],
+            ),
+            (
+                {
+                    "cost_type": "Utilities",
+                    "cost_description": "Electricity Costs (Lighting and Automata)",
+                    "budgeted_spend_gbp": 500,
+                },
+                ["Utilities", "Electricity Costs (Lighting and Automata)", 500],
+            ),
+        ],
+    )
+    def test_post_overhead_cost_insert_values(self, mock_cursor, body, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        post_overhead_cost()
+        assert mock_cursor.execute.call_args[0][1] == expected_params
+
+    # ── POST /labour-cost ─────────────────────────────────────
+    @pytest.mark.parametrize(
+        "body, expected_params",
+        [
+            (
+                {"service_id": 1, "title_engaged_id": 2, "required_time_mins": 30},
+                [1, 2, 30],
+            ),
+            (
+                {"service_id": 10, "title_engaged_id": 20, "required_time_mins": 45},
+                [10, 20, 45],
+            ),
+        ],
+    )
+    def test_post_labour_cost_insert_values(self, mock_cursor, body, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        post_labour_cost()
+        assert mock_cursor.execute.call_args[0][1] == expected_params
+
+    # ── POST /direct-cost ─────────────────────────────────────
+    @pytest.mark.parametrize(
+        "body, expected_params",
+        [
+            (
+                {"service_id": 1, "consumable_id": 2, "cost_gbp": "12.50"},
+                [1, 2, "12.50"],
+            ),
+            (
+                {"service_id": 5, "consumable_id": 8, "cost_gbp": "999.99"},
+                [5, 8, "999.99"],
+            ),
+        ],
+    )
+    def test_post_direct_cost_insert_values(self, mock_cursor, body, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        post_direct_cost()
+        assert mock_cursor.execute.call_args[0][1] == expected_params
+
+    # ── POST /client ──────────────────────────────────────────
+    @pytest.mark.parametrize(
+        "body, expected_params",
+        [
+            ({"client_name": "Acme Corp"}, ["Acme Corp"]),
+            (
+                {"client_name": "Gridlokkk Holdings Incorporated (and Old Associates)"},
+                ["Gridlokkk Holdings Incorporated (and Old Associates)"],
+            ),
+        ],
+    )
+    def test_post_client_insert_values(self, mock_cursor, body, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        post_client()
+        assert mock_cursor.execute.call_args[0][1] == expected_params
+
 
 # ──────────────────── CustomJSONEncoder ────────────────────
 class TestCustomJSONEncoder:
