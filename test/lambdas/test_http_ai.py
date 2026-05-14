@@ -954,7 +954,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
                 {
                     "service_name": "Updated",
                     "our_current_unit_price_gbp": "450.00",
-                    "required_profit_margin_percentage": "25.00",
+                    "required_profit_margin_percentage": "25.02",
                 },
                 [
                     "UPDATE service SET",
@@ -963,7 +963,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
                     '"required_profit_margin_percentage" =',
                     "WHERE ID = %s",
                 ],
-                ["Updated", "450.00", "25.00", 1],
+                ["Updated", "450.00", "25.02", 1],
             ),
             (
                 ("99",),
@@ -978,6 +978,43 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     ):
         app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
         patch_service(*path_args)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(
+            args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
+        )
+        assert args[1] == expected_params
+
+    # ── PATCH /overhead-cost ──────────────────────────────────
+    @pytest.mark.parametrize(
+        "path_args, body, expected_sql_phrases, expected_params",
+        [
+            (
+                ("1",),
+                {
+                    "cost_type": "Utilities Outlay (TO RETIRE)",
+                    "budgeted_spend_gbp": 5000,
+                },
+                [
+                    "UPDATE overhead_cost SET",
+                    '"cost_type" =',
+                    '"budgeted_spend_gbp" =',
+                    "WHERE ID = %s",
+                ],
+                ["Utilities Outlay (TO RETIRE)", 5000, 1],
+            ),
+            (
+                ("3",),
+                {"budgeted_spend_gbp": 999},
+                ["UPDATE overhead_cost SET", '"budgeted_spend_gbp" =', "WHERE ID = %s"],
+                [999, 3],
+            ),
+        ],
+    )
+    def test_patch_overhead_cost_sql_and_params(
+        self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
+    ):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        patch_overhead_cost(*path_args)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
