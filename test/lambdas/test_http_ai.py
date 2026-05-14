@@ -187,13 +187,13 @@ ALL_PATCH_HANDLERS_SINGLE_PATCH = [
     (
         patch_labour_cost,
         "/labour-cost/10/20",
-        ("10","20"),
+        ("10", "20"),
         {"required_time_mins": 30},
     ),
     (
         patch_direct_cost,
         "/direct-cost/1/2",
-        ("1","2"),
+        ("1", "2"),
         {"cost_gbp": 1},
     ),
     (
@@ -211,7 +211,7 @@ ALL_PATCH_HANDLERS_SINGLE_PATCH = [
     (
         patch_tender_line_item,
         "/tender/line-items/1/2",
-        ("1","2"),
+        ("1", "2"),
         {"total_number_pa": 1},
     ),
 ]
@@ -518,7 +518,7 @@ class TestGetHandlersReturnCursorRows:
     )
     @settings(max_examples=50)
     @example(rows=[])
-    def test_returns_all_cursor_rows(self, mock_cursor, handler, rows):
+    def test_all_cursor_rows_returned(self, mock_cursor, handler, rows):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
         assert handler() == orig_rows
@@ -728,7 +728,7 @@ class TestHandlersCallExecuteOnce:
     # ── GET handlers ──────────────────────────────────────────
 
     @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
-    def test_get_handler_calls_execute_once(self, mock_cursor, handler):
+    def test_get_handlers_call_execute_once(self, mock_cursor, handler):
         handler()
         assert mock_cursor.execute.call_count == 1
 
@@ -747,7 +747,7 @@ class TestHandlersCallExecuteOnce:
     # ── POST handlers ─────────────────────────────────────────
 
     @pytest.mark.parametrize("handler, _, body", ALL_POST_HANDLERS)
-    def test_post_handler_calls_execute_once(self, mock_cursor, handler, _, body):
+    def test_post_handlers_call_execute_once(self, mock_cursor, handler, _, body):
         app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
         handler()
         assert mock_cursor.execute.call_count == 1
@@ -756,12 +756,67 @@ class TestHandlersCallExecuteOnce:
 
     @pytest.mark.parametrize(
         "handler, _, path_args, body",
-        ALL_PATCH_HANDLERS_SINGLE_PATCH + ALL_PATCH_HANDLERS_MULTI_PATCH
+        ALL_PATCH_HANDLERS_SINGLE_PATCH + ALL_PATCH_HANDLERS_MULTI_PATCH,
     )
-    def test_patch_handler_calls_execute_once(self, mock_cursor, handler, _, path_args, body):
+    def test_patch_handler_calls_execute_once(
+        self, mock_cursor, handler, _, path_args, body
+    ):
         app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
         handler(*path_args)
         assert mock_cursor.execute.call_count == 1
+
+
+# ══════════════════════════════════════════════════════════════════
+# 5. POST/PATCH SQL reflects request body as expected
+# ══════════════════════════════════════════════════════════════════
+
+
+class TestPostHandlersSQLReflectsParams:
+    # ── POST /job-title ─────────────────────────────────────
+    @pytest.mark.parametrize(
+        "body, expected_params",
+        [
+            (
+                {
+                    "department_id": 1,
+                    "title": "Dev",
+                    "default_ft_weekly_hours": "37.5",
+                    "default_lunch_break_hours": "0.5",
+                    "hourly_rate_gbp": "50.00",
+                    "default_annual_holiday_days": None,
+                    "default_annual_training_days": None,
+                    "default_annual_sick_days": None,
+                },
+                [
+                    1,
+                    "Dev",
+                    "37.5",
+                    "0.5",
+                    "50.00",
+                    None,
+                    None,
+                    None,
+                ],
+            ),
+            (
+                {
+                    "department_id": 2,
+                    "title": "QA",
+                    "default_ft_weekly_hours": "40.0",
+                    "default_lunch_break_hours": "1.0",
+                    "hourly_rate_gbp": "45.00",
+                    "default_annual_holiday_days": 28,
+                    "default_annual_training_days": 3,
+                    "default_annual_sick_days": 5,
+                },
+                [2, "QA", "40.0", "1.0", "45.00", 28, 3, 5],
+            ),
+        ],
+    )
+    def test_post_job_title_insert_values(self, mock_cursor, body, expected_params):
+        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
+        post_job_title()
+        assert mock_cursor.execute.call_args[0][1] == expected_params
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────
