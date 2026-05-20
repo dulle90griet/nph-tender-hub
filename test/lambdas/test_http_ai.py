@@ -76,6 +76,17 @@ GET_HANDLERS_NO_PATH = [
     get_tender,
 ]
 
+PAGINATED_HANDLERS = [
+    (get_job_title,       "/job-title"),
+    (get_consumable,      "/consumable"),
+    (get_service,         "/service"),
+    (get_overhead_cost,   "/overhead-cost"),
+    (get_labour_cost,     "/labour-cost"),
+    (get_direct_cost,     "/direct-cost"),
+    (get_client,          "/client"),
+    (get_tender,          "/tender"),
+]
+
 ALL_POST_HANDLERS = [
     (
         post_job_title,
