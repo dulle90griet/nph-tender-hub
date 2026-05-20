@@ -287,12 +287,13 @@ def mock_cursor():
 
 
 @pytest.fixture(autouse=True)
-def set_current_event():
-    """Set a clean app.current_event before every test."""
-    event = MagicMock()
-    event.query_string_parameters = {}
-    event.body = None
-    app.current_event = event
+def set_current_event(request):
+    if "disable_autouse" not in request.keywords:
+        """Set a clean app.current_event before every test."""
+        event = MagicMock()
+        event.query_string_parameters = {}
+        event.body = None
+        app.current_event = event
 
 
 # ── Helper: case‑/whitespace‑insensitive regex ────────────────────
@@ -582,7 +583,7 @@ class TestHandlersCallExecuteOnce:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 5. POST/PATCH SQL reflects request body as expected
+# 4. POST/PATCH SQL reflects request body as expected
 # ══════════════════════════════════════════════════════════════════
 class TestPostHandlersSQLReflectsParams:
     # ── POST /job-title ─────────────────────────────────────
@@ -1211,6 +1212,46 @@ class TestPatchHandlersSQLAndParamsReflectBody:
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
         )
         assert args[1] == expected_params
+
+
+# ══════════════════════════════════════════════════════════════════
+# 5. Handlers handle invalid query parameters gracefully
+# ══════════════════════════════════════════════════════════════════
+class TestNegativeQueryParameters:
+    @pytest.mark.disable_autouse
+    @pytest.mark.parametrize("_, path", PAGINATED_HANDLERS)
+    @pytest.mark.parametrize("bad_params, bad_field", [
+        ({"page": "abc"},           "page"),
+        ({"per_page": "abc"},          "per_page"),
+        ({"page": "xyz", "per_page": "10"}, "page"),
+        ({"page": ""},              "page"),
+        ({"per_page": ""},       "per_page"),
+        ({"page": "999", "per_page": "twenty"}, "per_page"),
+    ])
+    def test_non_numeric_query_params_return_422(self, mock_cursor, _, path, bad_params, bad_field):
+        test_event = {
+            "version": "2.0",
+            "routeKey": f"GET {path}",
+            "rawPath": path,
+            "rawQueryString": "&".join(f"{k}={v}" for k, v in bad_params.items()),
+            "queryStringParameters": bad_params,
+            "headers": {"Content-Type": "application/json"},
+            "requestContext": {
+                "http": {
+                    "method": "GET",
+                    "path": path,
+                },
+                "stage": "test",
+            },
+            "body": None,
+            "isBase64Encoded": False,
+        }
+        test_context = MagicMock()
+        test_context.get_remaining_time_in_millis.return_value = 5000
+        response = app.resolve(test_event, test_context)
+        assert response["statusCode"] == 422
+        assert "detail" in response["body"]
+        assert response["body"]["detail"][0]["loc"] == ["query_params", bad_field]
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────

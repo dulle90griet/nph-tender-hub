@@ -9,6 +9,7 @@ dev = [
     "bandit>=1.9.0",
     "pytest>=9.0.3",
     "pytest-cov>=7.0.0",  # Includes 'coverage'
+    "hypothesis>=6.152.0",
     "boto3>=1.42.0",
     "moto>=5.0.0",
     "aws-lambda-powertools>=3.26.0",
@@ -34,4 +35,9 @@ local-dev = [
     {include-group = "audit-fixes"},
     {include-group = "lambda-layer"},
     {include-group = "psycopg-layer"},
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "disable_autouse"
 ]
