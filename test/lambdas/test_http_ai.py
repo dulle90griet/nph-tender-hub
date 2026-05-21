@@ -13,6 +13,7 @@ from hypothesis import strategies as st
 from src.lambdas.http_api import (
     logger,
     app,
+    Pagination,
     CustomJSONEncoder,
     get_department,
     get_job_title,
@@ -85,6 +86,10 @@ PAGINATED_HANDLERS = [
     (get_direct_cost,     "/direct-cost"),
     (get_client,          "/client"),
     (get_tender,          "/tender"),
+]
+
+HANDLERS_TYPING_IMPLEMENTED = [
+    get_job_title
 ]
 
 ALL_POST_HANDLERS = [
@@ -305,6 +310,10 @@ def set_current_event(request):
         event.query_string_parameters = {}
         event.body = None
         app.current_event = event
+        yield
+        del app.current_event
+    else:
+        yield
 
 
 # ── Helper: case‑/whitespace‑insensitive regex ────────────────────
@@ -348,7 +357,11 @@ class TestGetHandlersReturnCursorRows:
     def test_all_cursor_rows_returned(self, mock_cursor, handler, rows):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        assert handler() == orig_rows
+        if handler in HANDLERS_TYPING_IMPLEMENTED:
+            assert handler(Pagination()) == orig_rows
+        else:
+            assert handler() == orig_rows
+
 
     @pytest.mark.parametrize(
         "handler, rows",
@@ -391,7 +404,10 @@ class TestGetHandlersReturnCursorRows:
         """Each handler handles schema-limit values without error."""
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        assert handler() == orig_rows
+        if handler in HANDLERS_TYPING_IMPLEMENTED:
+            assert handler(Pagination()) == orig_rows
+        else:
+            assert handler() == orig_rows
 
     @pytest.mark.parametrize("tender_id", ["5", "1", "999"])
     @given(
@@ -540,7 +556,10 @@ class TestPaginationClamping:
             "page": str(page),
             "per_page": str(per_page),
         }
-        handler()
+        if handler in HANDLERS_TYPING_IMPLEMENTED:
+            handler(Pagination(page=page, per_page=per_page))
+        else:
+            handler()
         sql = mock_cursor.execute.call_args[0][0].as_string()
         expected_offset = expected_limit * (expected_page - 1)
         assert_sql_contains(sql, f"LIMIT {expected_limit}", f"OFFSET {expected_offset}")
@@ -556,7 +575,10 @@ class TestHandlersCallExecuteOnce:
 
     @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
     def test_get_handlers_call_execute_once(self, mock_cursor, handler):
-        handler()
+        if handler in HANDLERS_TYPING_IMPLEMENTED:
+            handler(Pagination())
+        else:
+            handler()
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize("tender_id", ["1", "42"])
@@ -1228,18 +1250,25 @@ class TestPatchHandlersSQLAndParamsReflectBody:
 # ══════════════════════════════════════════════════════════════════
 # 5. Handlers handle invalid query parameters gracefully
 # ══════════════════════════════════════════════════════════════════
-class TestNegativeQueryParameters:
+class TestInvalidQueryParameters:
     @pytest.mark.disable_autouse
     @pytest.mark.parametrize("_, path", PAGINATED_HANDLERS)
-    @pytest.mark.parametrize("bad_params, bad_field", [
-        ({"page": "abc"},           "page"),
-        ({"per_page": "abc"},          "per_page"),
-        ({"page": "xyz", "per_page": "10"}, "page"),
-        ({"page": ""},              "page"),
-        ({"per_page": ""},       "per_page"),
-        ({"page": "999", "per_page": "twenty"}, "per_page"),
-    ])
-    def test_non_numeric_query_params_return_422(self, mock_cursor, _, path, bad_params, bad_field):
+    @pytest.mark.parametrize(
+        "bad_params, bad_field",
+        [
+            ({"page": "abc"}, "page"),
+            ({"per_page": "abc"}, "per_page"),
+            ({"page": "xyz", "per_page": "10"}, "page"),
+            ({"page": ""}, "page"),
+            ({"per_page": ""}, "per_page"),
+            ({"page": "999", "per_page": "twenty"}, "per_page"),
+        ],
+    )
+    def test_non_numeric_query_params_return_422(
+        self, mock_cursor, _, path, bad_params, bad_field
+    ):
+        rows = [{"id": 1, "title": "A" * 50, "hourly_rate_gbp": Decimal("99999.99")}]
+        mock_cursor.fetchall.return_value = rows
         test_event = {
             "version": "2.0",
             "routeKey": f"GET {path}",
@@ -1252,7 +1281,7 @@ class TestNegativeQueryParameters:
                     "method": "GET",
                     "path": path,
                 },
-                "stage": "test",
+                "stage": "$default",
             },
             "body": None,
             "isBase64Encoded": False,
@@ -1260,9 +1289,14 @@ class TestNegativeQueryParameters:
         test_context = MagicMock()
         test_context.get_remaining_time_in_millis.return_value = 5000
         response = app.resolve(test_event, test_context)
+        print(f"==>> response: {response}")
         assert response["statusCode"] == 422
         assert "detail" in response["body"]
-        assert response["body"]["detail"][0]["loc"] == ["query_params", bad_field]
+        assert json.loads(response["body"])["detail"][0]["loc"] == [
+            "query",
+            "pagination",
+            bad_field,
+        ]
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────

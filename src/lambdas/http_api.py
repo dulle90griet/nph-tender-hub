@@ -3,13 +3,17 @@ from decimal import Decimal
 from datetime import datetime
 import json
 import logging
+
+from typing import Optional
+from typing_extensions import Annotated
+from pydantic import BaseModel
+
 import psycopg_pool
 from psycopg.sql import SQL, Identifier, Placeholder
 from psycopg.rows import dict_row
-from aws_lambda_powertools.event_handler import (
-    APIGatewayHttpResolver,
-    # Response,
-)
+
+from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
+from aws_lambda_powertools.event_handler.openapi.params import Query
 from aws_lambda_powertools.utilities.typing.lambda_context import LambdaContext
 import boto3
 from botocore.exceptions import ClientError
@@ -18,6 +22,11 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
+
+
+class Pagination(BaseModel):
+    page: Optional[int] = 1
+    per_page: Optional[int] = 10
 
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -31,7 +40,10 @@ def custom_serializer(o):
     return json.dumps(o, separators=(",", ":"), cls=CustomJSONEncoder)
 
 
-app = APIGatewayHttpResolver(serializer=custom_serializer)
+app = APIGatewayHttpResolver(
+    enable_validation=True,
+    serializer=custom_serializer,
+)
 
 
 class DatabaseManager:
@@ -155,15 +167,11 @@ def get_department() -> None:
 
 
 @app.get("/job-title")
-def get_job_title() -> list:
+def get_job_title(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for job_title table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
