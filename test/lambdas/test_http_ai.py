@@ -1252,7 +1252,6 @@ class TestPatchHandlersSQLAndParamsReflectBody:
 # ══════════════════════════════════════════════════════════════════
 class TestInvalidQueryParameters:
     @pytest.mark.disable_autouse
-    @pytest.mark.parametrize("_, path", PAGINATED_HANDLERS)
     @pytest.mark.parametrize(
         "bad_params, bad_field",
         [
@@ -1264,6 +1263,7 @@ class TestInvalidQueryParameters:
             ({"page": "999", "per_page": "twenty"}, "per_page"),
         ],
     )
+    @pytest.mark.parametrize("_, path", PAGINATED_HANDLERS)
     def test_non_numeric_query_params_return_422(
         self, mock_cursor, _, path, bad_params, bad_field
     ):
