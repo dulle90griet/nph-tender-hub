@@ -281,15 +281,11 @@ def patch_job_title(job_title_id: str) -> None:
 
 
 @app.get("/consumable")
-def get_consumable() -> list:
+def get_consumable(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for consumable table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
