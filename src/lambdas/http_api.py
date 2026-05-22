@@ -754,15 +754,11 @@ def patch_direct_cost(service_id: str, consumable_id: str) -> None:
 
 
 @app.get("/client")
-def get_client() -> list:
+def get_client(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for client table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
