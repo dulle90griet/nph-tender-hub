@@ -659,15 +659,11 @@ def patch_labour_cost(service_id: str, title_engaged_id: str) -> None:
 
 
 @app.get("/direct-cost")
-def get_direct_cost() -> list:
+def get_direct_cost(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for direct_cost table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_direct_cost_sql = SQL("""
