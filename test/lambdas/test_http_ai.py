@@ -78,19 +78,17 @@ GET_HANDLERS_NO_PATH = [
 ]
 
 PAGINATED_HANDLERS = [
-    (get_job_title,       "/job-title"),
-    (get_consumable,      "/consumable"),
-    (get_service,         "/service"),
-    (get_overhead_cost,   "/overhead-cost"),
-    (get_labour_cost,     "/labour-cost"),
-    (get_direct_cost,     "/direct-cost"),
-    (get_client,          "/client"),
-    (get_tender,          "/tender"),
+    (get_job_title, "/job-title"),
+    (get_consumable, "/consumable"),
+    (get_service, "/service"),
+    (get_overhead_cost, "/overhead-cost"),
+    (get_labour_cost, "/labour-cost"),
+    (get_direct_cost, "/direct-cost"),
+    (get_client, "/client"),
+    (get_tender, "/tender"),
 ]
 
-HANDLERS_TYPING_IMPLEMENTED = [
-    get_job_title
-]
+HANDLERS_TYPING_IMPLEMENTED = [get_job_title]
 
 ALL_POST_HANDLERS = [
     (
@@ -283,6 +281,30 @@ ALL_PATCH_HANDLERS_MULTI_PATCH = [
     ),
 ]
 
+BAD_POST_BODIES = {
+    ("POST", "/job-title"): None,
+    ("POST", "/consumable"): None,
+    ("POST", "/service"): None,
+    ("POST", "/overhead-cost"): None,
+    ("POST", "/labour-cost"): None,
+    ("POST", "/direct-cost"): None,
+    ("POST", "/client"): None,
+    ("POST", "/tender"): None,
+    ("POST", "/tender/line-items"): None,
+}
+
+BAD_PATCH_BODIES = {
+    ("PATCH", "/job-title"): None,
+    ("PATCH", "/consumable"): None,
+    ("PATCH", "/service"): None,
+    ("PATCH", "/overhead-cost"): None,
+    ("PATCH", "/labour-cost"): None,
+    ("PATCH", "/direct-cost"): None,
+    ("PATCH", "/client"): None,
+    ("PATCH", "/tender"): None,
+    ("PATCH", "/tender/line-items"): None,
+}
+
 
 # ── Fixtures ──────────────────────────────────────────────────────
 @pytest.fixture
@@ -361,7 +383,6 @@ class TestGetHandlersReturnCursorRows:
             assert handler(Pagination()) == orig_rows
         else:
             assert handler() == orig_rows
-
 
     @pytest.mark.parametrize(
         "handler, rows",
@@ -1297,6 +1318,39 @@ class TestInvalidQueryParameters:
             "pagination",
             bad_field,
         ]
+
+
+# ══════════════════════════════════════════════════════════════════
+# 5. POST/PATCH handlers handle malformed body gracefully
+# ══════════════════════════════════════════════════════════════════
+class TestInvalidBody:
+    POST_AND_PATCH_HANDLERS = ALL_POST_HANDLERS + ALL_PATCH_HANDLERS_SINGLE_PATCH
+
+    @pytest.mark.parametrize("method, path, body", [])
+    def test_malformed_body_returns_422(self, mock_cursor, method, path, body):
+        test_event = {
+            "version": "2.0",
+            "routeKey": f"{method} {path}",
+            "rawPath": path,
+            "rawQueryString": "",
+            "queryStringParamters": {},
+            "headers": {"Content-Type": "application/json"},
+            "requestContext": {
+                "http": {
+                    "method": method,
+                    "path": path,
+                },
+                "stage": "$default",
+            },
+            "body": None,
+            "isBase64Encoded": False,
+        }
+        test_context = MagicMock()
+        test_context.get_remaining_time_in_millis.return_value = 5000
+        response = app.resolve(test_event, test_context)
+        assert response["statusCode"] == 422
+        assert "detail" in response["body"]
+        # assert json.loads(response["body"])["detail"][0]["loc"] == None
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────
