@@ -1324,9 +1324,26 @@ class TestInvalidQueryParameters:
 # 5. POST/PATCH handlers handle malformed body gracefully
 # ══════════════════════════════════════════════════════════════════
 class TestInvalidBody:
-    POST_AND_PATCH_HANDLERS = ALL_POST_HANDLERS + ALL_PATCH_HANDLERS_SINGLE_PATCH
-
-    @pytest.mark.parametrize("method, path, body", [])
+    @pytest.mark.disable_autouse
+    @pytest.mark.parametrize(
+        "method, path, body",
+        [
+            (
+                "POST",
+                "/job-title",
+                {
+                    "department_id": "Nine",
+                    "title": "Lower Archivists",
+                    "default_ft_weekly_hours": Decimal("37.5"),
+                    "default_lunch_break_hours": Decimal("1.0"),
+                    "hourly_rate_gbp": Decimal("35.00"),
+                    "default_annual_holiday_days": 30,
+                    "default_annual_training_days": 5,
+                    "default_annual_sick_days": 10,
+                },
+            )
+        ],
+    )
     def test_malformed_body_returns_422(self, mock_cursor, method, path, body):
         test_event = {
             "version": "2.0",
@@ -1342,7 +1359,7 @@ class TestInvalidBody:
                 },
                 "stage": "$default",
             },
-            "body": None,
+            "body": json.dumps(body, cls=CustomJSONEncoder),
             "isBase64Encoded": False,
         }
         test_context = MagicMock()
@@ -1350,6 +1367,7 @@ class TestInvalidBody:
         response = app.resolve(test_event, test_context)
         assert response["statusCode"] == 422
         assert "detail" in response["body"]
+        print(response["body"])
         # assert json.loads(response["body"])["detail"][0]["loc"] == None
 
 

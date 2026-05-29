@@ -4,16 +4,16 @@ from datetime import datetime
 import json
 import logging
 
-from typing import Optional
+from typing import Optional, TypeVar, ClassVar, Type
 from typing_extensions import Annotated
-from pydantic import BaseModel
+from pydantic import RootModel, BaseModel, Field, model_validator
 
 import psycopg_pool
 from psycopg.sql import SQL, Identifier, Placeholder
 from psycopg.rows import dict_row
 
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
-from aws_lambda_powertools.event_handler.openapi.params import Query
+from aws_lambda_powertools.event_handler.openapi.params import Query, Body
 from aws_lambda_powertools.utilities.typing.lambda_context import LambdaContext
 import boto3
 from botocore.exceptions import ClientError
@@ -27,6 +27,54 @@ logger.setLevel(logging.INFO)
 class Pagination(BaseModel):
     page: Optional[int] = 1
     per_page: Optional[int] = 10
+
+
+class JobTitle(BaseModel):
+    department_id: int
+    title: Annotated[str, Field(max_length=50)]
+    default_ft_weekly_hours: Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    default_lunch_break_hours: Annotated[Decimal, Field(max_digits=2, decimal_places=1)]
+    hourly_rate_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=2)]
+    default_annual_holiday_days: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+    default_annual_training_days: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+    default_annual_sick_days: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+
+
+T = TypeVar("T", bound="BaseModel")
+
+
+def create_lax_list_model(model: Type[T]) -> Type[RootModel[list[T]]]:
+    """Factory function creating a RootModel that coerces a single dict into a list of dicts for *model*."""
+
+    class LaxList(RootModel[list[model]]):
+        item_model: ClassVar[type] = model
+
+        @model_validator(mode="before")
+        @classmethod
+        def coerce_single(cls, values):
+            return [values] if isinstance(values, dict) else values
+
+        @model_validator(mode="after")
+        def check_not_empty(self):
+            if len(self.root) == 0:
+                raise ValueError("at least one row object required")
+            return self
+
+    LaxList.__name__ = f"{model.__name__}List"
+    LaxList.__module__ = model.__module__
+    return LaxList
+
+
+models_for_lax_list = [
+    JobTitle,
+]
+lax_lists = {model: create_lax_list_model(model) for model in models_for_lax_list}
 
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -225,7 +273,7 @@ def get_job_title_titles() -> list:
 
 
 @app.post("/job-title")
-def post_job_title() -> None:
+def post_job_title(body: Annotated[lax_lists[JobTitle], Body()]) -> None:
     """POST method for job_title table"""
 
     columns = (
@@ -239,12 +287,16 @@ def post_job_title() -> None:
         "default_annual_sick_days",
     )
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    # rows = json.loads(app.current_event.body)
+    rows = body.root
+    # if isinstance(rows, dict):
+    #     # Ensure rows is a list of dicts to support multi-row insert
+    #     rows = [rows]
 
-    values = [row[column] for column in columns for row in rows]
+    print(rows)
+    print(f"==>> type(rows): {type(rows)}")
+
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
