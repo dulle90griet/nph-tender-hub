@@ -19,7 +19,9 @@ from src.lambdas.http_api import (
     app,
     Pagination,
     CustomJSONEncoder,
+    # Department,
     JobTitle,
+    Consumable,
     get_department,
     get_job_title,
     get_job_title_titles,
@@ -1543,7 +1545,9 @@ def parametrize_with_models(
 
 
 POST_ENDPOINTS = [
-    ("POST", "/job-title", JobTitle)
+    # ("POST", "/department", Department),
+    ("POST", "/job-title", JobTitle),
+    ("POST", "/consumable", Consumable),
 ]
 
 class TestInvalidBody:

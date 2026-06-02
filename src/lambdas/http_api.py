@@ -29,6 +29,11 @@ class Pagination(BaseModel):
     per_page: Optional[int] = 10
 
 
+# class Department(BaseModel):
+#     id: int
+#     name: Annotated[str, Field(max_length=50)]
+
+
 class JobTitle(BaseModel):
     department_id: int
     title: Annotated[str, Field(max_length=50)]
@@ -44,6 +49,12 @@ class JobTitle(BaseModel):
     default_annual_sick_days: Optional[
         Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
     ] = None
+
+
+class Consumable(BaseModel):
+    id: int
+    consumable_name: Annotated[str, Field(max_length=100)]
+    default_unit_cost_gbp: Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
 
 
 T = TypeVar("T", bound="BaseModel")
@@ -73,6 +84,7 @@ def create_lax_list_model(model: Type[T]) -> Type[RootModel[list[T]]]:
 
 models_for_lax_list = [
     JobTitle,
+    Consumable,
 ]
 lax_lists = {model: create_lax_list_model(model) for model in models_for_lax_list}
 
@@ -287,11 +299,7 @@ def post_job_title(body: Annotated[lax_lists[JobTitle], Body()]) -> None:
         "default_annual_sick_days",
     )
 
-    # rows = json.loads(app.current_event.body)
     rows = body.root
-    # if isinstance(rows, dict):
-    #     # Ensure rows is a list of dicts to support multi-row insert
-    #     rows = [rows]
 
     print(rows)
     print(f"==>> type(rows): {type(rows)}")
@@ -375,15 +383,12 @@ def get_consumable_names() -> list:
 
 
 @app.post("/consumable")
-def post_consumable() -> None:
+def post_consumable(body: Annotated[lax_lists[Consumable], Body()]) -> None:
     """POST method for consumable table"""
 
     columns = ("consumable_name", "default_unit_cost_gbp")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into consumable values:")
     logger.info(rows)
