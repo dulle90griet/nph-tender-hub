@@ -501,7 +501,6 @@ def get_service(pagination: Annotated[Pagination, Query()]) -> list:
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
-
     offset = per_page * (page - 1)
 
     get_sql = SQL("""

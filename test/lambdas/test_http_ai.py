@@ -103,8 +103,6 @@ PAGINATED_HANDLERS = [
     (get_tender, "/tender"),
 ]
 
-HANDLERS_TYPING_IMPLEMENTED = [get_job_title]
-
 ALL_POST_HANDLERS = [
     (
         post_job_title,
@@ -370,7 +368,7 @@ class TestGetHandlersReturnCursorRows:
     def test_all_cursor_rows_returned(self, mock_cursor, handler, rows):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        if handler in HANDLERS_TYPING_IMPLEMENTED:
+        if handler in [handler[0] for handler in PAGINATED_HANDLERS]:
             assert handler(Pagination()) == orig_rows
         else:
             assert handler() == orig_rows
