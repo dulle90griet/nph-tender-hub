@@ -9,10 +9,11 @@ import functools
 from unittest.mock import patch, MagicMock
 
 import pytest
-from hypothesis import given, seed, example, settings, HealthCheck
+from hypothesis import given, example, settings, HealthCheck
 from hypothesis import strategies as st
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
+from polyfactory.factories.pydantic_factory import ModelFactory
 
 from src.lambdas.http_api import (
     logger,
@@ -1343,82 +1344,82 @@ INVALID_VALUES = {
 }
 
 
-def build_decimal(
-    integer_part: int,
-    fractional_part: int,
-    decimal_places: int
-) -> Decimal:
-    return Decimal(f"{integer_part}.{fractional_part:0{decimal_places}d}")
+# def build_decimal(
+#     integer_part: int,
+#     fractional_part: int,
+#     decimal_places: int
+# ) -> Decimal:
+#     return Decimal(f"{integer_part}.{fractional_part:0{decimal_places}d}")
 
 
-def _get_decimal_constraints(field: FieldInfo) -> tuple[int | None, int, None]:
-    """
-    Return (max_digits, decimal_places) by searching the field's
-    annotation tree for a FieldInfo that carries those constraints.
-    """
-    # Collect all FieldInfo objects, including nested, from the annotation
-    field_infos: list[FieldInfo] = []
+# def _get_decimal_constraints(field: FieldInfo) -> tuple[int | None, int, None]:
+#     """
+#     Return (max_digits, decimal_places) by searching the field's
+#     annotation tree for a FieldInfo that carries those constraints.
+#     """
+#     # Collect all FieldInfo objects, including nested, from the annotation
+#     field_infos: list[FieldInfo] = []
 
-    def collect(annotation):
-        if isinstance(annotation, FieldInfo):
-            field_infos.append(annotation)
-        origin = get_origin(annotation)
-        args = get_args(annotation)
-        if origin is Annotated:
-            # args[0] is the type; args[1:] are metadata (may include FieldInfo)
-            for arg in args:
-                collect(arg)
-        elif origin is Union:
-            for arg in args:
-                collect(arg)
+#     def collect(annotation):
+#         if isinstance(annotation, FieldInfo):
+#             field_infos.append(annotation)
+#         origin = get_origin(annotation)
+#         args = get_args(annotation)
+#         if origin is Annotated:
+#             # args[0] is the type; args[1:] are metadata (may include FieldInfo)
+#             for arg in args:
+#                 collect(arg)
+#         elif origin is Union:
+#             for arg in args:
+#                 collect(arg)
 
-    collect(field.annotation)
+#     collect(field.annotation)
 
-    # Also check the field's own metadata, for non-Optional simple cases
-    all_metadata = field.metadata.copy()
-    for field_info in field_infos:
-        all_metadata.extend(field_info.metadata)
+#     # Also check the field's own metadata, for non-Optional simple cases
+#     all_metadata = field.metadata.copy()
+#     for field_info in field_infos:
+#         all_metadata.extend(field_info.metadata)
 
-    for metadata in all_metadata:
-        if hasattr(metadata, "max_digits"):
-            return(metadata.max_digits, getattr(metadata, "decimal_places", 0) or 0)
-    return (None, None)
+#     for metadata in all_metadata:
+#         if hasattr(metadata, "max_digits"):
+#             return(metadata.max_digits, getattr(metadata, "decimal_places", 0) or 0)
+#     return (None, None)
 
 
-def build_decimal_strategy(field: FieldInfo) -> st.SearchStrategy:
-    """
-    Build a Hypothesis strategy for a Decimal field, respecting Pydantic
-    constraints (unlike Hypothesis from_type()).
-    """
-    print(f"field.metadata: {field.metadata}")
+# def build_decimal_strategy(field: FieldInfo) -> st.SearchStrategy:
+#     """
+#     Build a Hypothesis strategy for a Decimal field, respecting Pydantic
+#     constraints (unlike Hypothesis from_type()).
+#     """
+#     print(f"field.metadata: {field.metadata}")
 
-    max_digits, decimal_places = _get_decimal_constraints(field)
+#     max_digits, decimal_places = _get_decimal_constraints(field)
 
-    if max_digits is not None:
-        integer_places = max_digits - decimal_places
-        integer_part = st.integers(
-            min_value=-(10**integer_places - 1),
-            max_value=10**integer_places - 1,
-        )
-        fractional_part = st.integers(
-            min_value=0,
-            max_value=10**decimal_places - 1,
-        )
-        print(
-            f"Building decimal with max digits {max_digits}, decimal "
-            f"places {decimal_places}, integer part between "
-            f"{(10**integer_places - 1)} and {10**integer_places -1}, "
-            f"fractional part between 0 and {10**decimal_places - 1}."
-        )
-        return st.builds(
-            build_decimal,
-            integer_part,
-            fractional_part,
-            st.just(decimal_places)
-        )
+#     if max_digits is not None:
+#         integer_places = max_digits - decimal_places
+#         integer_part = st.integers(
+#             min_value=-(10**integer_places - 1),
+#             max_value=10**integer_places - 1,
+#         )
+#         fractional_part = st.integers(
+#             min_value=0,
+#             max_value=10**decimal_places - 1,
+#         )
+#         print(
+#             f"Building decimal with max digits {max_digits}, decimal "
+#             f"places {decimal_places}, integer part between "
+#             f"{(10**integer_places - 1)} and {10**integer_places -1}, "
+#             f"fractional part between 0 and {10**decimal_places - 1}."
+#         )
+#         return st.builds(
+#             build_decimal,
+#             integer_part,
+#             fractional_part,
+#             st.just(decimal_places)
+#         )
 
-    # If max_digits is not specified, simply return a Decimal
-    return st.decimals(allow_nan=False, allow_infinity=False)
+#     # If max_digits is not specified, simply return a Decimal
+#     return st.decimals(allow_nan=False, allow_infinity=False)
 
 
 def unwrap_annotation(annotation: type) -> type:
@@ -1445,39 +1446,45 @@ def unwrap_annotation(annotation: type) -> type:
     return annotation
 
 
+# @functools.lru_cache
+# def get_valid_body(model: type[BaseModel]) -> dict:
+#     """
+#     Return a valid JSON body for *model* using Hypothesis.
+#     The example is drawn once per model (cached) so tests are deterministic.
+#     """
+#     fields = {}
+#     for name, field in model.model_fields.items():
+#         if issubclass(unwrap_annotation(field.annotation), Decimal):
+#             fields[name] = build_decimal_strategy(field)
+#         else:
+#             fields[name] = st.from_type(field)
+
+#     print(f"\n\n{fields}")
+
+#     strategy = st.fixed_dictionaries(fields)
+#     # strategy = st.fixed_dictionaries({
+#     #     name: build_decimal_strategy(field)
+#     #         if issubclass(unwrap_annotation(field.annotation), Decimal)
+#     #         else st.from_type(field.annotation)
+#     #         for name, field in model.model_fields.items()
+#     # })
+
+#     # strategy = st.from_type(model)
+#     return strategy.example()
+
+
 @functools.lru_cache
 def get_valid_body(model: type[BaseModel]) -> dict:
     """
     Return a valid JSON body for *model* using Hypothesis.
     The example is drawn once per model (cached) so tests are deterministic.
     """
-    fields = {}
-    for name, field in model.model_fields.items():
-        print(f"================\nname:{name}")
-        print(f"field: {field}")
+    print(f"Generating valid body for {model.__name__}")
+    class CurrentModelFactory(ModelFactory[model]):
+        __random_seed__ = 491260
 
-        print(f"field.annotation = {field.annotation}")
-        print(f"unwrap_annotation(field.annotation) = {unwrap_annotation(field.annotation)}")
-        print(f"Lineage of annotation: {unwrap_annotation(field.annotation).__mro__}")
-        print(f"Is subclass of Decimal? {"Yes" if issubclass(unwrap_annotation(field.annotation), Decimal) else "No"}")
-
-        if issubclass(unwrap_annotation(field.annotation), Decimal):
-            fields[name] = build_decimal_strategy(field)
-        else:
-            fields[name] = st.from_type(field.annotation)
-
-    print(f"\n\n{fields}")
-
-    strategy = st.fixed_dictionaries(fields)
-    # strategy = st.fixed_dictionaries({
-    #     name: build_decimal_strategy(field)
-    #         if issubclass(unwrap_annotation(field.annotation), Decimal)
-    #         else st.from_type(field.annotation)
-    #         for name, field in model.model_fields.items()
-    # })
-
-    # strategy = st.from_type(model)
-    return strategy.example()
+    valid_instance = CurrentModelFactory.build()
+    return valid_instance.model_dump()
 
 
 def get_invalid_values_for_field(
@@ -1525,9 +1532,6 @@ def generate_invalid_test_cases(
             bad_body = deepcopy(valid_body)
             del bad_body[field_name]
             invalid_cases.append((bad_body, expected_loc))
-
-    from pprint import pprint
-    pprint(invalid_cases)
 
     return invalid_cases
 
