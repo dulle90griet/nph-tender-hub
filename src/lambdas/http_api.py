@@ -108,6 +108,13 @@ class Tender(BaseModel):
     date_created: datetime
 
 
+class TenderLineItem(BaseModel):
+    tender_id: int
+    service_id: int
+    total_number_pa: int
+    unit_price_override_gbp: Optional[Annotated[Decimal, Field(max_digits=8, decimal_places=2)]]
+
+
 T = TypeVar("T", bound="BaseModel")
 
 
@@ -142,6 +149,7 @@ models_for_lax_list = [
     DirectCost,
     Client,
     Tender,
+    TenderLineItem,
 ]
 lax_lists = {model: create_lax_list_model(model) for model in models_for_lax_list}
 
@@ -1180,7 +1188,7 @@ def get_rich_tender_line_items(tender_id: str) -> list:
 
 
 @app.post("/tender/line-items")
-def post_tender_line_items() -> None:
+def post_tender_line_items(body: Annotated[lax_lists[TenderLineItem], Body()]) -> None:
     """POST method for tenders_services table"""
 
     columns = (
@@ -1190,15 +1198,12 @@ def post_tender_line_items() -> None:
         "unit_price_override_gbp",
     )
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into tenders_services values:")
     logger.info(rows)
 
-    values = [row[column] for column in columns for row in rows]
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
