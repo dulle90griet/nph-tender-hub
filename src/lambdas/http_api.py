@@ -95,6 +95,11 @@ class DirectCost(BaseModel):
     cost_gbp: Annotated[Decimal, Field(max_digits=5, decimal_places=2)]
 
 
+class Client(BaseModel):
+    id: int
+    client_name: Annotated[str, Field(max_length=50)]
+
+
 T = TypeVar("T", bound="BaseModel")
 
 
@@ -127,6 +132,7 @@ models_for_lax_list = [
     OverheadCost,
     LabourCost,
     DirectCost,
+    Client,
 ]
 lax_lists = {model: create_lax_list_model(model) for model in models_for_lax_list}
 
@@ -863,15 +869,12 @@ def get_client(pagination: Annotated[Pagination, Query()]) -> list:
 
 
 @app.post("/client")
-def post_client() -> None:
+def post_client(body: Annotated[lax_lists[Client], Body()]) -> None:
     """POST method for client table"""
 
     columns = ("client_name",)
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into client values:")
     logger.info(rows)
