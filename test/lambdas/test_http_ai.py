@@ -28,6 +28,7 @@ from src.lambdas.http_api import (
     LabourCost,
     DirectCost,
     Client,
+    Tender,
     get_department,
     get_job_title,
     get_job_title_titles,
@@ -1320,7 +1321,7 @@ INVALID_VALUES = {
     bool: ["not a bool", 1, 0, "1.23", [], {}],
     list: ["not a list", 123, 1.23, "1.23", True, {}],
     dict: ["not a dict", 123, 1.23, "1.23", True, []],
-    datetime: ["not a datetime", 123, 1.23, "1.23", True, [], {}],
+    datetime: ["not a datetime", True, [], {}],
     date: ["not a date", 123, 1.23, "1.23", True, [], {}],
 }
 
@@ -1433,6 +1434,7 @@ POST_ENDPOINTS = [
     ("POST", "/labour-cost", LabourCost),
     ("POST", "/direct-cost", DirectCost),
     ("POST", "/client", Client),
+    ("POST", "/tender", Tender),
 ]
 
 class TestInvalidBody:

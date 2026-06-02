@@ -100,6 +100,14 @@ class Client(BaseModel):
     client_name: Annotated[str, Field(max_length=50)]
 
 
+class Tender(BaseModel):
+    id: int
+    tender_title: Annotated[str, Field(max_length=50)]
+    client_id: int
+    projected_sales_value_gbp: int
+    date_created: datetime
+
+
 T = TypeVar("T", bound="BaseModel")
 
 
@@ -133,6 +141,7 @@ models_for_lax_list = [
     LabourCost,
     DirectCost,
     Client,
+    Tender,
 ]
 lax_lists = {model: create_lax_list_model(model) for model in models_for_lax_list}
 
@@ -441,7 +450,7 @@ def post_consumable(body: Annotated[lax_lists[Consumable], Body()]) -> None:
     logger.info("POST into consumable values:")
     logger.info(rows)
 
-    values = [row[column] for column in columns for row in rows]
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
@@ -545,7 +554,7 @@ def post_service(body: Annotated[lax_lists[Service], Body()]) -> None:
     logger.info(rows)
 
     values = [
-        row[column] if row[column] != "null" else None
+        row.model_dump()[column] if row.model_dump()[column] != "null" else None
         for column in columns
         for row in rows
     ]
@@ -620,7 +629,7 @@ def post_overhead_cost(body: Annotated[lax_lists[OverheadCost], Body()]) -> None
     logger.info(rows)
 
     values = [
-        row[column] if row[column] != "null" else None
+        row.model_dump()[column] if row.model_dump()[column] != "null" else None
         for column in columns
         for row in rows
     ]
@@ -706,7 +715,7 @@ def post_labour_cost(body: Annotated[lax_lists[LabourCost], Body()]) -> None:
     logger.info(rows)
 
     values = [
-        row[column] if row[column] != "null" else None
+        row.model_dump()[column] if row.model_dump()[column] != "null" else None
         for column in columns
         for row in rows
     ]
@@ -800,7 +809,7 @@ def post_direct_cost(body: Annotated[lax_lists[DirectCost], Body()]) -> None:
     logger.info(rows)
 
     values = [
-        row[column] if row[column] != "null" else None
+        row.model_dump()[column] if row.model_dump()[column] != "null" else None
         for column in columns
         for row in rows
     ]
@@ -879,7 +888,7 @@ def post_client(body: Annotated[lax_lists[Client], Body()]) -> None:
     logger.info("POST into client values:")
     logger.info(rows)
 
-    values = [row[column] for column in columns for row in rows]
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
@@ -951,20 +960,16 @@ def get_tender(pagination: Annotated[Pagination, Query()]) -> list:
 
 
 @app.post("/tender")
-def post_tender() -> None:
+def post_tender(body: Annotated[lax_lists[Tender], Body()]) -> None:
     """POST method for tender table"""
-
     columns = ("tender_title", "client_id", "projected_sales_value_gbp", "date_created")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into tender values:")
     logger.info(rows)
 
-    values = [row[column] for column in columns for row in rows]
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
