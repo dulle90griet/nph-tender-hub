@@ -83,6 +83,12 @@ class OverheadCost(BaseModel):
     budgeted_spend_gbp: int
 
 
+class LabourCost(BaseModel):
+    service_id: int
+    title_engaged_id: int
+    required_time_mins: int
+
+
 T = TypeVar("T", bound="BaseModel")
 
 
@@ -113,6 +119,7 @@ models_for_lax_list = [
     Consumable,
     Service,
     OverheadCost,
+    LabourCost,
 ]
 lax_lists = {model: create_lax_list_model(model) for model in models_for_lax_list}
 
@@ -675,15 +682,12 @@ def get_labour_cost(pagination: Annotated[Pagination, Query()]) -> list:
 
 
 @app.post("/labour-cost")
-def post_labour_cost() -> None:
+def post_labour_cost(body: Annotated[lax_lists[LabourCost], Body()]) -> None:
     """POST method for labour_cost table"""
 
     columns = ("service_id", "title_engaged_id", "required_time_mins")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into labour_cost values:")
     logger.info(rows)
