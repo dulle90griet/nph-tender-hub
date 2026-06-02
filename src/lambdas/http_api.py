@@ -57,6 +57,32 @@ class Consumable(BaseModel):
     default_unit_cost_gbp: Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
 
 
+class Service(BaseModel):
+    id: int
+    pillar: Annotated[str, Field(max_length=50)]
+    category: Annotated[str, Field(max_length=50)]
+    service_name: Annotated[str, Field(max_length=75)]
+    xero_code: Annotated[int, Field(ge=0, le=9999)]
+    overhead_recovery_on_labour_percentage: int
+    required_profit_margin_percentage: Annotated[Decimal, Field(max_digits=4, decimal_places=2)]
+    acceptable_market_price_gbp: Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    our_current_unit_price_gbp: Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    new_unit_price_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    ]
+    new_day_rate_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=9, decimal_places=2)]
+    ]
+    comments: Annotated[str, Field(max_length=100)]
+
+
+class OverheadCost(BaseModel):
+    id: int
+    cost_type: Annotated[str, Field(max_length=30)]
+    cost_description: Annotated[str, Field(max_length=30)]
+    budgeted_spend_gbp: int
+
+
 T = TypeVar("T", bound="BaseModel")
 
 
@@ -85,6 +111,8 @@ def create_lax_list_model(model: Type[T]) -> Type[RootModel[list[T]]]:
 models_for_lax_list = [
     JobTitle,
     Consumable,
+    Service,
+    OverheadCost,
 ]
 lax_lists = {model: create_lax_list_model(model) for model in models_for_lax_list}
 
@@ -474,7 +502,7 @@ def get_service_slugs() -> list:
 
 
 @app.post("/service")
-def post_service() -> None:
+def post_service(body: Annotated[lax_lists[Service], Body()]) -> None:
     """POST method for service table"""
 
     columns = (
@@ -491,10 +519,7 @@ def post_service() -> None:
         "comments",
     )
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into service values:")
     logger.info(rows)
@@ -564,15 +589,12 @@ def get_overhead_cost(pagination: Annotated[Pagination, Query()]) -> list:
 
 
 @app.post("/overhead-cost")
-def post_overhead_cost() -> None:
+def post_overhead_cost(body: Annotated[lax_lists[OverheadCost], Body()]) -> None:
     """POST method for overhead_cost table"""
 
     columns = ("cost_type", "cost_description", "budgeted_spend_gbp")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into overhead_cost values:")
     logger.info(rows)
