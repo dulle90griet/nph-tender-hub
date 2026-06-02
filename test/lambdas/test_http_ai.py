@@ -368,7 +368,7 @@ class TestGetHandlersReturnCursorRows:
     def test_all_cursor_rows_returned(self, mock_cursor, handler, rows):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        if handler in [handler[0] for handler in PAGINATED_HANDLERS]:
+        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
             assert handler(Pagination()) == orig_rows
         else:
             assert handler() == orig_rows
@@ -414,7 +414,7 @@ class TestGetHandlersReturnCursorRows:
         """Each handler handles schema-limit values without error."""
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        if handler in HANDLERS_TYPING_IMPLEMENTED:
+        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
             assert handler(Pagination()) == orig_rows
         else:
             assert handler() == orig_rows
@@ -566,7 +566,7 @@ class TestPaginationClamping:
             "page": str(page),
             "per_page": str(per_page),
         }
-        if handler in HANDLERS_TYPING_IMPLEMENTED:
+        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
             handler(Pagination(page=page, per_page=per_page))
         else:
             handler()
@@ -585,7 +585,7 @@ class TestHandlersCallExecuteOnce:
 
     @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
     def test_get_handlers_call_execute_once(self, mock_cursor, handler):
-        if handler in HANDLERS_TYPING_IMPLEMENTED:
+        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
             handler(Pagination())
         else:
             handler()
