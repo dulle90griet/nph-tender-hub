@@ -89,6 +89,12 @@ class LabourCost(BaseModel):
     required_time_mins: int
 
 
+class DirectCost(BaseModel):
+    service_id: int
+    consumable_id: int
+    cost_gbp: Annotated[Decimal, Field(max_digits=5, decimal_places=2)]
+
+
 T = TypeVar("T", bound="BaseModel")
 
 
@@ -120,6 +126,7 @@ models_for_lax_list = [
     Service,
     OverheadCost,
     LabourCost,
+    DirectCost,
 ]
 lax_lists = {model: create_lax_list_model(model) for model in models_for_lax_list}
 
@@ -776,15 +783,12 @@ def get_direct_cost(pagination: Annotated[Pagination, Query()]) -> list:
 
 
 @app.post("/direct-cost")
-def post_direct_cost() -> None:
+def post_direct_cost(body: Annotated[lax_lists[DirectCost], Body()]) -> None:
     """POST method for direct_cost table"""
 
     columns = ("service_id", "consumable_id", "cost_gbp")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into direct_cost values:")
     logger.info(rows)

@@ -26,6 +26,7 @@ from src.lambdas.http_api import (
     Service,
     OverheadCost,
     LabourCost,
+    DirectCost,
     get_department,
     get_job_title,
     get_job_title_titles,
@@ -1429,6 +1430,7 @@ POST_ENDPOINTS = [
     ("POST", "/service", Service),
     ("POST", "/overhead-cost", OverheadCost),
     ("POST", "/labour-cost", LabourCost),
+    ("POST", "/direct-cost", DirectCost),
 ]
 
 class TestInvalidBody:
