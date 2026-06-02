@@ -2,19 +2,24 @@ import json
 import re
 import logging
 from copy import deepcopy
-from datetime import datetime
-from decimal import Decimal
+from datetime import datetime, date
+from decimal import Decimal as Decimal
+from typing import Any, Annotated, Union, get_origin, get_args
+import functools
 from unittest.mock import patch, MagicMock
 
 import pytest
-from hypothesis import given, example, settings, HealthCheck
+from hypothesis import given, seed, example, settings, HealthCheck
 from hypothesis import strategies as st
+from pydantic import BaseModel
+from pydantic.fields import FieldInfo
 
 from src.lambdas.http_api import (
     logger,
     app,
     Pagination,
     CustomJSONEncoder,
+    JobTitle,
     get_department,
     get_job_title,
     get_job_title_titles,
@@ -1321,30 +1326,233 @@ class TestInvalidQueryParameters:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 5. POST/PATCH handlers handle malformed body gracefully
+# 6. POST/PATCH handlers handle malformed body gracefully
 # ══════════════════════════════════════════════════════════════════
+INVALID_VALUES = {
+    int: ["not an int", 1.5, "1.23", [], {}],
+    float: ["not a float", True, [], {}],
+    Decimal: ["not a decimal", True, [], {}, "", "NaN", "Infinity"],
+    str: [123, 1.23, True, [], {}],
+    bool: ["not a bool", 1, 0, "1.23", [], {}],
+    list: ["not a list", 123, 1.23, "1.23", True, {}],
+    dict: ["not a dict", 123, 1.23, "1.23", True, []],
+    datetime: ["not a datetime", 123, 1.23, "1.23", True, [], {}],
+    date: ["not a date", 123, 1.23, "1.23", True, [], {}],
+}
+
+
+def build_decimal(
+    integer_part: int,
+    fractional_part: int,
+    decimal_places: int
+) -> Decimal:
+    return Decimal(f"{integer_part}.{fractional_part:0{decimal_places}d}")
+
+
+def _get_decimal_constraints(field: FieldInfo) -> tuple[int | None, int, None]:
+    """
+    Return (max_digits, decimal_places) by searching the field's
+    annotation tree for a FieldInfo that carries those constraints.
+    """
+    # Collect all FieldInfo objects, including nested, from the annotation
+    field_infos: list[FieldInfo] = []
+
+    def collect(annotation):
+        if isinstance(annotation, FieldInfo):
+            field_infos.append(annotation)
+        origin = get_origin(annotation)
+        args = get_args(annotation)
+        if origin is Annotated:
+            # args[0] is the type; args[1:] are metadata (may include FieldInfo)
+            for arg in args:
+                collect(arg)
+        elif origin is Union:
+            for arg in args:
+                collect(arg)
+
+    collect(field.annotation)
+
+    # Also check the field's own metadata, for non-Optional simple cases
+    all_metadata = field.metadata.copy()
+    for field_info in field_infos:
+        all_metadata.extend(field_info.metadata)
+
+    for metadata in all_metadata:
+        if hasattr(metadata, "max_digits"):
+            return(metadata.max_digits, getattr(metadata, "decimal_places", 0) or 0)
+    return (None, None)
+
+
+def build_decimal_strategy(field: FieldInfo) -> st.SearchStrategy:
+    """
+    Build a Hypothesis strategy for a Decimal field, respecting Pydantic
+    constraints (unlike Hypothesis from_type()).
+    """
+    print(f"field.metadata: {field.metadata}")
+
+    max_digits, decimal_places = _get_decimal_constraints(field)
+
+    if max_digits is not None:
+        integer_places = max_digits - decimal_places
+        integer_part = st.integers(
+            min_value=-(10**integer_places - 1),
+            max_value=10**integer_places - 1,
+        )
+        fractional_part = st.integers(
+            min_value=0,
+            max_value=10**decimal_places - 1,
+        )
+        print(
+            f"Building decimal with max digits {max_digits}, decimal "
+            f"places {decimal_places}, integer part between "
+            f"{(10**integer_places - 1)} and {10**integer_places -1}, "
+            f"fractional part between 0 and {10**decimal_places - 1}."
+        )
+        return st.builds(
+            build_decimal,
+            integer_part,
+            fractional_part,
+            st.just(decimal_places)
+        )
+
+    # If max_digits is not specified, simply return a Decimal
+    return st.decimals(allow_nan=False, allow_infinity=False)
+
+
+def unwrap_annotation(annotation: type) -> type:
+    # Unwrap Optional types / Unions with NoneType
+    if get_origin(annotation):
+        args = get_args(annotation)
+
+        # if Union with NoneType, it's Optional; take the other arg
+        if type(None) in args:
+            non_none = [a for a in args if a is not type(None)]
+            if len(non_none) == 1:
+                annotation = non_none[0]
+            else:
+                raise TypeError(
+                    "Test suite assumes Union types have only 1 non-NoneType "
+                    "argument. Please restrict Union or ensure multiple-argument "
+                    "Unions are tested."
+                )
+
+    # Unwrap Annotated types
+    if get_origin(annotation) is Annotated:
+        annotation = get_args(annotation)[0]
+
+    return annotation
+
+
+@functools.lru_cache
+def get_valid_body(model: type[BaseModel]) -> dict:
+    """
+    Return a valid JSON body for *model* using Hypothesis.
+    The example is drawn once per model (cached) so tests are deterministic.
+    """
+    fields = {}
+    for name, field in model.model_fields.items():
+        print(f"================\nname:{name}")
+        print(f"field: {field}")
+
+        print(f"field.annotation = {field.annotation}")
+        print(f"unwrap_annotation(field.annotation) = {unwrap_annotation(field.annotation)}")
+        print(f"Lineage of annotation: {unwrap_annotation(field.annotation).__mro__}")
+        print(f"Is subclass of Decimal? {"Yes" if issubclass(unwrap_annotation(field.annotation), Decimal) else "No"}")
+
+        if issubclass(unwrap_annotation(field.annotation), Decimal):
+            fields[name] = build_decimal_strategy(field)
+        else:
+            fields[name] = st.from_type(field.annotation)
+
+    print(f"\n\n{fields}")
+
+    strategy = st.fixed_dictionaries(fields)
+    # strategy = st.fixed_dictionaries({
+    #     name: build_decimal_strategy(field)
+    #         if issubclass(unwrap_annotation(field.annotation), Decimal)
+    #         else st.from_type(field.annotation)
+    #         for name, field in model.model_fields.items()
+    # })
+
+    # strategy = st.from_type(model)
+    return strategy.example()
+
+
+def get_invalid_values_for_field(
+        field: FieldInfo,
+        invalid_values: dict[type, list[Any]]
+    ) -> list[Any]:
+    """
+    Return a list of invalid JSON values appropriate to the field's type.
+    Enums are treated as a special case.
+    """
+    annotation = unwrap_annotation(field.annotation)
+
+    if annotation in invalid_values:
+        return invalid_values[annotation]
+    raise TypeError(
+        f"Field type `{annotation}` not covered by test suite. Please use another "
+        f"annotation or implement testing of `{annotation}`."
+    )
+
+
+def generate_invalid_test_cases(
+    model: type[BaseModel],
+    expected_loc_prefix: list[str, int],
+    invalid_values: dict[type, list[Any]],
+) -> list[tuple[dict, list[str, int]]]:
+    """
+    Return (body, expected_loc) for all type-mismatch and missing-field cases.
+    *model* must be a Pydantic BaseModel.
+    """
+    valid_body = get_valid_body(model)
+    fields = model.model_fields
+    invalid_cases = []
+
+    for field_name, field in fields.items():
+        expected_loc = [*expected_loc_prefix, field_name]
+
+        # ── Generate bodies with type mismatches ───────────
+        for bad_value in get_invalid_values_for_field(field, invalid_values):
+            bad_body = deepcopy(valid_body)
+            bad_body[field_name] = bad_value
+            invalid_cases.append((bad_body, expected_loc))
+
+        # ── Generate bodies with missing required fields ───
+        if field.is_required():
+            bad_body = deepcopy(valid_body)
+            del bad_body[field_name]
+            invalid_cases.append((bad_body, expected_loc))
+
+    from pprint import pprint
+    pprint(invalid_cases)
+
+    return invalid_cases
+
+
+def parametrize_with_models(
+        endpoint_list: list[tuple],
+        invalid_values: dict[type, list[Any]],
+    ):
+    """Build pytest parametrize arguments: (method, path, invalid_body, expected_loc)"""
+    parameters = []
+    for method, path, model in endpoint_list:
+        for body, loc in generate_invalid_test_cases(model, ["body", 0], invalid_values):
+            parameters.append((method, path, body, loc))
+    return parameters
+
+
+POST_ENDPOINTS = [
+    ("POST", "/job-title", JobTitle)
+]
+
 class TestInvalidBody:
     @pytest.mark.disable_autouse
     @pytest.mark.parametrize(
-        "method, path, body",
-        [
-            (
-                "POST",
-                "/job-title",
-                {
-                    "department_id": "Nine",
-                    "title": "Lower Archivists",
-                    "default_ft_weekly_hours": Decimal("37.5"),
-                    "default_lunch_break_hours": Decimal("1.0"),
-                    "hourly_rate_gbp": Decimal("35.00"),
-                    "default_annual_holiday_days": 30,
-                    "default_annual_training_days": 5,
-                    "default_annual_sick_days": 10,
-                },
-            )
-        ],
+        "method, path, body, expected_loc",
+        parametrize_with_models(POST_ENDPOINTS, INVALID_VALUES),
     )
-    def test_malformed_body_returns_422(self, mock_cursor, method, path, body):
+    def test_malformed_body_returns_422(self, mock_cursor, method, path, body, expected_loc):
         test_event = {
             "version": "2.0",
             "routeKey": f"{method} {path}",
@@ -1367,8 +1575,7 @@ class TestInvalidBody:
         response = app.resolve(test_event, test_context)
         assert response["statusCode"] == 422
         assert "detail" in response["body"]
-        print(response["body"])
-        # assert json.loads(response["body"])["detail"][0]["loc"] == None
+        assert json.loads(response["body"])["detail"][0]["loc"] == expected_loc
 
 
 # ──────────────────── CustomJSONEncoder ────────────────────
