@@ -694,18 +694,21 @@ class TestPostHandlersSQLReflectsParams:
         "body, expected_params",
         [
             (
-                {"consumable_name": "Widget", "default_unit_cost_gbp": "9.99"},
-                ["Widget", "9.99"],
+                lax_lists[Consumable](
+                    {"consumable_name": "Widget", "default_unit_cost_gbp": Decimal("9.99")}
+                ),
+                ["Widget", Decimal("9.99")],
             ),
             (
-                {"consumable_name": "Gadget", "default_unit_cost_gbp": None},
+                lax_lists[Consumable](
+                    {"consumable_name": "Gadget", "default_unit_cost_gbp": None}
+                ),
                 ["Gadget", None],
             ),
         ],
     )
     def test_post_consumable_insert_values(self, mock_cursor, body, expected_params):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        post_consumable()
+        post_consumable(body)
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
     # ── POST /service ─────────────────────────────────────────

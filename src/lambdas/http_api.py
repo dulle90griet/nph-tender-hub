@@ -53,7 +53,9 @@ class JobTitle(BaseModel):
 
 class Consumable(BaseModel):
     consumable_name: Annotated[str, Field(max_length=100)]
-    default_unit_cost_gbp: Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
+    default_unit_cost_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
+    ] = None
 
 
 class Service(BaseModel):
@@ -67,11 +69,11 @@ class Service(BaseModel):
     our_current_unit_price_gbp: Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
     new_unit_price_gbp: Optional[
         Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
-    ]
+    ] = None
     new_day_rate_gbp: Optional[
         Annotated[Decimal, Field(max_digits=9, decimal_places=2)]
-    ]
-    comments: Optional[Annotated[str, Field(max_length=100)]]
+    ] = None
+    comments: Optional[Annotated[str, Field(max_length=100)]] = None
 
 
 class OverheadCost(BaseModel):
@@ -107,7 +109,9 @@ class TenderLineItem(BaseModel):
     tender_id: int
     service_id: int
     total_number_pa: int
-    unit_price_override_gbp: Optional[Annotated[Decimal, Field(max_digits=8, decimal_places=2)]]
+    unit_price_override_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    ] = None
 
 
 T = TypeVar("T", bound="BaseModel")
