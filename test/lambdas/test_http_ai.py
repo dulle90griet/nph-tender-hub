@@ -108,49 +108,55 @@ ALL_POST_HANDLERS = [
     (
         post_job_title,
         "/job-title",
-        lax_lists[JobTitle]({
-            "department_id": 1,
-            "title": "Dev",
-            "default_ft_weekly_hours": Decimal("37.5"),
-            "default_lunch_break_hours": Decimal("0.5"),
-            "hourly_rate_gbp": Decimal("50.00"),
-            "default_annual_holiday_days": 30,
-            "default_annual_training_days": 15,
-            "default_annual_sick_days": 10,
-        }),
+        lax_lists[JobTitle](
+            {
+                "department_id": 1,
+                "title": "Dev",
+                "default_ft_weekly_hours": Decimal("37.5"),
+                "default_lunch_break_hours": Decimal("0.5"),
+                "hourly_rate_gbp": Decimal("50.00"),
+                "default_annual_holiday_days": 30,
+                "default_annual_training_days": 15,
+                "default_annual_sick_days": 10,
+            }
+        ),
     ),
     (
         post_consumable,
         "/consumable",
-        lax_lists[Consumable]({
-            "consumable_name": "Widget", "default_unit_cost_gbp": Decimal("9.99")}
+        lax_lists[Consumable](
+            {"consumable_name": "Widget", "default_unit_cost_gbp": Decimal("9.99")}
         ),
     ),
     (
         post_service,
         "/service",
-        lax_lists[Service]({
-            "pillar": "Tech",
-            "category": "Dev",
-            "service_name": "Svc",
-            "xero_code": 1,
-            "overhead_recovery_on_labour_percentage": 200,
-            "required_profit_margin_percentage": Decimal("30.00"),
-            "acceptable_market_price_gbp": Decimal("500.00"),
-            "our_current_unit_price_gbp": Decimal("300.00"),
-            "new_unit_price_gbp": Decimal("450.00"),
-            "new_day_rate_gbp": None,
-            "comments": None,
-        }),
+        lax_lists[Service](
+            {
+                "pillar": "Tech",
+                "category": "Dev",
+                "service_name": "Svc",
+                "xero_code": 1,
+                "overhead_recovery_on_labour_percentage": 200,
+                "required_profit_margin_percentage": Decimal("30.00"),
+                "acceptable_market_price_gbp": Decimal("500.00"),
+                "our_current_unit_price_gbp": Decimal("300.00"),
+                "new_unit_price_gbp": Decimal("450.00"),
+                "new_day_rate_gbp": None,
+                "comments": None,
+            }
+        ),
     ),
     (
         post_overhead_cost,
         "/overhead-cost",
-        lax_lists[OverheadCost]({
-            "cost_type": "Rent",
-            "cost_description": "Office",
-            "budgeted_spend_gbp": 12000,
-        }),
+        lax_lists[OverheadCost](
+            {
+                "cost_type": "Rent",
+                "cost_description": "Office",
+                "budgeted_spend_gbp": 12000,
+            }
+        ),
     ),
     (
         post_labour_cost,
@@ -174,22 +180,26 @@ ALL_POST_HANDLERS = [
     (
         post_tender,
         "/tender",
-        lax_lists[Tender]({
-            "tender_title": "Big Project",
-            "client_id": 1,
-            "projected_sales_value_gbp": 75000,
-            "date_created": "2026-05-06T12:00:00",
-        }),
+        lax_lists[Tender](
+            {
+                "tender_title": "Big Project",
+                "client_id": 1,
+                "projected_sales_value_gbp": 75000,
+                "date_created": "2026-05-06T12:00:00",
+            }
+        ),
     ),
     (
         post_tender_line_items,
         "/tender/line-items",
-        lax_lists[TenderLineItem]({
-            "tender_id": 1,
-            "service_id": 2,
-            "total_number_pa": 500,
-            "unit_price_override_gbp": Decimal("99.95"),
-        }),
+        lax_lists[TenderLineItem](
+            {
+                "tender_id": 1,
+                "service_id": 2,
+                "total_number_pa": 500,
+                "unit_price_override_gbp": Decimal("99.95"),
+            }
+        ),
     ),
 ]
 
@@ -640,16 +650,18 @@ class TestPostHandlersSQLReflectsParams:
         "body, expected_params",
         [
             (
-                lax_lists[JobTitle]({
-                    "department_id": 1,
-                    "title": "Dev",
-                    "default_ft_weekly_hours": "37.5",
-                    "default_lunch_break_hours": "0.5",
-                    "hourly_rate_gbp": "50.00",
-                    "default_annual_holiday_days": None,
-                    "default_annual_training_days": None,
-                    "default_annual_sick_days": None,
-                }),
+                lax_lists[JobTitle](
+                    {
+                        "department_id": 1,
+                        "title": "Dev",
+                        "default_ft_weekly_hours": "37.5",
+                        "default_lunch_break_hours": "0.5",
+                        "hourly_rate_gbp": "50.00",
+                        "default_annual_holiday_days": None,
+                        "default_annual_training_days": None,
+                        "default_annual_sick_days": None,
+                    }
+                ),
                 [
                     1,
                     "Dev",
@@ -662,16 +674,18 @@ class TestPostHandlersSQLReflectsParams:
                 ],
             ),
             (
-                lax_lists[JobTitle]({
-                    "department_id": 2,
-                    "title": "QA",
-                    "default_ft_weekly_hours": Decimal("40.0"),
-                    "default_lunch_break_hours": Decimal("1.0"),
-                    "hourly_rate_gbp": Decimal("45.00"),
-                    "default_annual_holiday_days": Decimal("28"),
-                    "default_annual_training_days": Decimal("3"),
-                    "default_annual_sick_days": Decimal("5"),
-                }),
+                lax_lists[JobTitle](
+                    {
+                        "department_id": 2,
+                        "title": "QA",
+                        "default_ft_weekly_hours": Decimal("40.0"),
+                        "default_lunch_break_hours": Decimal("1.0"),
+                        "hourly_rate_gbp": Decimal("45.00"),
+                        "default_annual_holiday_days": Decimal("28"),
+                        "default_annual_training_days": Decimal("3"),
+                        "default_annual_sick_days": Decimal("5"),
+                    }
+                ),
                 [
                     2,
                     "QA",
@@ -680,7 +694,7 @@ class TestPostHandlersSQLReflectsParams:
                     Decimal("45.00"),
                     Decimal("28"),
                     Decimal("3"),
-                    Decimal("5")
+                    Decimal("5"),
                 ],
             ),
         ],
@@ -695,7 +709,10 @@ class TestPostHandlersSQLReflectsParams:
         [
             (
                 lax_lists[Consumable](
-                    {"consumable_name": "Widget", "default_unit_cost_gbp": Decimal("9.99")}
+                    {
+                        "consumable_name": "Widget",
+                        "default_unit_cost_gbp": Decimal("9.99"),
+                    }
                 ),
                 ["Widget", Decimal("9.99")],
             ),
@@ -1373,6 +1390,7 @@ def get_valid_body(model: type[BaseModel]) -> dict:
     The example is drawn once per model (cached) so tests are deterministic.
     """
     print(f"Generating valid body for {model.__name__}")
+
     class CurrentModelFactory(ModelFactory[model]):
         __random_seed__ = 491260
 
@@ -1381,9 +1399,8 @@ def get_valid_body(model: type[BaseModel]) -> dict:
 
 
 def get_invalid_values_for_field(
-        field: FieldInfo,
-        invalid_values: dict[type, list[Any]]
-    ) -> list[Any]:
+    field: FieldInfo, invalid_values: dict[type, list[Any]]
+) -> list[Any]:
     """
     Return a list of invalid JSON values appropriate to the field's type.
     Enums are treated as a special case.
@@ -1430,13 +1447,15 @@ def generate_invalid_test_cases(
 
 
 def parametrize_with_models(
-        endpoint_list: list[tuple],
-        invalid_values: dict[type, list[Any]],
-    ):
+    endpoint_list: list[tuple],
+    invalid_values: dict[type, list[Any]],
+):
     """Build pytest parametrize arguments: (method, path, invalid_body, expected_loc)"""
     parameters = []
     for method, path, model in endpoint_list:
-        for body, loc in generate_invalid_test_cases(model, ["body", 0], invalid_values):
+        for body, loc in generate_invalid_test_cases(
+            model, ["body", 0], invalid_values
+        ):
             parameters.append((method, path, body, loc))
     return parameters
 
@@ -1454,13 +1473,16 @@ POST_ENDPOINTS = [
     ("POST", "/tender/line-items", TenderLineItem),
 ]
 
+
 class TestInvalidBody:
     @pytest.mark.disable_autouse
     @pytest.mark.parametrize(
         "method, path, body, expected_loc",
         parametrize_with_models(POST_ENDPOINTS, INVALID_VALUES),
     )
-    def test_malformed_body_returns_422(self, mock_cursor, method, path, body, expected_loc):
+    def test_malformed_body_returns_422(
+        self, mock_cursor, method, path, body, expected_loc
+    ):
         test_event = {
             "version": "2.0",
             "routeKey": f"{method} {path}",

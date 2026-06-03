@@ -64,9 +64,15 @@ class Service(BaseModel):
     service_name: Annotated[str, Field(max_length=75)]
     xero_code: Annotated[int, Field(ge=0, le=9999)]
     overhead_recovery_on_labour_percentage: int
-    required_profit_margin_percentage: Annotated[Decimal, Field(max_digits=4, decimal_places=2)]
-    acceptable_market_price_gbp: Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
-    our_current_unit_price_gbp: Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    required_profit_margin_percentage: Annotated[
+        Decimal, Field(max_digits=4, decimal_places=2)
+    ]
+    acceptable_market_price_gbp: Annotated[
+        Decimal, Field(max_digits=8, decimal_places=2)
+    ]
+    our_current_unit_price_gbp: Annotated[
+        Decimal, Field(max_digits=8, decimal_places=2)
+    ]
     new_unit_price_gbp: Optional[
         Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
     ] = None
@@ -118,8 +124,10 @@ T = TypeVar("T", bound="BaseModel")
 
 
 def create_lax_list_model(model: Type[T]) -> Type[RootModel[list[T]]]:
-    """Factory function creating a RootModel that coerces a single dict into a list of dicts for *model*."""
-
+    """
+    Factory function: creates a RootModel that coerces a single dict
+    into a list of dicts for *model*.
+    """
     class LaxList(RootModel[list[model]]):
         item_model: ClassVar[type] = model
 

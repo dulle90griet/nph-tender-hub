@@ -1,6 +1,7 @@
 import hypothesis
 from hypothesis import settings
 
+
 def pytest_configure():
     print("Running test config now")
 
