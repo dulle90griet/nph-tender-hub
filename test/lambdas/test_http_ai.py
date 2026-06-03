@@ -30,6 +30,7 @@ from src.lambdas.http_api import (
     Client,
     Tender,
     TenderLineItem,
+    lax_lists,
     get_department,
     get_job_title,
     get_job_title_titles,
@@ -107,7 +108,7 @@ ALL_POST_HANDLERS = [
     (
         post_job_title,
         "/job-title",
-        {
+        lax_lists[JobTitle]({
             "department_id": 1,
             "title": "Dev",
             "default_ft_weekly_hours": Decimal("37.5"),
@@ -116,17 +117,19 @@ ALL_POST_HANDLERS = [
             "default_annual_holiday_days": 30,
             "default_annual_training_days": 15,
             "default_annual_sick_days": 10,
-        },
+        }),
     ),
     (
         post_consumable,
         "/consumable",
-        {"consumable_name": "Widget", "default_unit_cost_gbp": Decimal("9.99")},
+        lax_lists[Consumable]({
+            "consumable_name": "Widget", "default_unit_cost_gbp": Decimal("9.99")}
+        ),
     ),
     (
         post_service,
         "/service",
-        {
+        lax_lists[Service]({
             "pillar": "Tech",
             "category": "Dev",
             "service_name": "Svc",
@@ -138,51 +141,55 @@ ALL_POST_HANDLERS = [
             "new_unit_price_gbp": Decimal("450.00"),
             "new_day_rate_gbp": None,
             "comments": None,
-        },
+        }),
     ),
     (
         post_overhead_cost,
         "/overhead-cost",
-        {
+        lax_lists[OverheadCost]({
             "cost_type": "Rent",
             "cost_description": "Office",
             "budgeted_spend_gbp": 12000,
-        },
+        }),
     ),
     (
         post_labour_cost,
         "/labour-cost",
-        {"service_id": 1, "title_engaged_id": 2, "required_time_mins": 30},
+        lax_lists[LabourCost](
+            {"service_id": 1, "title_engaged_id": 2, "required_time_mins": 30}
+        ),
     ),
     (
         post_direct_cost,
         "/direct-cost",
-        {"service_id": 1, "consumable_id": 2, "cost_gbp": Decimal("12.50")},
+        lax_lists[DirectCost](
+            {"service_id": 1, "consumable_id": 2, "cost_gbp": Decimal("12.50")}
+        ),
     ),
     (
         post_client,
         "/client",
-        {"client_name": "Acme Corp"},
+        lax_lists[Client]({"client_name": "Acme Corp"}),
     ),
     (
         post_tender,
         "/tender",
-        {
+        lax_lists[Tender]({
             "tender_title": "Big Project",
             "client_id": 1,
             "projected_sales_value_gbp": 75000,
             "date_created": "2026-05-06T12:00:00",
-        },
+        }),
     ),
     (
         post_tender_line_items,
         "/tender/line-items",
-        {
+        lax_lists[TenderLineItem]({
             "tender_id": 1,
             "service_id": 2,
             "total_number_pa": 500,
             "unit_price_override_gbp": Decimal("99.95"),
-        },
+        }),
     ),
 ]
 
@@ -607,8 +614,7 @@ class TestHandlersCallExecuteOnce:
 
     @pytest.mark.parametrize("handler, _, body", ALL_POST_HANDLERS)
     def test_post_handlers_call_execute_once(self, mock_cursor, handler, _, body):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        handler()
+        handler(body)
         assert mock_cursor.execute.call_count == 1
 
     # ── PATCH handlers ────────────────────────────────────────

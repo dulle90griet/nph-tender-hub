@@ -71,7 +71,7 @@ class Service(BaseModel):
     new_day_rate_gbp: Optional[
         Annotated[Decimal, Field(max_digits=9, decimal_places=2)]
     ]
-    comments: Annotated[str, Field(max_length=100)]
+    comments: Optional[Annotated[str, Field(max_length=100)]]
 
 
 class OverheadCost(BaseModel):
