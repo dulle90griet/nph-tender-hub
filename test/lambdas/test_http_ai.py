@@ -640,7 +640,7 @@ class TestPostHandlersSQLReflectsParams:
         "body, expected_params",
         [
             (
-                {
+                lax_lists[JobTitle]({
                     "department_id": 1,
                     "title": "Dev",
                     "default_ft_weekly_hours": "37.5",
@@ -649,36 +649,44 @@ class TestPostHandlersSQLReflectsParams:
                     "default_annual_holiday_days": None,
                     "default_annual_training_days": None,
                     "default_annual_sick_days": None,
-                },
+                }),
                 [
                     1,
                     "Dev",
-                    "37.5",
-                    "0.5",
-                    "50.00",
+                    Decimal("37.5"),
+                    Decimal("0.5"),
+                    Decimal("50.00"),
                     None,
                     None,
                     None,
                 ],
             ),
             (
-                {
+                lax_lists[JobTitle]({
                     "department_id": 2,
                     "title": "QA",
-                    "default_ft_weekly_hours": "40.0",
-                    "default_lunch_break_hours": "1.0",
-                    "hourly_rate_gbp": "45.00",
-                    "default_annual_holiday_days": 28,
-                    "default_annual_training_days": 3,
-                    "default_annual_sick_days": 5,
-                },
-                [2, "QA", "40.0", "1.0", "45.00", 28, 3, 5],
+                    "default_ft_weekly_hours": Decimal("40.0"),
+                    "default_lunch_break_hours": Decimal("1.0"),
+                    "hourly_rate_gbp": Decimal("45.00"),
+                    "default_annual_holiday_days": Decimal("28"),
+                    "default_annual_training_days": Decimal("3"),
+                    "default_annual_sick_days": Decimal("5"),
+                }),
+                [
+                    2,
+                    "QA",
+                    Decimal("40.0"),
+                    Decimal("1.0"),
+                    Decimal("45.00"),
+                    Decimal("28"),
+                    Decimal("3"),
+                    Decimal("5")
+                ],
             ),
         ],
     )
     def test_post_job_title_insert_values(self, mock_cursor, body, expected_params):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        post_job_title()
+        post_job_title(body)
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
     # ── POST /consumable ──────────────────────────────────────
