@@ -733,66 +733,69 @@ class TestPostHandlersSQLReflectsParams:
         "body, expected_params",
         [
             (
-                {
-                    "pillar": "Tech",
-                    "category": "Dev",
-                    "service_name": "Consulting",
-                    "xero_code": 100,
-                    "overhead_recovery_on_labour_percentage": 200,
-                    "required_profit_margin_percentage": "30.00",
-                    "acceptable_market_price_gbp": "500.00",
-                    "our_current_unit_price_gbp": "300.00",
-                    "new_unit_price_gbp": None,
-                    "new_day_rate_gbp": None,
-                    "comments": None,
-                },
+                lax_lists[Service](
+                    {
+                        "pillar": "Tech",
+                        "category": "Dev",
+                        "service_name": "Consulting",
+                        "xero_code": 100,
+                        "overhead_recovery_on_labour_percentage": 200,
+                        "required_profit_margin_percentage": Decimal("30.00"),
+                        "acceptable_market_price_gbp": Decimal("500.00"),
+                        "our_current_unit_price_gbp": Decimal("300.00"),
+                        "new_unit_price_gbp": None,
+                        "new_day_rate_gbp": None,
+                        "comments": None,
+                    }
+                ),
                 [
                     "Tech",
                     "Dev",
                     "Consulting",
                     100,
                     200,
-                    "30.00",
-                    "500.00",
-                    "300.00",
+                    Decimal("30.00"),
+                    Decimal("500.00"),
+                    Decimal("300.00"),
                     None,
                     None,
                     None,
                 ],
             ),
             (
-                {
-                    "pillar": "Ops",
-                    "category": "Support",
-                    "service_name": "Helpdesk",
-                    "xero_code": 200,
-                    "overhead_recovery_on_labour_percentage": 150,
-                    "required_profit_margin_percentage": "20.00",
-                    "acceptable_market_price_gbp": "200.00",
-                    "our_current_unit_price_gbp": "150.00",
-                    "new_unit_price_gbp": "175.00",
-                    "new_day_rate_gbp": "1400.00",
-                    "comments": "Urgent setup",
-                },
+                lax_lists[Service](
+                    {
+                        "pillar": "Ops",
+                        "category": "Support",
+                        "service_name": "Helpdesk",
+                        "xero_code": "0200",
+                        "overhead_recovery_on_labour_percentage": 150,
+                        "required_profit_margin_percentage": "20.00",
+                        "acceptable_market_price_gbp": "200.00",
+                        "our_current_unit_price_gbp": "150.00",
+                        "new_unit_price_gbp": "175.00",
+                        "new_day_rate_gbp": "1400.00",
+                        "comments": "Urgent setup",
+                    }
+                ),
                 [
                     "Ops",
                     "Support",
                     "Helpdesk",
                     200,
                     150,
-                    "20.00",
-                    "200.00",
-                    "150.00",
-                    "175.00",
-                    "1400.00",
+                    Decimal("20.00"),
+                    Decimal("200.00"),
+                    Decimal("150.00"),
+                    Decimal("175.00"),
+                    Decimal("1400.00"),
                     "Urgent setup",
                 ],
             ),
         ],
     )
     def test_post_service_insert_values(self, mock_cursor, body, expected_params):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        post_service()
+        post_service(body)
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
     # ── POST /overhead-cost ───────────────────────────────────
