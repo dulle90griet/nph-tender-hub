@@ -52,13 +52,11 @@ class JobTitle(BaseModel):
 
 
 class Consumable(BaseModel):
-    id: int
     consumable_name: Annotated[str, Field(max_length=100)]
     default_unit_cost_gbp: Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
 
 
 class Service(BaseModel):
-    id: int
     pillar: Annotated[str, Field(max_length=50)]
     category: Annotated[str, Field(max_length=50)]
     service_name: Annotated[str, Field(max_length=75)]
@@ -77,7 +75,6 @@ class Service(BaseModel):
 
 
 class OverheadCost(BaseModel):
-    id: int
     cost_type: Annotated[str, Field(max_length=30)]
     cost_description: Annotated[str, Field(max_length=30)]
     budgeted_spend_gbp: int
@@ -96,12 +93,10 @@ class DirectCost(BaseModel):
 
 
 class Client(BaseModel):
-    id: int
     client_name: Annotated[str, Field(max_length=50)]
 
 
 class Tender(BaseModel):
-    id: int
     tender_title: Annotated[str, Field(max_length=50)]
     client_id: int
     projected_sales_value_gbp: int
