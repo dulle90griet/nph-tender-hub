@@ -128,6 +128,7 @@ def create_lax_list_model(model: Type[T]) -> Type[RootModel[list[T]]]:
     Factory function: creates a RootModel that coerces a single dict
     into a list of dicts for *model*.
     """
+
     class LaxList(RootModel[list[model]]):
         item_model: ClassVar[type] = model
 
@@ -372,9 +373,6 @@ def post_job_title(body: Annotated[lax_lists[JobTitle], Body()]) -> None:
     )
 
     rows = body.root
-
-    print(rows)
-    print(f"==>> type(rows): {type(rows)}")
 
     values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(

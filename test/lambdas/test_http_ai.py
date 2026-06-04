@@ -1359,7 +1359,6 @@ class TestInvalidQueryParameters:
         test_context = MagicMock()
         test_context.get_remaining_time_in_millis.return_value = 5000
         response = app.resolve(test_event, test_context)
-        print(f"==>> response: {response}")
         assert response["statusCode"] == 422
         assert "detail" in response["body"]
         assert json.loads(response["body"])["detail"][0]["loc"] == [
