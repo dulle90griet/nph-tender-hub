@@ -833,18 +833,21 @@ class TestPostHandlersSQLReflectsParams:
         "body, expected_params",
         [
             (
-                {"service_id": 1, "title_engaged_id": 2, "required_time_mins": 30},
+                lax_lists[LabourCost](
+                    {"service_id": 1, "title_engaged_id": 2, "required_time_mins": 30}
+                ),
                 [1, 2, 30],
             ),
             (
-                {"service_id": 10, "title_engaged_id": 20, "required_time_mins": 45},
+                lax_lists[LabourCost](
+                    {"service_id": 10, "title_engaged_id": 20, "required_time_mins": 45}
+                ),
                 [10, 20, 45],
             ),
         ],
     )
     def test_post_labour_cost_insert_values(self, mock_cursor, body, expected_params):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        post_labour_cost()
+        post_labour_cost(body)
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
     # ── POST /direct-cost ─────────────────────────────────────
