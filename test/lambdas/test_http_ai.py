@@ -855,18 +855,21 @@ class TestPostHandlersSQLReflectsParams:
         "body, expected_params",
         [
             (
-                {"service_id": 1, "consumable_id": 2, "cost_gbp": "12.50"},
-                [1, 2, "12.50"],
+                lax_lists[DirectCost](
+                    {"service_id": 1, "consumable_id": 2, "cost_gbp": Decimal("12.50")}
+                ),
+                [1, 2, Decimal("12.50")],
             ),
             (
-                {"service_id": 5, "consumable_id": 8, "cost_gbp": "999.99"},
-                [5, 8, "999.99"],
+                lax_lists[DirectCost](
+                    {"service_id": 5, "consumable_id": 8, "cost_gbp": "999.99"}
+                ),
+                [5, 8, Decimal("999.99")],
             ),
         ],
     )
     def test_post_direct_cost_insert_values(self, mock_cursor, body, expected_params):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        post_direct_cost()
+        post_direct_cost(body)
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
     # ── POST /client ──────────────────────────────────────────
