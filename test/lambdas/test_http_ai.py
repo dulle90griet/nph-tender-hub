@@ -803,26 +803,29 @@ class TestPostHandlersSQLReflectsParams:
         "body, expected_params",
         [
             (
-                {
-                    "cost_type": "Rent",
-                    "cost_description": "Office",
-                    "budgeted_spend_gbp": 12000,
-                },
+                lax_lists[OverheadCost](
+                    {
+                        "cost_type": "Rent",
+                        "cost_description": "Office",
+                        "budgeted_spend_gbp": 12000,
+                    }
+                ),
                 ["Rent", "Office", 12000],
             ),
             (
-                {
-                    "cost_type": "Utilities",
-                    "cost_description": "Electricity Costs (Lighting and Automata)",
-                    "budgeted_spend_gbp": 500,
-                },
-                ["Utilities", "Electricity Costs (Lighting and Automata)", 500],
+                lax_lists[OverheadCost](
+                    {
+                        "cost_type": "Utilities",
+                        "cost_description": "Electricity Costs (Lighting 2)",
+                        "budgeted_spend_gbp": 500,
+                    }
+                ),
+                ["Utilities", "Electricity Costs (Lighting 2)", 500],
             ),
         ],
     )
     def test_post_overhead_cost_insert_values(self, mock_cursor, body, expected_params):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        post_overhead_cost()
+        post_overhead_cost(body)
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
     # ── POST /labour-cost ─────────────────────────────────────
