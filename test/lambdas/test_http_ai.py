@@ -938,21 +938,25 @@ class TestPostHandlersSQLReflectsParams:
         "body, expected_params",
         [
             (
-                {
-                    "tender_id": 1,
-                    "service_id": 2,
-                    "total_number_pa": 500,
-                    "unit_price_override_gbp": "99.95",
-                },
-                [1, 2, 500, "99.95"],
+                lax_lists[TenderLineItem](
+                    {
+                        "tender_id": 1,
+                        "service_id": 2,
+                        "total_number_pa": 500,
+                        "unit_price_override_gbp": Decimal("99.95"),
+                    }
+                ),
+                [1, 2, 500, Decimal("99.95")],
             ),
             (
-                {
-                    "tender_id": 10,
-                    "service_id": 20,
-                    "total_number_pa": 1000,
-                    "unit_price_override_gbp": None,
-                },
+                lax_lists[TenderLineItem](
+                    {
+                        "tender_id": 10,
+                        "service_id": 20,
+                        "total_number_pa": 1000,
+                        "unit_price_override_gbp": None,
+                    }
+                ),
                 [10, 20, 1000, None],
             ),
         ],
@@ -960,8 +964,7 @@ class TestPostHandlersSQLReflectsParams:
     def test_post_tender_line_items_insert_values(
         self, mock_cursor, body, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        post_tender_line_items()
+        post_tender_line_items(body)
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
 
