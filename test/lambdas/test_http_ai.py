@@ -876,16 +876,19 @@ class TestPostHandlersSQLReflectsParams:
     @pytest.mark.parametrize(
         "body, expected_params",
         [
-            ({"client_name": "Acme Corp"}, ["Acme Corp"]),
+            (lax_lists[Client]({"client_name": "Acme Corp"}), ["Acme Corp"]),
             (
-                {"client_name": "Gridlokkk Holdings Incorporated (and Old Associates)"},
-                ["Gridlokkk Holdings Incorporated (and Old Associates)"],
+                lax_lists[Client](
+                    {
+                        "client_name": "Gridlokkk Holdings Incorporated (& Old Associates)"
+                    }
+                ),
+                ["Gridlokkk Holdings Incorporated (& Old Associates)"],
             ),
         ],
     )
     def test_post_client_insert_values(self, mock_cursor, body, expected_params):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        post_client()
+        post_client(body)
         assert mock_cursor.execute.call_args[0][1] == expected_params
 
     # ── POST /tender ──────────────────────────────────────────
