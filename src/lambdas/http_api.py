@@ -51,6 +51,29 @@ class JobTitle(BaseModel):
     ] = None
 
 
+class UpdateJobTitle(BaseModel):
+    department_id: Optional[int] = None
+    title: Optional[Annotated[str, Field(max_length=50)]] = None
+    default_ft_weekly_hours: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+    default_lunch_break_hours: Optional[
+        Annotated[Decimal, Field(max_digits=2, decimal_places=1)]
+    ] = None
+    hourly_rate_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=7, decimal_places=2)]
+    ] = None
+    default_annual_holiday_days: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+    default_annual_training_days: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+    default_annual_sick_days: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+
+
 class Consumable(BaseModel):
     consumable_name: Annotated[str, Field(max_length=100)]
     default_unit_cost_gbp: Optional[
@@ -388,13 +411,13 @@ def post_job_title(body: Annotated[lax_lists[JobTitle], Body()]) -> None:
 
 
 @app.patch("/job-title/<job_title_id>")
-def patch_job_title(job_title_id: str) -> None:
+def patch_job_title(job_title_id: str, body: Annotated[UpdateJobTitle, Body()]) -> None:
     """PATCH method for job_title table"""
 
     logger.info("PATCHing job title ID: %s", job_title_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []

@@ -1,6 +1,7 @@
 import json
 import re
 import logging
+import random
 from copy import deepcopy
 from datetime import datetime, date
 from decimal import Decimal as Decimal
@@ -22,6 +23,7 @@ from src.lambdas.http_api import (
     CustomJSONEncoder,
     # Department,
     JobTitle,
+    UpdateJobTitle,
     Consumable,
     Service,
     OverheadCost,
@@ -313,6 +315,14 @@ ALL_PATCH_HANDLERS_MULTI_PATCH = [
 
 
 # ── Fixtures ──────────────────────────────────────────────────────
+@pytest.fixture(autouse=True)
+def seed_random():
+    """Set a fixed seed for reproducibility, then reset it after the test."""
+    random.seed(491260)
+    yield
+    random.seed()
+
+
 @pytest.fixture
 def mock_cursor():
     """Patch DatabaseCursor; yield a fresh MagicMock cursor each test."""
@@ -1414,12 +1424,16 @@ def get_valid_body(model: type[BaseModel]) -> dict:
     Return a valid JSON body for *model* using Hypothesis.
     The example is drawn once per model (cached) so tests are deterministic.
     """
-    print(f"Generating valid body for {model.__name__}")
+    print(f"Generating valid body for {model.__name__}:")
 
     class CurrentModelFactory(ModelFactory[model]):
         __random_seed__ = 491260
+        __allow_none_optionals__ = False
 
     valid_instance = CurrentModelFactory.build()
+
+    print(valid_instance.model_dump())
+
     return valid_instance.model_dump()
 
 
@@ -1440,7 +1454,7 @@ def get_invalid_values_for_field(
     )
 
 
-def generate_invalid_test_cases(
+def generate_invalid_post_test_cases(
     model: type[BaseModel],
     expected_loc_prefix: list[str, int],
     invalid_values: dict[type, list[Any]],
@@ -1471,17 +1485,54 @@ def generate_invalid_test_cases(
     return invalid_cases
 
 
+def generate_invalid_patch_test_cases(
+    model: type[BaseModel],
+    expected_loc_prefix: list[str, int],
+    invalid_values: dict[type, list[Any]],
+) -> list[tuple[dict, list[str, int]]]:
+    valid_body = get_valid_body(model)
+    fields = model.model_fields
+    invalid_cases = []
+
+    for field_name, field in fields.items():
+        expected_loc = [*expected_loc_prefix, field_name]
+
+        # ── Generate mismatched single-field bodies ────────
+        for bad_value in get_invalid_values_for_field(field, invalid_values):
+            bad_body = {field_name: bad_value}
+            invalid_cases.append((bad_body, expected_loc))
+
+        # ── Generate all-field body with one mismatch ────
+        bad_body = deepcopy(valid_body)
+        bad_body[field_name] = random.choice(
+            get_invalid_values_for_field(field, invalid_values)
+        )
+        invalid_cases.append((bad_body, expected_loc))
+
+    return invalid_cases
+
+
 def parametrize_with_models(
     endpoint_list: list[tuple],
     invalid_values: dict[type, list[Any]],
 ):
     """Build pytest parametrize arguments: (method, path, invalid_body, expected_loc)"""
+    generate_function_map = {
+        "POST": generate_invalid_post_test_cases,
+        "PATCH": generate_invalid_patch_test_cases,
+    }
+    loc_prefix_map = {
+        "POST": ["body", 0],
+        "PATCH": ["body"],
+    }
     parameters = []
     for method, path, model in endpoint_list:
-        for body, loc in generate_invalid_test_cases(
-            model, ["body", 0], invalid_values
+        generate_function = generate_function_map[method]
+        for body, loc in generate_function(
+            model, loc_prefix_map[method], invalid_values
         ):
             parameters.append((method, path, body, loc))
+
     return parameters
 
 
@@ -1499,13 +1550,51 @@ POST_ENDPOINTS = [
 ]
 
 
+PATCH_ENDPOINTS = [
+    # ("PATCH", "/department", UpdateDepartment),
+    ("PATCH", "/job-title/1", UpdateJobTitle),
+]
+
+
 class TestInvalidBody:
     @pytest.mark.disable_autouse
     @pytest.mark.parametrize(
         "method, path, body, expected_loc",
         parametrize_with_models(POST_ENDPOINTS, INVALID_VALUES),
     )
-    def test_malformed_body_returns_422(
+    def test_malformed_post_body_returns_422(
+        self, mock_cursor, method, path, body, expected_loc
+    ):
+        test_event = {
+            "version": "2.0",
+            "routeKey": f"{method} {path}",
+            "rawPath": path,
+            "rawQueryString": "",
+            "queryStringParamters": {},
+            "headers": {"Content-Type": "application/json"},
+            "requestContext": {
+                "http": {
+                    "method": method,
+                    "path": path,
+                },
+                "stage": "$default",
+            },
+            "body": json.dumps(body, cls=CustomJSONEncoder),
+            "isBase64Encoded": False,
+        }
+        test_context = MagicMock()
+        test_context.get_remaining_time_in_millis.return_value = 5000
+        response = app.resolve(test_event, test_context)
+        assert response["statusCode"] == 422
+        assert "detail" in response["body"]
+        assert json.loads(response["body"])["detail"][0]["loc"] == expected_loc
+
+    @pytest.mark.disable_autouse
+    @pytest.mark.parametrize(
+        "method, path, body, expected_loc",
+        parametrize_with_models(PATCH_ENDPOINTS, INVALID_VALUES),
+    )
+    def test_malformed_patch_body_returns_422(
         self, mock_cursor, method, path, body, expected_loc
     ):
         test_event = {
