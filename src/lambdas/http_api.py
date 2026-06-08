@@ -176,6 +176,10 @@ class Client(BaseModel):
     client_name: Annotated[str, Field(max_length=50)]
 
 
+class UpdateClient(BaseModel):
+    client_name: Optional[Annotated[str, Field(max_length=50)]] = None
+
+
 class Tender(BaseModel):
     tender_title: Annotated[str, Field(max_length=50)]
     client_id: int
@@ -995,13 +999,15 @@ def post_client(body: Annotated[lax_lists[Client], Body()]) -> None:
 
 
 @app.patch("/client/<client_id>")
-def patch_client(client_id: str) -> None:
+def patch_client(client_id: str, body: Annotated[UpdateClient, Body()]) -> None:
     """PATCH method for client table"""
 
     logger.info("PATCHing client ID: %s", client_id)
     logger.info(app.current_event.body)
 
-    updated_client_name = json.loads(app.current_event.body).get("client_name", None)
+    updated_client_name = json.loads(body.model_dump(exclude_unset=True)).get(
+        "client_name", None
+    )
     if not updated_client_name:
         return None
 
