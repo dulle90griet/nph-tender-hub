@@ -203,6 +203,15 @@ class TenderLineItem(BaseModel):
     ] = None
 
 
+class UpdateTenderLineItem(BaseModel):
+    tender_id: Optional[int] = None
+    service_id: Optional[int] = None
+    total_number_pa: Optional[int] = None
+    unit_price_override_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    ] = None
+
+
 T = TypeVar("T", bound="BaseModel")
 
 
@@ -1314,8 +1323,10 @@ def post_tender_line_items(body: Annotated[lax_lists[TenderLineItem], Body()]) -
         cursor.execute(post_sql, values)
 
 
-@app.patch("/tender/line-items/<tender_id>/<service_id>/<title_engaged_id>")
-def patch_tender_line_item(tender_id: str, service_id: str) -> None:
+@app.patch("/tender/line-items/<tender_id>/<service_id>")
+def patch_tender_line_item(
+    tender_id: str, service_id: str, body: Annotated[UpdateTenderLineItem, Body()]
+) -> None:
     """PATCH method for tenders_services table"""
 
     logger.info(
@@ -1325,7 +1336,7 @@ def patch_tender_line_item(tender_id: str, service_id: str) -> None:
     )
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
