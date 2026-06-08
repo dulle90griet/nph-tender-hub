@@ -154,6 +154,12 @@ class LabourCost(BaseModel):
     required_time_mins: int
 
 
+class UpdateLabourCost(BaseModel):
+    service_id: Optional[int] = None
+    title_engaged_id: Optional[int] = None
+    required_time_mins: Optional[int] = None
+
+
 class DirectCost(BaseModel):
     service_id: int
     consumable_id: int
@@ -809,7 +815,9 @@ def post_labour_cost(body: Annotated[lax_lists[LabourCost], Body()]) -> None:
 
 
 @app.patch("/labour-cost/<service_id>/<title_engaged_id>")
-def patch_labour_cost(service_id: str, title_engaged_id: str) -> None:
+def patch_labour_cost(
+    service_id: str, title_engaged_id: str, body: Annotated[UpdateLabourCost, Body()]
+) -> None:
     """PATCH method for labour_cost table"""
 
     logger.info(
@@ -819,7 +827,7 @@ def patch_labour_cost(service_id: str, title_engaged_id: str) -> None:
     )
     logger.info(app.current_event.body)
 
-    updated_required_time = json.loads(app.current_event.body).get(
+    updated_required_time = json.loads(body.model_dump(exclude_unset=True)).get(
         "required_time_mins", None
     )
     if not updated_required_time:
