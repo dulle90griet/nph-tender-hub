@@ -37,6 +37,7 @@ from src.lambdas.http_api import (
     Client,
     UpdateClient,
     Tender,
+    UpdateTender,
     TenderLineItem,
     lax_lists,
     get_department,
@@ -1565,6 +1566,7 @@ PATCH_ENDPOINTS = [
     ("PATCH", "/labour-cost/1/1", UpdateLabourCost),
     ("PATCH", "/direct-cost/1/1", UpdateDirectCost),
     ("PATCH", "/client/1", UpdateClient),
+    ("PATCH", "/tender/1", UpdateTender),
 ]
 
 

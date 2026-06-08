@@ -187,6 +187,13 @@ class Tender(BaseModel):
     date_created: datetime
 
 
+class UpdateTender(BaseModel):
+    tender_title: Optional[Annotated[str, Field(max_length=50)]] = None
+    client_id: Optional[int] = None
+    projected_sales_value_gbp: Optional[int] = None
+    date_created: Optional[datetime] = None
+
+
 class TenderLineItem(BaseModel):
     tender_id: int
     service_id: int
@@ -1082,13 +1089,13 @@ def post_tender(body: Annotated[lax_lists[Tender], Body()]) -> None:
 
 
 @app.patch("/tender/<tender_id>")
-def patch_tender(tender_id: str) -> None:
+def patch_tender(tender_id: str, body: Annotated[UpdateTender, Body()]) -> None:
     """PATCH method for tender table"""
 
     logger.info("PATCHing tender ID: %s", tender_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
