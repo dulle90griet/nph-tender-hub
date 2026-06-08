@@ -166,6 +166,12 @@ class DirectCost(BaseModel):
     cost_gbp: Annotated[Decimal, Field(max_digits=5, decimal_places=2)]
 
 
+class UpdateDirectCost(BaseModel):
+    service_id: Optional[int] = None
+    consumable_id: Optional[int] = None
+    cost_gbp: Optional[Annotated[Decimal, Field(max_digits=5, decimal_places=2)]] = None
+
+
 class Client(BaseModel):
     client_name: Annotated[str, Field(max_length=50)]
 
@@ -911,7 +917,9 @@ def post_direct_cost(body: Annotated[lax_lists[DirectCost], Body()]) -> None:
 
 
 @app.patch("/direct-cost/<service_id>/<consumable_id>")
-def patch_direct_cost(service_id: str, consumable_id: str) -> None:
+def patch_direct_cost(
+    service_id: str, consumable_id: str, body: Annotated[UpdateDirectCost, Body()]
+) -> None:
     """PATCH method for direct_cost table"""
 
     logger.info(
@@ -921,7 +929,7 @@ def patch_direct_cost(service_id: str, consumable_id: str) -> None:
     )
     logger.info(app.current_event.body)
 
-    updated_cost = json.loads(app.current_event.body).get("cost_gbp", None)
+    updated_cost = json.loads(body.model_dump(exclude_unset=True)).get("cost_gbp", None)
     if not updated_cost:
         return None
 
