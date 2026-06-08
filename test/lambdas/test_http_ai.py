@@ -25,6 +25,7 @@ from src.lambdas.http_api import (
     JobTitle,
     UpdateJobTitle,
     Consumable,
+    UpdateConsumable,
     Service,
     OverheadCost,
     LabourCost,
@@ -1553,6 +1554,7 @@ POST_ENDPOINTS = [
 PATCH_ENDPOINTS = [
     # ("PATCH", "/department", UpdateDepartment),
     ("PATCH", "/job-title/1", UpdateJobTitle),
+    ("PATCH", "/consumable/1", UpdateConsumable),
 ]
 
 

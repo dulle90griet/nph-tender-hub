@@ -81,6 +81,13 @@ class Consumable(BaseModel):
     ] = None
 
 
+class UpdateConsumable(BaseModel):
+    consumable_name: Optional[Annotated[str, Field(max_length=100)]] = None
+    default_unit_cost_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
+    ] = None
+
+
 class Service(BaseModel):
     pillar: Annotated[str, Field(max_length=50)]
     category: Annotated[str, Field(max_length=50)]
@@ -501,13 +508,15 @@ def post_consumable(body: Annotated[lax_lists[Consumable], Body()]) -> None:
 
 
 @app.patch("/consumable/<consumable_id>")
-def patch_consumable(consumable_id: str) -> None:
+def patch_consumable(
+    consumable_id: str, body: Annotated[UpdateConsumable, Body()]
+) -> None:
     """PATCH method for consumable table"""
 
     logger.info("PATCHing consumable ID: %s", consumable_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
