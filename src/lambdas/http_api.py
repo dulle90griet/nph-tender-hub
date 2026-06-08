@@ -142,6 +142,12 @@ class OverheadCost(BaseModel):
     budgeted_spend_gbp: int
 
 
+class UpdateOverheadCost(BaseModel):
+    cost_type: Optional[Annotated[str, Field(max_length=30)]] = None
+    cost_description: Optional[Annotated[str, Field(max_length=30)]] = None
+    budgeted_spend_gbp: Optional[int] = None
+
+
 class LabourCost(BaseModel):
     service_id: int
     title_engaged_id: int
@@ -715,13 +721,15 @@ def post_overhead_cost(body: Annotated[lax_lists[OverheadCost], Body()]) -> None
 
 
 @app.patch("/overhead-cost/<overhead_cost_id>")
-def patch_overhead_cost(overhead_cost_id: str) -> None:
+def patch_overhead_cost(
+    overhead_cost_id: str, body: Annotated[UpdateOverheadCost, Body()]
+) -> None:
     """PATCH method for overhead_cost table"""
 
     logger.info("PATCHing overhead_cost ID: %s", overhead_cost_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
