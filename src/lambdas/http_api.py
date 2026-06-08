@@ -112,6 +112,30 @@ class Service(BaseModel):
     comments: Optional[Annotated[str, Field(max_length=100)]] = None
 
 
+class UpdateService(BaseModel):
+    pillar: Optional[Annotated[str, Field(max_length=50)]] = None
+    category: Optional[Annotated[str, Field(max_length=50)]] = None
+    service_name: Optional[Annotated[str, Field(max_length=75)]] = None
+    xero_code: Optional[Annotated[int, Field(ge=0, le=9999)]] = None
+    overhead_recovery_on_labour_percentage: Optional[int] = None
+    required_profit_margin_percentage: Optional[
+        Annotated[Decimal, Field(max_digits=4, decimal_places=2)]
+    ] = None
+    acceptable_market_price_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    ] = None
+    our_current_unit_price_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    ] = None
+    new_unit_price_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    ] = None
+    new_day_rate_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=9, decimal_places=2)]
+    ] = None
+    comments: Optional[Annotated[str, Field(max_length=100)]] = None
+
+
 class OverheadCost(BaseModel):
     cost_type: Annotated[str, Field(max_length=30)]
     cost_description: Annotated[str, Field(max_length=30)]
@@ -616,13 +640,13 @@ def post_service(body: Annotated[lax_lists[Service], Body()]) -> None:
 
 
 @app.patch("/service/<service_id>")
-def patch_service(service_id: str) -> None:
+def patch_service(service_id: str, body: Annotated[UpdateService, Body()]) -> None:
     """PATCH method for service table"""
 
     logger.info("PATCHing service ID: %s", service_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
