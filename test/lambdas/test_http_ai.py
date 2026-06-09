@@ -993,11 +993,11 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         [
             (
                 ("42",),
-                {
-                    "title": "New Title",
-                    "hourly_rate_gbp": "75.00",
-                    "default_annual_holiday_days": 30,
-                },
+                UpdateJobTitle(
+                    title="New Title",
+                    hourly_rate_gbp="75.00",
+                    default_annual_holiday_days=30,
+                ),
                 [
                     "UPDATE job_title SET",
                     '"title" =',
@@ -1005,11 +1005,11 @@ class TestPatchHandlersSQLAndParamsReflectBody:
                     '"default_annual_holiday_days" =',
                     "WHERE ID = %s",
                 ],
-                ["New Title", "75.00", 30, 42],
+                ["New Title", Decimal("75.00"), Decimal("30"), 42],
             ),
             (
                 ("1",),
-                {"title": "R" * 50},
+                UpdateJobTitle(title="R" * 50),
                 ["UPDATE job_title SET", '"title" =', "WHERE ID = %s"],
                 ["R" * 50, 1],
             ),
@@ -1018,8 +1018,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     def test_patch_job_title_sql_and_params(
         self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        patch_job_title(*path_args)
+        patch_job_title(*path_args, body)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
@@ -1032,16 +1031,16 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         [
             (
                 ("7",),
-                {"default_unit_cost_gbp": "5.00"},
+                UpdateConsumable(default_unit_cost_gbp="5.00"),
                 ["UPDATE consumable SET", '"default_unit_cost_gbp" =', "WHERE ID = %s"],
-                ["5.00", 7],
+                [Decimal("5.00"), 7],
             ),
             (
                 ("3",),
-                {
-                    "consumable_name": "Renamed Item of Many Parts (20 pack incl. nibs, grubs, gauze, fur, application steadiness & hand bands)",
-                    "default_unit_cost_gbp": "9999.99",
-                },
+                UpdateConsumable(
+                    consumable_name="Renamed Item of Many Parts (20 pack incl. nibs, grubs, gauze, fur, application lowness & hand bands)",
+                    default_unit_cost_gbp="9999.99",
+                ),
                 [
                     "UPDATE consumable SET",
                     '"consumable_name" =',
@@ -1049,8 +1048,8 @@ class TestPatchHandlersSQLAndParamsReflectBody:
                     "WHERE ID = %s",
                 ],
                 [
-                    "Renamed Item of Many Parts (20 pack incl. nibs, grubs, gauze, fur, application steadiness & hand bands)",
-                    "9999.99",
+                    "Renamed Item of Many Parts (20 pack incl. nibs, grubs, gauze, fur, application lowness & hand bands)",
+                    Decimal("9999.99"),
                     3,
                 ],
             ),
@@ -1059,8 +1058,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     def test_patch_consumable_sql_and_params(
         self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        patch_consumable(*path_args)
+        patch_consumable(*path_args, body)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
@@ -1073,23 +1071,23 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         [
             (
                 ("1",),
-                {
-                    "service_name": "Updated",
-                    "our_current_unit_price_gbp": "450.00",
-                    "required_profit_margin_percentage": "25.02",
-                },
+                UpdateService(
+                    service_name="Updated",
+                    required_profit_margin_percentage="25.02",
+                    our_current_unit_price_gbp="450.00",
+                ),
                 [
                     "UPDATE service SET",
                     '"service_name" =',
-                    '"our_current_unit_price_gbp" =',
                     '"required_profit_margin_percentage" =',
+                    '"our_current_unit_price_gbp" =',
                     "WHERE ID = %s",
                 ],
-                ["Updated", "450.00", "25.02", 1],
+                ["Updated", Decimal("25.02"), Decimal("450.00"), 1],
             ),
             (
                 ("99",),
-                {"service_name": "S" * 75},
+                UpdateService(service_name="S" * 75),
                 ["UPDATE service SET", '"service_name" =', "WHERE ID = %s"],
                 ["S" * 75, 99],
             ),
@@ -1098,8 +1096,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     def test_patch_service_sql_and_params(
         self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        patch_service(*path_args)
+        patch_service(*path_args, body)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
@@ -1112,10 +1109,10 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         [
             (
                 ("1",),
-                {
-                    "cost_type": "Utilities Outlay (TO RETIRE)",
-                    "budgeted_spend_gbp": 5000,
-                },
+                UpdateOverheadCost(
+                    cost_type="Utilities Outlay (TO RETIRE)",
+                    budgeted_spend_gbp=5000,
+                ),
                 [
                     "UPDATE overhead_cost SET",
                     '"cost_type" =',
@@ -1126,7 +1123,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
             ),
             (
                 ("3",),
-                {"budgeted_spend_gbp": 999},
+                UpdateOverheadCost(budgeted_spend_gbp=999),
                 ["UPDATE overhead_cost SET", '"budgeted_spend_gbp" =', "WHERE ID = %s"],
                 [999, 3],
             ),
@@ -1135,8 +1132,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     def test_patch_overhead_cost_sql_and_params(
         self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        patch_overhead_cost(*path_args)
+        patch_overhead_cost(*path_args, body)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
@@ -1149,7 +1145,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         [
             (
                 ("10", "20"),
-                {"required_time_mins": 45},
+                UpdateLabourCost(required_time_mins=45),
                 [
                     "UPDATE labour_cost SET",
                     "required_time_mins =",
@@ -1160,7 +1156,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
             ),
             (
                 ("9", "800"),
-                {"required_time_mins": 120},
+                UpdateLabourCost(required_time_mins=120),
                 [
                     "UPDATE labour_cost SET",
                     "required_time_mins =",
@@ -1174,8 +1170,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     def test_patch_labour_cost_sql_and_params(
         self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        patch_labour_cost(*path_args)
+        patch_labour_cost(*path_args, body)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
@@ -1188,33 +1183,32 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         [
             (
                 ("1", "2"),
-                {"cost_gbp": "15.00"},
+                UpdateDirectCost(cost_gbp="15.00"),
                 [
                     "UPDATE direct_cost SET",
                     "cost_gbp =",
                     "WHERE service_id = %s",
                     "AND consumable_id = %s",
                 ],
-                ["15.00", 1, 2],
+                [Decimal("15.00"), 1, 2],
             ),
             (
                 ("1000", "27"),
-                {"cost_gbp": "999.99"},
+                UpdateDirectCost(cost_gbp="999.99"),
                 [
                     "UPDATE direct_cost SET",
                     "cost_gbp =",
                     "WHERE service_id = %s",
                     "AND consumable_id = %s",
                 ],
-                ["999.99", 1000, 27],
+                [Decimal("999.99"), 1000, 27],
             ),
         ],
     )
     def test_patch_direct_cost_sql_and_params(
         self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        patch_direct_cost(*path_args)
+        patch_direct_cost(*path_args, body)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
@@ -1227,13 +1221,13 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         [
             (
                 ("12",),
-                {"client_name": "New Corp"},
+                UpdateClient(client_name="New Corp"),
                 ["UPDATE client SET", "client_name =", "WHERE id = %s"],
                 ["New Corp", 12],
             ),
             (
                 ("12",),
-                {"client_name": "C" * 50},
+                UpdateClient(client_name="C" * 50),
                 ["UPDATE client SET", "client_name =", "WHERE id = %s"],
                 ["C" * 50, 12],
             ),
@@ -1242,8 +1236,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     def test_patch_client_sql_and_params(
         self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        patch_client(*path_args)
+        patch_client(*path_args, body)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
@@ -1256,11 +1249,11 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         [
             (
                 ("1",),
-                {
-                    "tender_title": "New Tender Title, Long In Tooth (Don't Delete!)",
-                    "projected_sales_value_gbp": 90000,
-                    "date_created": "2026-06-01T00:00:00",
-                },
+                UpdateTender(
+                    tender_title="New Tender Title, Long In Tooth (Don't Delete!)",
+                    projected_sales_value_gbp=90000,
+                    date_created="2026-06-01T00:00:00",
+                ),
                 [
                     "UPDATE tender SET",
                     '"tender_title" =',
@@ -1271,13 +1264,13 @@ class TestPatchHandlersSQLAndParamsReflectBody:
                 [
                     "New Tender Title, Long In Tooth (Don't Delete!)",
                     90000,
-                    "2026-06-01T00:00:00",
+                    datetime(2026, 6, 1),
                     1,
                 ],
             ),
             (
                 ("5",),
-                {"projected_sales_value_gbp": 80000},
+                UpdateTender(projected_sales_value_gbp=80000),
                 ["UPDATE tender SET", '"projected_sales_value_gbp" =', "WHERE ID = %s"],
                 [80000, 5],
             ),
@@ -1286,8 +1279,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     def test_patch_tender_sql_and_params(
         self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        patch_tender(*path_args)
+        patch_tender(*path_args, body)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
@@ -1300,20 +1292,20 @@ class TestPatchHandlersSQLAndParamsReflectBody:
         [
             (
                 ("1", "2"),
-                {
-                    "total_number_pa": 750,
-                    "unit_price_override_gbp": "123456.78",
-                },
+                UpdateTenderLineItem(
+                    total_number_pa=750,
+                    unit_price_override_gbp="123456.78",
+                ),
                 [
                     "UPDATE tenders_services SET",
                     "WHERE tender_id = %s",
                     "AND service_id = %s",
                 ],
-                [750, "123456.78", "1", "2"],
+                [750, Decimal("123456.78"), "1", "2"],
             ),
             (
                 ("99", "100"),
-                {"total_number_pa": 25000},
+                UpdateTenderLineItem(total_number_pa=25000),
                 [
                     "UPDATE tenders_services SET",
                     "WHERE tender_id = %s",
@@ -1326,8 +1318,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
     def test_patch_tender_line_item_sql_and_params(
         self, mock_cursor, path_args, body, expected_sql_phrases, expected_params
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        patch_tender_line_item(*path_args)
+        patch_tender_line_item(*path_args, body)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
