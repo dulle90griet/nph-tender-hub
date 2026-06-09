@@ -4,9 +4,10 @@ from datetime import datetime
 import json
 import logging
 
-from typing import Optional, TypeVar, ClassVar, Type
+from typing import Optional, TypeVar, ClassVar, Type, Union, Any
 from typing_extensions import Annotated
 from pydantic import RootModel, BaseModel, Field, model_validator
+from pydantic_core import core_schema
 
 import psycopg_pool
 from psycopg.sql import SQL, Identifier, Placeholder
@@ -22,6 +23,31 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
+
+
+class _UNSET:
+    """Sentinel indicating a non-nullable field was not provided in the request."""
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self):
+        return 'UNSET'
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, _source_type: Any, _handler: Any) -> core_schema.CoreSchema:
+        return core_schema.no_info_plain_validator_function(cls._validate)
+
+    @staticmethod
+    def _validate(value: Any) -> Any:
+        if isinstance(value, _UNSET):
+            return value
+        raise ValueError(f"Expected _UNSET, got {type(value)}")
+
+UNSET = _UNSET()
 
 
 class Pagination(BaseModel):
@@ -155,9 +181,9 @@ class LabourCost(BaseModel):
 
 
 class UpdateLabourCost(BaseModel):
-    service_id: Optional[int] = None
-    title_engaged_id: Optional[int] = None
-    required_time_mins: Optional[int] = None
+    service_id: Union[int | _UNSET] = UNSET
+    title_engaged_id: Union[int | _UNSET] = UNSET
+    required_time_mins: Union[int | _UNSET] = UNSET
 
 
 class DirectCost(BaseModel):
@@ -167,9 +193,9 @@ class DirectCost(BaseModel):
 
 
 class UpdateDirectCost(BaseModel):
-    service_id: Optional[int] = None
-    consumable_id: Optional[int] = None
-    cost_gbp: Optional[Annotated[Decimal, Field(max_digits=5, decimal_places=2)]] = None
+    service_id: Union[int | _UNSET] = UNSET
+    consumable_id: Union[int | _UNSET] = UNSET
+    cost_gbp: Union[Annotated[Decimal, Field(max_digits=5, decimal_places=2)] | _UNSET] = UNSET
 
 
 class Client(BaseModel):
@@ -177,7 +203,7 @@ class Client(BaseModel):
 
 
 class UpdateClient(BaseModel):
-    client_name: Optional[Annotated[str, Field(max_length=50)]] = None
+    client_name: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
 
 
 class Tender(BaseModel):
@@ -853,10 +879,9 @@ def patch_labour_cost(
     )
     logger.info(app.current_event.body)
 
-    updated_required_time = json.loads(body.model_dump(exclude_unset=True)).get(
-        "required_time_mins", None
-    )
-    if not updated_required_time:
+    updated_required_time = body.model_dump()["required_time_mins"]
+
+    if updated_required_time is UNSET:
         return None
 
     patch_labour_cost_sql = SQL("""
@@ -949,8 +974,8 @@ def patch_direct_cost(
     )
     logger.info(app.current_event.body)
 
-    updated_cost = json.loads(body.model_dump(exclude_unset=True)).get("cost_gbp", None)
-    if not updated_cost:
+    updated_cost = body.model_dump()["cost_gbp"]
+    if updated_cost is UNSET:
         return None
 
     patch_direct_cost_sql = SQL("""
@@ -1021,10 +1046,8 @@ def patch_client(client_id: str, body: Annotated[UpdateClient, Body()]) -> None:
     logger.info("PATCHing client ID: %s", client_id)
     logger.info(app.current_event.body)
 
-    updated_client_name = json.loads(body.model_dump(exclude_unset=True)).get(
-        "client_name", None
-    )
-    if not updated_client_name:
+    updated_client_name = body.model_dump()["client_name"]
+    if updated_client_name is UNSET:
         return None
 
     patch_direct_cost_sql = SQL("""

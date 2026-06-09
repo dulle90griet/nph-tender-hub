@@ -21,6 +21,7 @@ from src.lambdas.http_api import (
     app,
     Pagination,
     CustomJSONEncoder,
+    _UNSET,
     # Department,
     JobTitle,
     UpdateJobTitle,
@@ -218,55 +219,55 @@ ALL_PATCH_HANDLERS_SINGLE_PATCH = [
         patch_job_title,
         "/job-title/42",
         ("42",),
-        {"title": "New"},
+        UpdateJobTitle(title="New"),
     ),
     (
         patch_consumable,
         "/consumable/7",
         ("7",),
-        {"default_unit_cost_gbp": 1},
+        UpdateConsumable(default_unit_cost_gbp=1),
     ),
     (
         patch_service,
         "/service/1",
         ("1",),
-        {"service_name": "New"},
+        UpdateService(service_name="New"),
     ),
     (
         patch_overhead_cost,
         "/overhead-cost/1",
         ("1",),
-        {"budgeted_spend_gbp": 1},
+        UpdateOverheadCost(budgeted_spend_gbp=1),
     ),
     (
         patch_labour_cost,
         "/labour-cost/10/20",
         ("10", "20"),
-        {"required_time_mins": 30},
+        UpdateLabourCost(required_time_mins=30),
     ),
     (
         patch_direct_cost,
         "/direct-cost/1/2",
         ("1", "2"),
-        {"cost_gbp": 1},
+        UpdateDirectCost(cost_gbp=1),
     ),
     (
         patch_client,
         "/client/12",
         ("12",),
-        {"client_name": "New"},
+        UpdateClient(client_name="New"),
     ),
     (
         patch_tender,
         "/tender/1",
         ("1",),
-        {"projected_sales_value_gbp": 1},
+        UpdateTender(projected_sales_value_gbp=1),
     ),
     (
         patch_tender_line_item,
         "/tender/line-items/1/2",
         ("1", "2"),
-        {"total_number_pa": 1},
+        UpdateTenderLineItem(total_number_pa=1),
     ),
 ]
 
@@ -275,49 +276,49 @@ ALL_PATCH_HANDLERS_MULTI_PATCH = [
         patch_job_title,
         "/job-title/7",
         ("7",),
-        {
-            "title": "Updated Title",
-            "hourly_rate_gbp": Decimal("75.00"),
-            "default_annual_holiday_days": 30,
-        },
+        UpdateJobTitle(
+            title="Updated Title",
+            hourly_rate_gbp=Decimal("75.00"),
+            default_annual_holiday_days=30,
+        ),
     ),
     (
         patch_service,
         "/service/999",
         ("999",),
-        {
-            "service_name": "Renamed Service",
-            "our_current_unit_price_gbp": Decimal("450.00"),
-            "required_profit_margin_percentage": Decimal("25.00"),
-        },
+        UpdateService(
+            service_name="Renamed Service",
+            our_current_unit_price_gbp=Decimal("450.00"),
+            required_profit_margin_percentage=Decimal("25.00"),
+        ),
     ),
     (
         patch_overhead_cost,
         "/overhead-cost/112",
         ("112",),
-        {
-            "cost_type": "Utilities",
-            "budgeted_spend_gbp": 5000,
-        },
+        UpdateOverheadCost(
+            cost_type="Utilities",
+            budgeted_spend_gbp=5000,
+        ),
     ),
     (
         patch_tender,
         "/tender/56",
         ("56",),
-        {
-            "tender_title": "Updated Tender",
-            "projected_sales_value_gbp": 90000,
-            "date_created": "2026-06-01T00:00:00",
-        },
+        UpdateTender(
+            tender_title="Updated Tender",
+            projected_sales_value_gbp=90000,
+            date_created="2026-06-01T00:00:00",
+        ),
     ),
     (
         patch_tender_line_item,
         "/tender/line-items/16/32",
         ("16", "32"),
-        {
-            "total_number_pa": 750,
-            "unit_price_override_gbp": Decimal("150.00"),
-        },
+        UpdateTenderLineItem(
+            total_number_pa=750,
+            unit_price_override_gbp=Decimal("150.00"),
+        ),
     ),
 ]
 
@@ -654,8 +655,7 @@ class TestHandlersCallExecuteOnce:
     def test_patch_handler_calls_execute_once(
         self, mock_cursor, handler, _, path_args, body
     ):
-        app.current_event.body = json.dumps(body, cls=CustomJSONEncoder)
-        handler(*path_args)
+        handler(*path_args, body)
         assert mock_cursor.execute.call_count == 1
 
 
@@ -1407,9 +1407,12 @@ def unwrap_annotation(annotation: type) -> type:
     if get_origin(annotation):
         args = get_args(annotation)
 
-        # if Union with NoneType, it's Optional; take the other arg
-        if type(None) in args:
-            non_none = [a for a in args if a is not type(None)]
+        # For this purpose, _UNSET is just a fancy NoneType
+        none_types = [type(None), _UNSET]
+
+        # If Union with NoneType, it's Optional; take the other arg
+        if any(val in set(args) for val in none_types):
+            non_none = [a for a in args if a not in none_types]
             if len(non_none) == 1:
                 annotation = non_none[0]
             else:
