@@ -27,6 +27,7 @@ logger.setLevel(logging.INFO)
 
 class _UNSET:
     """Sentinel indicating a non-nullable field was not provided in the request."""
+
     _instance = None
 
     def __new__(cls):
@@ -35,10 +36,12 @@ class _UNSET:
         return cls._instance
 
     def __repr__(self):
-        return 'UNSET'
+        return "UNSET"
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, _source_type: Any, _handler: Any) -> core_schema.CoreSchema:
+    def __get_pydantic_core_schema__(
+        cls, _source_type: Any, _handler: Any
+    ) -> core_schema.CoreSchema:
         return core_schema.no_info_plain_validator_function(cls._validate)
 
     @staticmethod
@@ -46,6 +49,7 @@ class _UNSET:
         if isinstance(value, _UNSET):
             return value
         raise ValueError(f"Expected _UNSET, got {type(value)}")
+
 
 UNSET = _UNSET()
 
@@ -78,17 +82,17 @@ class JobTitle(BaseModel):
 
 
 class UpdateJobTitle(BaseModel):
-    department_id: Optional[int] = None
-    title: Optional[Annotated[str, Field(max_length=50)]] = None
-    default_ft_weekly_hours: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
-    default_lunch_break_hours: Optional[
-        Annotated[Decimal, Field(max_digits=2, decimal_places=1)]
-    ] = None
-    hourly_rate_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=7, decimal_places=2)]
-    ] = None
+    department_id: Union[int | _UNSET] = UNSET
+    title: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
+    default_ft_weekly_hours: Union[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)] | _UNSET
+    ] = UNSET
+    default_lunch_break_hours: Union[
+        Annotated[Decimal, Field(max_digits=2, decimal_places=1)] | _UNSET
+    ] = UNSET
+    hourly_rate_gbp: Union[
+        Annotated[Decimal, Field(max_digits=7, decimal_places=2)] | _UNSET
+    ] = UNSET
     default_annual_holiday_days: Optional[
         Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
     ] = None
@@ -108,7 +112,7 @@ class Consumable(BaseModel):
 
 
 class UpdateConsumable(BaseModel):
-    consumable_name: Optional[Annotated[str, Field(max_length=100)]] = None
+    consumable_name: Union[Annotated[str, Field(max_length=100)] | _UNSET] = UNSET
     default_unit_cost_gbp: Optional[
         Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
     ] = None
@@ -139,20 +143,20 @@ class Service(BaseModel):
 
 
 class UpdateService(BaseModel):
-    pillar: Optional[Annotated[str, Field(max_length=50)]] = None
-    category: Optional[Annotated[str, Field(max_length=50)]] = None
-    service_name: Optional[Annotated[str, Field(max_length=75)]] = None
-    xero_code: Optional[Annotated[int, Field(ge=0, le=9999)]] = None
-    overhead_recovery_on_labour_percentage: Optional[int] = None
-    required_profit_margin_percentage: Optional[
-        Annotated[Decimal, Field(max_digits=4, decimal_places=2)]
-    ] = None
-    acceptable_market_price_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
-    ] = None
-    our_current_unit_price_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
-    ] = None
+    pillar: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
+    category: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
+    service_name: Union[Annotated[str, Field(max_length=75)] | _UNSET] = UNSET
+    xero_code: Union[Annotated[int, Field(ge=0, le=9999)] | _UNSET] = UNSET
+    overhead_recovery_on_labour_percentage: Union[int | _UNSET] = UNSET
+    required_profit_margin_percentage: Union[
+        Annotated[Decimal, Field(max_digits=4, decimal_places=2)] | _UNSET
+    ] = UNSET
+    acceptable_market_price_gbp: Union[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)] | _UNSET
+    ] = UNSET
+    our_current_unit_price_gbp: Union[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)] | _UNSET
+    ] = UNSET
     new_unit_price_gbp: Optional[
         Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
     ] = None
@@ -169,9 +173,9 @@ class OverheadCost(BaseModel):
 
 
 class UpdateOverheadCost(BaseModel):
-    cost_type: Optional[Annotated[str, Field(max_length=30)]] = None
-    cost_description: Optional[Annotated[str, Field(max_length=30)]] = None
-    budgeted_spend_gbp: Optional[int] = None
+    cost_type: Union[Annotated[str, Field(max_length=30)] | _UNSET] = UNSET
+    cost_description: Union[Annotated[str, Field(max_length=30)] | _UNSET] = UNSET
+    budgeted_spend_gbp: Union[int | _UNSET] = UNSET
 
 
 class LabourCost(BaseModel):
@@ -195,7 +199,9 @@ class DirectCost(BaseModel):
 class UpdateDirectCost(BaseModel):
     service_id: Union[int | _UNSET] = UNSET
     consumable_id: Union[int | _UNSET] = UNSET
-    cost_gbp: Union[Annotated[Decimal, Field(max_digits=5, decimal_places=2)] | _UNSET] = UNSET
+    cost_gbp: Union[
+        Annotated[Decimal, Field(max_digits=5, decimal_places=2)] | _UNSET
+    ] = UNSET
 
 
 class Client(BaseModel):
@@ -214,10 +220,10 @@ class Tender(BaseModel):
 
 
 class UpdateTender(BaseModel):
-    tender_title: Optional[Annotated[str, Field(max_length=50)]] = None
-    client_id: Optional[int] = None
-    projected_sales_value_gbp: Optional[int] = None
-    date_created: Optional[datetime] = None
+    tender_title: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
+    client_id: Union[int | _UNSET] = UNSET
+    projected_sales_value_gbp: Union[int | _UNSET] = UNSET
+    date_created: Union[datetime | _UNSET] = UNSET
 
 
 class TenderLineItem(BaseModel):
@@ -230,9 +236,9 @@ class TenderLineItem(BaseModel):
 
 
 class UpdateTenderLineItem(BaseModel):
-    tender_id: Optional[int] = None
-    service_id: Optional[int] = None
-    total_number_pa: Optional[int] = None
+    tender_id: Union[int | _UNSET] = UNSET
+    service_id: Union[int | _UNSET] = UNSET
+    total_number_pa: Union[int | _UNSET] = UNSET
     unit_price_override_gbp: Optional[
         Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
     ] = None
