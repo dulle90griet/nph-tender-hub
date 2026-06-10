@@ -1,3 +1,24 @@
+data "archive_file" "lambda_layer" {
+  type        = "zip"
+  source_dir  = "${path.module}/../build/lambda-layer"
+  output_path = "${path.module}/../packages/layer/lambda_layer.zip"
+}
+
+resource "aws_s3_object" "lambda_layer" {
+  bucket     = var.CODE_BUCKET
+  key        = "layers/lambda-layer.zip"
+  source     = data.archive_file.lambda_layer.output_path
+  etag       = data.archive_file.lambda_layer.output_base64sha256
+  depends_on = [data.archive_file.lambda_layer]
+}
+
+resource "aws_lambda_layer_version" "lambda_layer" {
+  layer_name       = "${var.PREFIX}-${var.ENVIRONMENT}-lambda-layer"
+  s3_bucket        = aws_s3_object.lambda_layer.bucket
+  s3_key           = aws_s3_object.lambda_layer.key
+  source_code_hash = data.archive_file.lambda_layer.output_base64sha256
+}
+
 data "archive_file" "psycopg_layer" {
   type        = "zip"
   source_dir  = "${path.module}/../build/psycopg-layer"
@@ -151,6 +172,7 @@ resource "aws_lambda_function" "http_api_lambda" {
   publish = true
   timeout = 30
   layers = [
+    aws_lambda_layer_version.lambda_layer.arn,
     aws_lambda_layer_version.psycopg_layer.arn,
     var.LAMBDA_POWERTOOLS_LAYER_ARN,
   ]
