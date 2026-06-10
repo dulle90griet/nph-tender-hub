@@ -8,6 +8,7 @@ from typing import Optional, TypeVar, ClassVar, Type, Union, Any
 from typing_extensions import Annotated
 from pydantic import RootModel, BaseModel, Field, model_validator
 from pydantic_core import core_schema
+from pydantic_strict_partial import create_partial_model
 
 import psycopg_pool
 from psycopg.sql import SQL, Identifier, Placeholder
@@ -81,27 +82,7 @@ class JobTitle(BaseModel):
     ] = None
 
 
-class UpdateJobTitle(BaseModel):
-    department_id: Union[int | _UNSET] = UNSET
-    title: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
-    default_ft_weekly_hours: Union[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)] | _UNSET
-    ] = UNSET
-    default_lunch_break_hours: Union[
-        Annotated[Decimal, Field(max_digits=2, decimal_places=1)] | _UNSET
-    ] = UNSET
-    hourly_rate_gbp: Union[
-        Annotated[Decimal, Field(max_digits=7, decimal_places=2)] | _UNSET
-    ] = UNSET
-    default_annual_holiday_days: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
-    default_annual_training_days: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
-    default_annual_sick_days: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
+UpdateJobTitle = create_partial_model(JobTitle)
 
 
 class Consumable(BaseModel):
@@ -111,11 +92,7 @@ class Consumable(BaseModel):
     ] = None
 
 
-class UpdateConsumable(BaseModel):
-    consumable_name: Union[Annotated[str, Field(max_length=100)] | _UNSET] = UNSET
-    default_unit_cost_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
-    ] = None
+UpdateConsumable = create_partial_model(Consumable)
 
 
 class Service(BaseModel):
@@ -142,28 +119,7 @@ class Service(BaseModel):
     comments: Optional[Annotated[str, Field(max_length=100)]] = None
 
 
-class UpdateService(BaseModel):
-    pillar: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
-    category: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
-    service_name: Union[Annotated[str, Field(max_length=75)] | _UNSET] = UNSET
-    xero_code: Union[Annotated[int, Field(ge=0, le=9999)] | _UNSET] = UNSET
-    overhead_recovery_on_labour_percentage: Union[int | _UNSET] = UNSET
-    required_profit_margin_percentage: Union[
-        Annotated[Decimal, Field(max_digits=4, decimal_places=2)] | _UNSET
-    ] = UNSET
-    acceptable_market_price_gbp: Union[
-        Annotated[Decimal, Field(max_digits=8, decimal_places=2)] | _UNSET
-    ] = UNSET
-    our_current_unit_price_gbp: Union[
-        Annotated[Decimal, Field(max_digits=8, decimal_places=2)] | _UNSET
-    ] = UNSET
-    new_unit_price_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
-    ] = None
-    new_day_rate_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=9, decimal_places=2)]
-    ] = None
-    comments: Optional[Annotated[str, Field(max_length=100)]] = None
+UpdateService = create_partial_model(Service)
 
 
 class OverheadCost(BaseModel):
@@ -172,10 +128,7 @@ class OverheadCost(BaseModel):
     budgeted_spend_gbp: int
 
 
-class UpdateOverheadCost(BaseModel):
-    cost_type: Union[Annotated[str, Field(max_length=30)] | _UNSET] = UNSET
-    cost_description: Union[Annotated[str, Field(max_length=30)] | _UNSET] = UNSET
-    budgeted_spend_gbp: Union[int | _UNSET] = UNSET
+UpdateOverheadCost = create_partial_model(OverheadCost)
 
 
 class LabourCost(BaseModel):
@@ -184,10 +137,7 @@ class LabourCost(BaseModel):
     required_time_mins: int
 
 
-class UpdateLabourCost(BaseModel):
-    service_id: Union[int | _UNSET] = UNSET
-    title_engaged_id: Union[int | _UNSET] = UNSET
-    required_time_mins: Union[int | _UNSET] = UNSET
+UpdateLabourCost = create_partial_model(LabourCost)
 
 
 class DirectCost(BaseModel):
@@ -196,20 +146,14 @@ class DirectCost(BaseModel):
     cost_gbp: Annotated[Decimal, Field(max_digits=5, decimal_places=2)]
 
 
-class UpdateDirectCost(BaseModel):
-    service_id: Union[int | _UNSET] = UNSET
-    consumable_id: Union[int | _UNSET] = UNSET
-    cost_gbp: Union[
-        Annotated[Decimal, Field(max_digits=5, decimal_places=2)] | _UNSET
-    ] = UNSET
+UpdateDirectCost = create_partial_model(DirectCost)
 
 
 class Client(BaseModel):
     client_name: Annotated[str, Field(max_length=50)]
 
 
-class UpdateClient(BaseModel):
-    client_name: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
+UpdateClient = create_partial_model(Client)
 
 
 class Tender(BaseModel):
@@ -219,11 +163,7 @@ class Tender(BaseModel):
     date_created: datetime
 
 
-class UpdateTender(BaseModel):
-    tender_title: Union[Annotated[str, Field(max_length=50)] | _UNSET] = UNSET
-    client_id: Union[int | _UNSET] = UNSET
-    projected_sales_value_gbp: Union[int | _UNSET] = UNSET
-    date_created: Union[datetime | _UNSET] = UNSET
+UpdateTender = create_partial_model(Tender)
 
 
 class TenderLineItem(BaseModel):
@@ -235,13 +175,7 @@ class TenderLineItem(BaseModel):
     ] = None
 
 
-class UpdateTenderLineItem(BaseModel):
-    tender_id: Union[int | _UNSET] = UNSET
-    service_id: Union[int | _UNSET] = UNSET
-    total_number_pa: Union[int | _UNSET] = UNSET
-    unit_price_override_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
-    ] = None
+UpdateTenderLineItem = create_partial_model(TenderLineItem)
 
 
 T = TypeVar("T", bound="BaseModel")
