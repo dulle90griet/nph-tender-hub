@@ -15,7 +15,7 @@ dev = [
     "aws-lambda-powertools>=3.26.0",
     "pydantic>=2.12.5",
     "polyfactory>=3.3.0",
-    "pip>=26.1",
+    "pip>=26.1.2",
 ]
 audit = [
     "pip-audit>=2.10.0"
@@ -28,6 +28,7 @@ audit-fixes = [
     "urllib3>=2.7.0", # Required by 'botocore' (->'boto3'), 'requests', others
 ]
 lambda-layer = [
+    "pydantic-strict-partial>=1.0.0",
 ]
 psycopg-layer = [
     "psycopg[binary,pool]>=3.2.0",
