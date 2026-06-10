@@ -1,4 +1,3 @@
-import hypothesis
 from hypothesis import settings
 
 

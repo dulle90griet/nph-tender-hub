@@ -535,7 +535,7 @@ class TestGetHandlersReturnCursorRows:
         ]
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
-        assert get_rich_tender_line_items(1) == rows
+        assert get_rich_tender_line_items(1) == orig_rows
 
 
 # ══════════════════════════════════════════════════════════════════
