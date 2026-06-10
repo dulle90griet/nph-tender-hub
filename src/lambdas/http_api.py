@@ -4,7 +4,7 @@ from datetime import datetime
 import json
 import logging
 
-from typing import Optional, TypeVar, ClassVar, Type, Union, Any
+from typing import Optional, TypeVar, ClassVar, Type, Any
 from typing_extensions import Annotated
 from pydantic import RootModel, BaseModel, Field, model_validator
 from pydantic_core import core_schema

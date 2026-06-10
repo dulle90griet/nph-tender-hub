@@ -43,7 +43,7 @@ all-checks: audit security-checks code-checks terraform-checks unit-tests
 
 prepare-layer:
 	uv export --only-group lambda-layer --output-file requirements-lambda.txt
-	$(PIP) install -r requirements-lambda.txt -t build/layer/python
+	$(PIP) install -r requirements-lambda.txt -t build/lambda-layer/python
 
 prepare-psycopg-layer:
 	uv export --only-group psycopg-layer --output-file requirements-psycopg.txt
