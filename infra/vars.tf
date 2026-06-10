@@ -126,5 +126,5 @@ variable "SUBNETS_BY_ENV" {
 variable "LAMBDA_POWERTOOLS_LAYER_ARN" {
   type        = string
   description = "The ARN of the AWS-managed Lambda Powertools layer and version to use"
-  default     = "arn:aws:lambda:eu-west-2:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:19"
+  default     = "arn:aws:lambda:eu-west-2:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:33"
 }
