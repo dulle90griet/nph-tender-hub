@@ -3,22 +3,221 @@ from decimal import Decimal
 from datetime import datetime
 import json
 import logging
+
+from typing import Optional, TypeVar, ClassVar, Type, Union, Any
+from typing_extensions import Annotated
+from pydantic import RootModel, BaseModel, Field, model_validator
+from pydantic_core import core_schema
+from pydantic_strict_partial import create_partial_model
+
 import psycopg_pool
 from psycopg.sql import SQL, Identifier, Placeholder
 from psycopg.rows import dict_row
-from aws_lambda_powertools.event_handler import (
-    APIGatewayHttpResolver,
-    # Response,
-)
+
+from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
+from aws_lambda_powertools.event_handler.openapi.params import Query, Body
 from aws_lambda_powertools.utilities.typing.lambda_context import LambdaContext
 import boto3
 from botocore.exceptions import ClientError
-# import psycopg
 # from aws_lambda_powertools import Logger
 
 
 logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
+
+
+class _UNSET:
+    """Sentinel indicating a non-nullable field was not provided in the request."""
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self):
+        return "UNSET"
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, _source_type: Any, _handler: Any
+    ) -> core_schema.CoreSchema:
+        return core_schema.no_info_plain_validator_function(cls._validate)
+
+    @staticmethod
+    def _validate(value: Any) -> Any:
+        if isinstance(value, _UNSET):
+            return value
+        raise ValueError(f"Expected _UNSET, got {type(value)}")
+
+
+UNSET = _UNSET()
+
+
+class Pagination(BaseModel):
+    page: Optional[int] = 1
+    per_page: Optional[int] = 10
+
+
+# class Department(BaseModel):
+#     id: int
+#     name: Annotated[str, Field(max_length=50)]
+
+
+class JobTitle(BaseModel):
+    department_id: int
+    title: Annotated[str, Field(max_length=50)]
+    default_ft_weekly_hours: Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    default_lunch_break_hours: Annotated[Decimal, Field(max_digits=2, decimal_places=1)]
+    hourly_rate_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=2)]
+    default_annual_holiday_days: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+    default_annual_training_days: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+    default_annual_sick_days: Optional[
+        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
+    ] = None
+
+
+UpdateJobTitle = create_partial_model(JobTitle)
+
+
+class Consumable(BaseModel):
+    consumable_name: Annotated[str, Field(max_length=100)]
+    default_unit_cost_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
+    ] = None
+
+
+UpdateConsumable = create_partial_model(Consumable)
+
+
+class Service(BaseModel):
+    pillar: Annotated[str, Field(max_length=50)]
+    category: Annotated[str, Field(max_length=50)]
+    service_name: Annotated[str, Field(max_length=75)]
+    xero_code: Annotated[int, Field(ge=0, le=9999)]
+    overhead_recovery_on_labour_percentage: int
+    required_profit_margin_percentage: Annotated[
+        Decimal, Field(max_digits=4, decimal_places=2)
+    ]
+    acceptable_market_price_gbp: Annotated[
+        Decimal, Field(max_digits=8, decimal_places=2)
+    ]
+    our_current_unit_price_gbp: Annotated[
+        Decimal, Field(max_digits=8, decimal_places=2)
+    ]
+    new_unit_price_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    ] = None
+    new_day_rate_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=9, decimal_places=2)]
+    ] = None
+    comments: Optional[Annotated[str, Field(max_length=100)]] = None
+
+
+UpdateService = create_partial_model(Service)
+
+
+class OverheadCost(BaseModel):
+    cost_type: Annotated[str, Field(max_length=30)]
+    cost_description: Annotated[str, Field(max_length=30)]
+    budgeted_spend_gbp: int
+
+
+UpdateOverheadCost = create_partial_model(OverheadCost)
+
+
+class LabourCost(BaseModel):
+    service_id: int
+    title_engaged_id: int
+    required_time_mins: int
+
+
+UpdateLabourCost = create_partial_model(LabourCost)
+
+
+class DirectCost(BaseModel):
+    service_id: int
+    consumable_id: int
+    cost_gbp: Annotated[Decimal, Field(max_digits=5, decimal_places=2)]
+
+
+UpdateDirectCost = create_partial_model(DirectCost)
+
+
+class Client(BaseModel):
+    client_name: Annotated[str, Field(max_length=50)]
+
+
+UpdateClient = create_partial_model(Client)
+
+
+class Tender(BaseModel):
+    tender_title: Annotated[str, Field(max_length=50)]
+    client_id: int
+    projected_sales_value_gbp: int
+    date_created: datetime
+
+
+UpdateTender = create_partial_model(Tender)
+
+
+class TenderLineItem(BaseModel):
+    tender_id: int
+    service_id: int
+    total_number_pa: int
+    unit_price_override_gbp: Optional[
+        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
+    ] = None
+
+
+UpdateTenderLineItem = create_partial_model(TenderLineItem)
+
+
+T = TypeVar("T", bound="BaseModel")
+
+
+def create_lax_list_model(model: Type[T]) -> Type[RootModel[list[T]]]:
+    """
+    Factory function: creates a RootModel that coerces a single dict
+    into a list of dicts for *model*.
+    """
+
+    class LaxList(RootModel[list[model]]):
+        item_model: ClassVar[type] = model
+
+        @model_validator(mode="before")
+        @classmethod
+        def coerce_single(cls, values):
+            return [values] if isinstance(values, dict) else values
+
+        @model_validator(mode="after")
+        def check_not_empty(self):
+            if len(self.root) == 0:
+                raise ValueError("at least one row object required")
+            return self
+
+    LaxList.__name__ = f"{model.__name__}List"
+    LaxList.__module__ = model.__module__
+    return LaxList
+
+
+models_for_lax_list = [
+    JobTitle,
+    Consumable,
+    Service,
+    OverheadCost,
+    LabourCost,
+    DirectCost,
+    Client,
+    Tender,
+    TenderLineItem,
+]
+lax_lists = {model: create_lax_list_model(model) for model in models_for_lax_list}
 
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -32,7 +231,10 @@ def custom_serializer(o):
     return json.dumps(o, separators=(",", ":"), cls=CustomJSONEncoder)
 
 
-app = APIGatewayHttpResolver(serializer=custom_serializer)
+app = APIGatewayHttpResolver(
+    enable_validation=True,
+    serializer=custom_serializer,
+)
 
 
 class DatabaseManager:
@@ -44,7 +246,7 @@ class DatabaseManager:
     def _get_secrets(self):
         """Fetch secrets from Secrets Manager with caching"""
         if self._secret_cache is None:
-            # Logic to fetch RDS connection details using SSM Secret
+            # Logic to fetch RDS connection details using SSM Secretn
             # TO BE MODULARIZED
             secrets_manager = boto3.client("secretsmanager")
             logger.info("Fetching RDS login secret")
@@ -156,15 +358,11 @@ def get_department() -> None:
 
 
 @app.get("/job-title")
-def get_job_title() -> list:
+def get_job_title(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for job_title table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
@@ -218,11 +416,11 @@ def get_job_title_titles() -> list:
 
 
 @app.post("/job-title")
-def post_job_title() -> None:
+def post_job_title(body: Annotated[lax_lists[JobTitle], Body()]) -> None:
     """POST method for job_title table"""
 
     columns = (
-        "department",
+        "department_id",
         "title",
         "default_ft_weekly_hours",
         "default_lunch_break_hours",
@@ -232,12 +430,9 @@ def post_job_title() -> None:
         "default_annual_sick_days",
     )
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
-    values = [row[column] for column in columns for row in rows]
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
@@ -251,13 +446,13 @@ def post_job_title() -> None:
 
 
 @app.patch("/job-title/<job_title_id>")
-def patch_job_title(job_title_id: str) -> None:
+def patch_job_title(job_title_id: str, body: Annotated[UpdateJobTitle, Body()]) -> None:
     """PATCH method for job_title table"""
 
     logger.info("PATCHing job title ID: %s", job_title_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
@@ -274,15 +469,11 @@ def patch_job_title(job_title_id: str) -> None:
 
 
 @app.get("/consumable")
-def get_consumable() -> list:
+def get_consumable(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for consumable table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
@@ -320,20 +511,17 @@ def get_consumable_names() -> list:
 
 
 @app.post("/consumable")
-def post_consumable() -> None:
+def post_consumable(body: Annotated[lax_lists[Consumable], Body()]) -> None:
     """POST method for consumable table"""
 
     columns = ("consumable_name", "default_unit_cost_gbp")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into consumable values:")
     logger.info(rows)
 
-    values = [row[column] for column in columns for row in rows]
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
@@ -348,13 +536,15 @@ def post_consumable() -> None:
 
 
 @app.patch("/consumable/<consumable_id>")
-def patch_consumable(consumable_id: str) -> None:
+def patch_consumable(
+    consumable_id: str, body: Annotated[UpdateConsumable, Body()]
+) -> None:
     """PATCH method for consumable table"""
 
     logger.info("PATCHing consumable ID: %s", consumable_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
@@ -371,15 +561,11 @@ def patch_consumable(consumable_id: str) -> None:
 
 
 @app.get("/service")
-def get_service() -> list:
+def get_service(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for service table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
@@ -417,7 +603,7 @@ def get_service_slugs() -> list:
 
 
 @app.post("/service")
-def post_service() -> None:
+def post_service(body: Annotated[lax_lists[Service], Body()]) -> None:
     """POST method for service table"""
 
     columns = (
@@ -434,16 +620,13 @@ def post_service() -> None:
         "comments",
     )
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into service values:")
     logger.info(rows)
 
     values = [
-        row[column] if row[column] != "null" else None
+        row.model_dump()[column] if row.model_dump()[column] != "null" else None
         for column in columns
         for row in rows
     ]
@@ -461,13 +644,13 @@ def post_service() -> None:
 
 
 @app.patch("/service/<service_id>")
-def patch_service(service_id: str) -> None:
+def patch_service(service_id: str, body: Annotated[UpdateService, Body()]) -> None:
     """PATCH method for service table"""
 
     logger.info("PATCHing service ID: %s", service_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
@@ -484,15 +667,11 @@ def patch_service(service_id: str) -> None:
 
 
 @app.get("/overhead-cost")
-def get_overhead_cost() -> list:
+def get_overhead_cost(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for overhead_cost table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_overhead_cost_sql = SQL("""
@@ -511,21 +690,18 @@ def get_overhead_cost() -> list:
 
 
 @app.post("/overhead-cost")
-def post_overhead_cost() -> None:
+def post_overhead_cost(body: Annotated[lax_lists[OverheadCost], Body()]) -> None:
     """POST method for overhead_cost table"""
 
     columns = ("cost_type", "cost_description", "budgeted_spend_gbp")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into overhead_cost values:")
     logger.info(rows)
 
     values = [
-        row[column] if row[column] != "null" else None
+        row.model_dump()[column] if row.model_dump()[column] != "null" else None
         for column in columns
         for row in rows
     ]
@@ -543,13 +719,15 @@ def post_overhead_cost() -> None:
 
 
 @app.patch("/overhead-cost/<overhead_cost_id>")
-def patch_overhead_cost(overhead_cost_id: str) -> None:
+def patch_overhead_cost(
+    overhead_cost_id: str, body: Annotated[UpdateOverheadCost, Body()]
+) -> None:
     """PATCH method for overhead_cost table"""
 
     logger.info("PATCHing overhead_cost ID: %s", overhead_cost_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
@@ -566,15 +744,11 @@ def patch_overhead_cost(overhead_cost_id: str) -> None:
 
 
 @app.get("/labour-cost")
-def get_labour_cost() -> list:
+def get_labour_cost(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for labour_cost table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_labour_cost_sql = SQL("""
@@ -604,21 +778,18 @@ def get_labour_cost() -> list:
 
 
 @app.post("/labour-cost")
-def post_labour_cost() -> None:
+def post_labour_cost(body: Annotated[lax_lists[LabourCost], Body()]) -> None:
     """POST method for labour_cost table"""
 
     columns = ("service_id", "title_engaged_id", "required_time_mins")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into labour_cost values:")
     logger.info(rows)
 
     values = [
-        row[column] if row[column] != "null" else None
+        row.model_dump()[column] if row.model_dump()[column] != "null" else None
         for column in columns
         for row in rows
     ]
@@ -636,7 +807,9 @@ def post_labour_cost() -> None:
 
 
 @app.patch("/labour-cost/<service_id>/<title_engaged_id>")
-def patch_labour_cost(service_id: str, title_engaged_id: str) -> None:
+def patch_labour_cost(
+    service_id: str, title_engaged_id: str, body: Annotated[UpdateLabourCost, Body()]
+) -> None:
     """PATCH method for labour_cost table"""
 
     logger.info(
@@ -646,18 +819,17 @@ def patch_labour_cost(service_id: str, title_engaged_id: str) -> None:
     )
     logger.info(app.current_event.body)
 
-    updated_required_time = json.loads(app.current_event.body).get(
-        "required_time_mins", None
-    )
-    if not updated_required_time:
+    updated_required_time = body.model_dump()["required_time_mins"]
+
+    if updated_required_time is UNSET:
         return None
 
-    patch_labour_cost_sql = """
+    patch_labour_cost_sql = SQL("""
             UPDATE labour_cost
             SET required_time_mins = %s
             WHERE service_id = %s
                 AND title_engaged_id = %s 
-            """
+    """)
 
     with DatabaseCursor() as cursor:
         cursor.execute(
@@ -667,15 +839,11 @@ def patch_labour_cost(service_id: str, title_engaged_id: str) -> None:
 
 
 @app.get("/direct-cost")
-def get_direct_cost() -> list:
+def get_direct_cost(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for direct_cost table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_direct_cost_sql = SQL("""
@@ -705,21 +873,18 @@ def get_direct_cost() -> list:
 
 
 @app.post("/direct-cost")
-def post_direct_cost() -> None:
+def post_direct_cost(body: Annotated[lax_lists[DirectCost], Body()]) -> None:
     """POST method for direct_cost table"""
 
     columns = ("service_id", "consumable_id", "cost_gbp")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into direct_cost values:")
     logger.info(rows)
 
     values = [
-        row[column] if row[column] != "null" else None
+        row.model_dump()[column] if row.model_dump()[column] != "null" else None
         for column in columns
         for row in rows
     ]
@@ -737,7 +902,9 @@ def post_direct_cost() -> None:
 
 
 @app.patch("/direct-cost/<service_id>/<consumable_id>")
-def patch_direct_cost(service_id: str, consumable_id: str) -> None:
+def patch_direct_cost(
+    service_id: str, consumable_id: str, body: Annotated[UpdateDirectCost, Body()]
+) -> None:
     """PATCH method for direct_cost table"""
 
     logger.info(
@@ -747,16 +914,16 @@ def patch_direct_cost(service_id: str, consumable_id: str) -> None:
     )
     logger.info(app.current_event.body)
 
-    updated_cost = json.loads(app.current_event.body).get("cost_gbp", None)
-    if not updated_cost:
+    updated_cost = body.model_dump()["cost_gbp"]
+    if updated_cost is UNSET:
         return None
 
-    patch_direct_cost_sql = """
+    patch_direct_cost_sql = SQL("""
             UPDATE direct_cost
             SET cost_gbp = %s
             WHERE service_id = %s
                 AND consumable_id = %s
-            """
+    """)
 
     with DatabaseCursor() as cursor:
         cursor.execute(
@@ -766,15 +933,11 @@ def patch_direct_cost(service_id: str, consumable_id: str) -> None:
 
 
 @app.get("/client")
-def get_client() -> list:
+def get_client(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for client table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
@@ -792,20 +955,17 @@ def get_client() -> list:
 
 
 @app.post("/client")
-def post_client() -> None:
+def post_client(body: Annotated[lax_lists[Client], Body()]) -> None:
     """POST method for client table"""
 
     columns = ("client_name",)
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into client values:")
     logger.info(rows)
 
-    values = [row[column] for column in columns for row in rows]
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
@@ -820,21 +980,21 @@ def post_client() -> None:
 
 
 @app.patch("/client/<client_id>")
-def patch_client(client_id: str) -> None:
+def patch_client(client_id: str, body: Annotated[UpdateClient, Body()]) -> None:
     """PATCH method for client table"""
 
     logger.info("PATCHing client ID: %s", client_id)
     logger.info(app.current_event.body)
 
-    updated_client_name = json.loads(app.current_event.body).get("client_name", None)
-    if not updated_client_name:
+    updated_client_name = body.model_dump()["client_name"]
+    if updated_client_name is UNSET:
         return None
 
-    patch_direct_cost_sql = """
+    patch_direct_cost_sql = SQL("""
             UPDATE client
             SET client_name = %s
             WHERE id = %s
-            """
+    """)
 
     with DatabaseCursor() as cursor:
         cursor.execute(
@@ -846,15 +1006,11 @@ def patch_client(client_id: str) -> None:
 
 
 @app.get("/tender")
-def get_tender() -> list:
+def get_tender(pagination: Annotated[Pagination, Query()]) -> list:
     """GET method for tender table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     get_sql = SQL("""
@@ -881,20 +1037,16 @@ def get_tender() -> list:
 
 
 @app.post("/tender")
-def post_tender() -> None:
+def post_tender(body: Annotated[lax_lists[Tender], Body()]) -> None:
     """POST method for tender table"""
-
     columns = ("tender_title", "client_id", "projected_sales_value_gbp", "date_created")
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into tender values:")
     logger.info(rows)
 
-    values = [row[column] for column in columns for row in rows]
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
@@ -909,13 +1061,13 @@ def post_tender() -> None:
 
 
 @app.patch("/tender/<tender_id>")
-def patch_tender(tender_id: str) -> None:
+def patch_tender(tender_id: str, body: Annotated[UpdateTender, Body()]) -> None:
     """PATCH method for tender table"""
 
     logger.info("PATCHing tender ID: %s", tender_id)
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
@@ -1007,7 +1159,9 @@ def get_rich_tender_line_items(tender_id: str) -> list:
     annual_sales_gbp = f"({unit_price_to_use}) * base.total_number_pa"
     annual_labour_gbp = "base.labour_cost_gbp * base.total_number_pa"
     annual_direct_gbp = "base.direct_cost_gbp * base.total_number_pa"
-    annual_overhead_gbp = f"({overhead_recovery_on_labour_cost_gbp}) * base.total_number_pa"
+    annual_overhead_gbp = (
+        f"({overhead_recovery_on_labour_cost_gbp}) * base.total_number_pa"
+    )
     annual_total_gbp = f"""
         ({annual_labour_gbp}) + ({annual_direct_gbp}) + ({annual_overhead_gbp})
     """
@@ -1103,7 +1257,7 @@ def get_rich_tender_line_items(tender_id: str) -> list:
 
 
 @app.post("/tender/line-items")
-def post_tender_line_items() -> None:
+def post_tender_line_items(body: Annotated[lax_lists[TenderLineItem], Body()]) -> None:
     """POST method for tenders_services table"""
 
     columns = (
@@ -1113,15 +1267,12 @@ def post_tender_line_items() -> None:
         "unit_price_override_gbp",
     )
 
-    rows = json.loads(app.current_event.body)
-    if isinstance(rows, dict):
-        # Ensure rows is a list of dicts to support multi-row insert
-        rows = [rows]
+    rows = body.root
 
     logger.info("POST into tenders_services values:")
     logger.info(rows)
 
-    values = [row[column] for column in columns for row in rows]
+    values = [row.model_dump()[column] for column in columns for row in rows]
     placeholders = SQL(", ").join(
         SQL("({})").format(SQL(", ").join(Placeholder() * len(columns))) for _ in rows
     )
@@ -1135,9 +1286,9 @@ def post_tender_line_items() -> None:
         cursor.execute(post_sql, values)
 
 
-@app.patch("/tender/line-items/<tender_id>/<service_id>/<title_engaged_id>")
+@app.patch("/tender/line-items/<tender_id>/<service_id>")
 def patch_tender_line_item(
-    tender_id: str, service_id: str
+    tender_id: str, service_id: str, body: Annotated[UpdateTenderLineItem, Body()]
 ) -> None:
     """PATCH method for tenders_services table"""
 
@@ -1148,7 +1299,7 @@ def patch_tender_line_item(
     )
     logger.info(app.current_event.body)
 
-    updated_columns = json.loads(app.current_event.body)
+    updated_columns = body.model_dump(exclude_unset=True)
 
     set_parts = []
     values = []
