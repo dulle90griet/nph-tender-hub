@@ -43,7 +43,7 @@ all-checks: audit security-checks code-checks terraform-checks unit-tests
 
 prepare-layer:
 	uv export --only-group lambda-layer --output-file requirements-lambda.txt
-	$(PIP) install -r requirements-lambda.txt -t build/layer/python
+	$(PIP) install -r requirements-lambda.txt -t build/lambda-layer/python
 
 prepare-psycopg-layer:
 	uv export --only-group psycopg-layer --output-file requirements-psycopg.txt
@@ -96,21 +96,48 @@ deploy-to-dev:
 		sed -E "s/\s*CODE_BUCKET\s*=\s*['\"]?([^'\"]+)['\"]?\s*$$/\1/" | \
 		xargs))
 	@echo "Bucket name retrieved from infra/envs/dev/terraform.tfvars: \"$(CODE_BUCKET)\""
-	$(call zip_to_bucket, src/create_budibase_instance.py, $(CODE_BUCKET))
-	$(call zip_to_bucket, src/destroy_budibase_instance.py, $(CODE_BUCKET))
-	$(call zip_to_bucket, src/ci_checks_for_rds.py, $(CODE_BUCKET))
+	$(call zip_to_bucket, src/lambdas/create_budibase_instance.py, $(CODE_BUCKET))
+	$(call zip_to_bucket, src/lambdas/destroy_budibase_instance.py, $(CODE_BUCKET))
+	$(call zip_to_bucket, src/lambdas/ci_checks_for_rds.py, $(CODE_BUCKET))
+	$(call zip_to_bucket, src/lambdas/seed_db.py, $(CODE_BUCKET))
+	$(call zip_to_bucket, src/lambdas/http_api.py, $(CODE_BUCKET))
 	@printf "\n%s\n" "Switching into 'dev' Terraform environment ..."
 	@cd infra && ./switch_env.sh dev
 	@printf "\n%s\n" "Running terraform plan ..."
 	@cd infra && terraform plan -out=tfplan -no-color -var-file="envs/dev/terraform.tfvars" 2>&1 > plan.out
 	@printf "\n%s\n" "Plan successfully output."
 	@echo "If you wish to proceed with the plan in infra/plan.out, type Y: ";
-	@read RESPONSE; \
+	@read RESPONSE && \
 	if [[ "$$RESPONSE" == "Y" ]]; then \
+		printf "\n"; \
 		cd infra && terraform apply tfplan; \
 	else \
 		printf "\n%s\n" "Terraform plan will not be applied. Exiting."; \
 	fi
+
+spin-up-dev: deploy-to-dev
+	@printf "\n%s\n" "Waiting for IAM permissions to propagate..."
+	@sleep 10
+	@cd infra && \
+	printf "\n%s\n" "Packaging rds_connection_info_secret_name into event JSON ..." && \
+	EVENT_JSON="$$(jq -n \
+		--arg RDS_login_secret "$$(terraform output -raw rds_connection_info_secret_name)" \
+		'{RDS_login_secret: $$RDS_login_secret}')" && \
+	PAYLOAD_B64=$$(echo -n $$EVENT_JSON | base64) && \
+	printf "\n%s\n" "Calling Lambda to seed the database ..." && \
+	printf "\n%s\n" "LAMBDA OUTPUT:" && \
+	aws lambda invoke \
+		--function-name "$$(terraform output -raw lambda_seed_db_name)" \
+		--payload "$$PAYLOAD_B64" \
+		--no-cli-pager \
+		lambda_seed_db.out
+	@cd infra && \
+	printf "\n%s\n" "Calling Lambda to create a Fargate task ..." && \
+	printf "\n%s\n" "LAMBDA OUTPUT:" && \
+	aws lambda invoke \
+		--function-name "$$(terraform output -raw lambda_create_service_name)" \
+		--no-cli-pager \
+		lambda_create_service.out
 
 clean:
 	rm -rf packages/temp build

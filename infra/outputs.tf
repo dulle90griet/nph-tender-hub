@@ -3,6 +3,11 @@ output "lb_url" {
   value       = "http://${aws_lb.budibase_alb.dns_name}/"
 }
 
+output "http_api_url" {
+  description = "URL of HTTP API endpoint"
+  value       = aws_apigatewayv2_api.http_api.api_endpoint
+}
+
 output "budibase_ecs_cluster_name" {
   description = "The name of the Budibase ECS/Fargate cluster"
   value       = aws_ecs_cluster.budibase_cluster.name
@@ -36,6 +41,16 @@ output "lambda_destroy_service_name" {
 output "lambda_ci_checks_for_rds_name" {
   description = "The name of the ci_checks_for_rds Lambda function"
   value       = aws_lambda_function.ci_checks_for_rds_lambda.function_name
+}
+
+output "lambda_seed_db_name" {
+  description = "The name of the seed_db Lambda function"
+  value       = aws_lambda_function.seed_db_lambda.function_name
+}
+
+output "lambda_http_api_name" {
+  description = "The name of the http_api Lambda function"
+  value       = aws_lambda_function.http_api_lambda.function_name
 }
 
 output "rds_connection_info_secret_name" {

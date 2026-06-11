@@ -22,6 +22,8 @@ jobs:
       lambda_create_instance_changed: ${{ steps.list-changes.outputs.lambda_create_instance_changed }}
       lambda_destroy_instance_changed: ${{ steps.list-changes.outputs.lambda_destroy_instance_changed }}
       lambda_ci_checks_for_rds_changed: ${{ steps.list-changes.outputs.lambda_ci_checks_for_rds_changed }}
+      lambda_seed_db_changed: ${{ steps.list-changes.outputs.lambda_seed_db_changed }}
+      lambda_http_api_changed: ${{ steps.list-changes.outputs.lambda_http_api_changed }}
 
       short_sha_base: ${{ steps.manifest-and-shas.outputs.short_sha_base }}
       short_sha_branch_head: ${{ steps.manifest-and-shas.outputs.short_sha_branch_head }}
@@ -206,6 +208,20 @@ jobs:
             else
               LAMBDA_CI_CHECKS_FOR_RDS_CHANGED=false
             fi
+
+            if echo "$CHANGED_PYTHON" | grep -q "seed_db.py"; then
+              LAMBDA_SEED_DB_CHANGED=true
+              echo "Lambda function seed_db changed."
+            else
+              LAMBDA_SEED_DB_CHANGED=false
+            fi
+
+            if echo "$CHANGED_PYTHON" | grep -q "http_api.py"; then
+              LAMBDA_HTTP_API_CHANGED=true
+              echo "Lambda function http_api changed."
+            else
+              LAMBDA_HTTP_API_CHANGED=false
+            fi
           else
             PYTHON_CHANGES_EXIST=false
             echo "No changes detected to Python code."
@@ -219,6 +235,8 @@ jobs:
             >> $GITHUB_OUTPUT
           echo "lambda_ci_checks_for_rds_changed=$LAMBDA_CI_CHECKS_FOR_RDS_CHANGED" \
             >> $GITHUB_OUTPUT
+          echo "lambda_seed_db_changed=$LAMBDA_SEED_DB_CHANGED" >> $GITHUB_OUTPUT
+          echo "lambda_http_api_changed=$LAMBDA_HTTP_API_CHANGED" >> $GITHUB_OUTPUT
 
   python-test-and-deploy:
     runs-on: ubuntu-latest
@@ -270,23 +288,37 @@ jobs:
 
           if [[ "${{ needs.pre-checks.outputs.lambda_create_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
-            zip -j packages/lambdas/create_budibase_instance.zip src/create_budibase_instance.py
+            zip -j packages/lambdas/create_budibase_instance.zip src/lambdas/create_budibase_instance.py
             aws s3 cp packages/lambdas/create_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/create_budibase_instance/$SHORT_SHA_CODE.zip
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
-            zip -j packages/lambdas/destroy_budibase_instance.zip src/destroy_budibase_instance.py
+            zip -j packages/lambdas/destroy_budibase_instance.zip src/lambdas/destroy_budibase_instance.py
             aws s3 cp packages/lambdas/destroy_budibase_instance.zip \
               s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
           fi
 
           if [[ "${{ needs.pre-checks.outputs.lambda_ci_checks_for_rds_changed }}" == "true" ]]; then
             mkdir -p packages/lambdas/
-            zip -j packages/lambdas/ci_checks_for_rds.zip src/ci_checks_for_rds.py
+            zip -j packages/lambdas/ci_checks_for_rds.zip src/lambdas/ci_checks_for_rds.py
             aws s3 cp packages/lambdas/ci_checks_for_rds.zip \
               s3://${{ vars.CODE_BUCKET }}/ci_checks_for_rds/$SHORT_SHA_CODE.zip
+          fi
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_seed_db_changed }}" == "true" ]]; then
+            mkdir -p packages/lambdas/
+            zip -j packages/lambdas/seed_db.zip src/lambdas/seed_db.py
+            aws s3 cp packages/lambdas/seed_db.zip \
+              s3://${{ vars.CODE_BUCKET }}/seed_db/$SHORT_SHA_CODE.zip
+          fi
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_http_api_changed }}" == "true" ]]; then
+            mkdir -p packages/lambdas/
+            zip -j packages/lambdas/http_api.zip src/lambdas/http_api.py
+            aws s3 cp packages/lambdas/http_api.zip \
+              s3://${{ vars.CODE_BUCKET }}/http_api/$SHORT_SHA_CODE.zip
           fi
 
   terraform-test-and-deploy:
@@ -317,7 +349,9 @@ jobs:
           enable-cache: "auto"
 
       - name: Prepare Lambda layers
-        run: make prepare-psycopg-layer
+        run: |
+          make prepare-layer
+          make prepare-psycopg-layer
 
       - name: Configure AWS credentials
         id: configure-aws
@@ -381,6 +415,24 @@ jobs:
           fi
           echo "Deploying ci_checks_for_rds Lambda code version: $LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
 
+          if [[ "${{ needs.pre-checks.outputs.lambda_seed_db_changed }}" == "true" ]]; then
+            LAMBDA_SEED_DB_VERSION="$SHORT_SHA_CODE"
+          else
+            LAMBDA_SEED_DB_VERSION="$(
+              jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
+            )"
+          fi
+          echo "Deploying seed_db Lambda code version: $LAMBDA_SEED_DB_VERSION"
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_http_api_changed }}" == "true" ]]; then
+            LAMBDA_HTTP_API_VERSION="$SHORT_SHA_CODE"
+          else
+            LAMBDA_HTTP_API_VERSION="$(
+              jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
+            )"
+          fi
+          echo "Deploying http_api Lambda code version: $LAMBDA_HTTP_API_VERSION"
+
           # Create backend 
 
           mkdir -p envs/stage
@@ -398,6 +450,8 @@ jobs:
           LAMBDA_CREATE_SERVICE_VERSION    = "$LAMBDA_CREATE_SERVICE_VERSION"
           LAMBDA_DESTROY_SERVICE_VERSION   = "$LAMBDA_DESTROY_SERVICE_VERSION"
           LAMBDA_CI_CHECKS_FOR_RDS_VERSION = "$LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
+          LAMBDA_SEED_DB_VERSION           = "$LAMBDA_SEED_DB_VERSION"
+          LAMBDA_HTTP_API_VERSION          = "$LAMBDA_HTTP_API_VERSION"
           EOF
           echo "envs/stage/terraform.tfvars generated."
           
@@ -468,6 +522,10 @@ jobs:
             echo "destroy_service_function_name=\"$(terraform output -raw lambda_destroy_service_name)\"" \
               >> $GITHUB_OUTPUT
             echo "ci_checks_for_rds_function_name=\"$(terraform output -raw lambda_ci_checks_for_rds_name)\"" \
+              >> $GITHUB_OUTPUT
+            echo "seed_db_function_name=\"$(terraform output -raw lambda_seed_db_name)\"" \
+              >> $GITHUB_OUTPUT
+            echo "http_api_function_name=\"$(terraform output -raw lambda_http_api_name)\"" \
               >> $GITHUB_OUTPUT
             echo "rds_connection_info_secret_name=\"$(terraform output -raw rds_connection_info_secret_name)\"" \
               >> $GITHUB_OUTPUT
@@ -652,7 +710,7 @@ jobs:
             --jq '.[0].id')
 
           if [ -n "$DEPLOYMENT_ID" ] && [ "$DEPLOYMENT_ID" != "null" ]; then
-            # Provided deployment ID isn't empty or null, post status "success"
+            # Deployment ID isn't empty or null, so post status "success"
             gh api \
               -X POST \
               -H "Accept: application/vnd.github+json" \
@@ -711,6 +769,16 @@ jobs:
           if [[ "${{ needs.pre-checks.outputs.lambda_destroy_instance_changed }}" == "true" ]]; then
             aws s3 rm s3://${{ vars.CODE_BUCKET }}/destroy_budibase_instance/$SHORT_SHA_CODE.zip
             echo "Removed artefact /destroy_budibase_instance/$SHORT_SHA_CODE.zip"
+          fi
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_seed_db_changed }}" == "true" ]]; then
+            aws s3 rm s3://${{ vars.CODE_BUCKET }}/seed_db/$SHORT_SHA_CODE.zip
+            echo "Removed artefact /seed_db/$SHORT_SHA_CODE.zip"
+          fi
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_http_api_changed }}" == "true" ]]; then
+           aws s3 rm s3://${{ vars.CODE_BUCKET }}/http_api/$SHORT_SHA_CODE.zip
+           echo "Removed artefact /http_api/$SHORT_SHA_CODE.zip"
           fi
 
   update-manifest:
@@ -785,6 +853,18 @@ jobs:
             jq '.Latest.Python.ci_checks_for_rds = "'$SHORT_SHA_CODE'"' manifest.json \
               > manifest.json.tmp && mv manifest.json.tmp manifest.json
             echo "Updated manifest with new ci_checks_for_rds Lambda version: $SHORT_SHA_CODE"
+          fi
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_seed_db_changed }}" == "true" ]]; then
+            jq '.Latest.Python.seed_db = "'$SHORT_SHA_CODE'"' manifest.json \
+              > manifest.json.tmp && mv manifest.json.tmp manifest.json
+            echo "Updated manifest with new seed_db Lambda version: $SHORT_SHA_CODE"
+          fi
+
+          if [[ "${{ needs.pre-checks.outputs.lambda_http_api_changed }}" == "true" ]]; then
+            jq '.Latest.Python.http_api = "'$SHORT_SHA_CODE'"' manifest.json \
+              > manifest.json.tmp && mv manifest.json.tmp manifest.json
+            echo "Updated manifest with new http_api Lambda version: $SHORT_SHA_CODE"
           fi
 
           echo "Uploading updated manifest with ID $SHORT_SHA_MERGE to S3..."

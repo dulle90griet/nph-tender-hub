@@ -68,6 +68,17 @@ variable "LAMBDA_CI_CHECKS_FOR_RDS_VERSION" {
   description = "The version of the ci_checks_for_rds Lambda code to deploy"
 }
 
+variable "LAMBDA_SEED_DB_VERSION" {
+  type        = string
+  description = "The version of the seed_db Lambda code to deploy"
+}
+
+variable "LAMBDA_HTTP_API_VERSION" {
+  type        = string
+  description = "The version of the http_api Lambda code to deploy"
+}
+
+
 # Variables hardcoded here
 
 variable "NAT_GATEWAY_COUNT" {
@@ -110,4 +121,10 @@ variable "SUBNETS_BY_ENV" {
     "stage" = ["d", "e", "f"]
     "prod"  = ["g", "h", "i"]
   }
+}
+
+variable "LAMBDA_POWERTOOLS_LAYER_ARN" {
+  type        = string
+  description = "The ARN of the AWS-managed Lambda Powertools layer and version to use"
+  default     = "arn:aws:lambda:eu-west-2:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:33"
 }

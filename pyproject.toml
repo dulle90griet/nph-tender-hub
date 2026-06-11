@@ -7,12 +7,15 @@ requires-python = ">=3.12"
 dev = [
     "ruff>=0.15.0",
     "bandit>=1.9.0",
-    "pytest>=9.0.0",
+    "pytest>=9.0.3",
     "pytest-cov>=7.0.0",  # Includes 'coverage'
+    "hypothesis>=6.152.0",
     "boto3>=1.42.0",
     "moto>=5.0.0",
     "aws-lambda-powertools>=3.26.0",
     "pydantic>=2.12.5",
+    "polyfactory>=3.3.0",
+    "pip>=26.1.2",
 ]
 audit = [
     "pip-audit>=2.10.0"
@@ -20,9 +23,12 @@ audit = [
 audit-fixes = [
     "cryptography>=46.0.6",
     "pygments>=2.20.0",
-    "requests>=2.33.0",
+    "requests>=2.33.0", # Required by 'moto', 'pip-audit', others
+    "idna>=3.15",   # Required by 'requests'
+    "urllib3>=2.7.0", # Required by 'botocore' (->'boto3'), 'requests', others
 ]
 lambda-layer = [
+    "pydantic-strict-partial>=1.0.0",
 ]
 psycopg-layer = [
     "psycopg[binary,pool]>=3.2.0",
@@ -33,4 +39,9 @@ local-dev = [
     {include-group = "audit-fixes"},
     {include-group = "lambda-layer"},
     {include-group = "psycopg-layer"},
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "disable_autouse"
 ]
