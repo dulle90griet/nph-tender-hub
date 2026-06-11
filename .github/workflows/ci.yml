@@ -349,7 +349,9 @@ jobs:
           enable-cache: "auto"
 
       - name: Prepare Lambda layers
-        run: make prepare-psycopg-layer
+        run: |
+          make prepare-layer
+          make prepare-psycopg-layer
 
       - name: Configure AWS credentials
         id: configure-aws
