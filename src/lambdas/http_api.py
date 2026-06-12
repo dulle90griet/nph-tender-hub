@@ -4,10 +4,9 @@ from datetime import datetime
 import json
 import logging
 
-from typing import Optional, TypeVar, ClassVar, Type, Any
+from typing import Optional, TypeVar, ClassVar, Type
 from typing_extensions import Annotated
 from pydantic import RootModel, BaseModel, Field, model_validator
-from pydantic_core import core_schema
 from pydantic_strict_partial import create_partial_model
 
 import psycopg_pool
@@ -24,35 +23,6 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
-
-
-class _UNSET:
-    """Sentinel indicating a non-nullable field was not provided in the request."""
-
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __repr__(self):
-        return "UNSET"
-
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls, _source_type: Any, _handler: Any
-    ) -> core_schema.CoreSchema:
-        return core_schema.no_info_plain_validator_function(cls._validate)
-
-    @staticmethod
-    def _validate(value: Any) -> Any:
-        if isinstance(value, _UNSET):
-            return value
-        raise ValueError(f"Expected _UNSET, got {type(value)}")
-
-
-UNSET = _UNSET()
 
 
 class Pagination(BaseModel):
@@ -819,10 +789,9 @@ def patch_labour_cost(
     )
     logger.info(app.current_event.body)
 
-    updated_required_time = body.model_dump()["required_time_mins"]
-
-    if updated_required_time is UNSET:
+    if "required_time_mins" not in body.model_fields_set:
         return None
+    updated_required_time = body.model_dump()["required_time_mins"]
 
     patch_labour_cost_sql = SQL("""
             UPDATE labour_cost
@@ -914,9 +883,9 @@ def patch_direct_cost(
     )
     logger.info(app.current_event.body)
 
-    updated_cost = body.model_dump()["cost_gbp"]
-    if updated_cost is UNSET:
+    if "cost_gbp" not in body.model_fields_set:
         return None
+    updated_cost = body.model_dump()["cost_gbp"]
 
     patch_direct_cost_sql = SQL("""
             UPDATE direct_cost
@@ -986,9 +955,9 @@ def patch_client(client_id: str, body: Annotated[UpdateClient, Body()]) -> None:
     logger.info("PATCHing client ID: %s", client_id)
     logger.info(app.current_event.body)
 
-    updated_client_name = body.model_dump()["client_name"]
-    if updated_client_name is UNSET:
+    if "client_name" not in body.model_fields_set:
         return None
+    updated_client_name = body.model_dump()["client_name"]
 
     patch_direct_cost_sql = SQL("""
             UPDATE client

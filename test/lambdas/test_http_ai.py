@@ -21,7 +21,6 @@ from src.lambdas.http_api import (
     app,
     Pagination,
     CustomJSONEncoder,
-    _UNSET,
     # Department,
     JobTitle,
     UpdateJobTitle,
@@ -1398,12 +1397,9 @@ def unwrap_annotation(annotation: type) -> type:
     if get_origin(annotation):
         args = get_args(annotation)
 
-        # For this purpose, _UNSET is just a fancy NoneType
-        none_types = [type(None), _UNSET]
-
         # If Union with NoneType, it's Optional; take the other arg
-        if any(val in set(args) for val in none_types):
-            non_none = [a for a in args if a not in none_types]
+        if type(None) in args:
+            non_none = [a for a in args if a is not type(None)]
             if len(non_none) == 1:
                 annotation = non_none[0]
             else:
