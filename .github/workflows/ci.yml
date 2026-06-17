@@ -518,7 +518,7 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES"
 
-            if terraform apply tfplan 2>&1 | tee apply_output.text; then
+            if terraform apply tfplan 2>&1 | tee apply_output; then
               echo "Apply succeeded!"
 
               echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
