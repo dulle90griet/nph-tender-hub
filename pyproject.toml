@@ -21,7 +21,7 @@ audit = [
     "pip-audit>=2.10.0"
 ]
 audit-fixes = [
-    "cryptography>=46.0.6",
+    "cryptography>=48.0.1",
     "pygments>=2.20.0",
     "requests>=2.33.0", # Required by 'moto', 'pip-audit', others
     "idna>=3.15",   # Required by 'requests'
