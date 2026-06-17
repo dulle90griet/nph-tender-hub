@@ -1029,6 +1029,27 @@ def get_tender(pagination: Annotated[Pagination, Query()]) -> list:
     return results
 
 
+@app.get("/tender/titles")
+def get_tender_titles() -> list:
+    """
+    Method to GET all tender titles in the tender table
+    Used for populating tender-selection dropdown lists
+    """
+    get_sql = SQL("""
+        SELECT
+            id
+            ,tender_title
+        FROM tender
+        ORDER BY tender_title
+    """)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.post("/tender")
 def post_tender(body: Annotated[lax_lists[Tender], Body()]) -> None:
     """POST method for tender table"""
