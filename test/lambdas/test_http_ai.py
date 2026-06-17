@@ -446,9 +446,7 @@ class TestGetHandlersReturnCursorRows:
             ),
         ],
     )
-    def test_returns_all_cursor_rows_in_boundary_cases(
-        self, mock_cursor, handler, rows
-    ):
+    def test_cursor_row_returned_in_boundary_case(self, mock_cursor, handler, rows):
         """Each handler handles schema-limit values without error."""
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
@@ -474,7 +472,7 @@ class TestGetHandlersReturnCursorRows:
         orig_rows = deepcopy(rows)
         assert get_tender_line_items(tender_id) == orig_rows
 
-    def test_tender_line_items_boundary_case(self, mock_cursor):
+    def test_tender_line_items_row_returned_in_boundary_case(self, mock_cursor):
         rows = [
             {
                 "tender_id": 1,
