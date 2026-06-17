@@ -506,29 +506,74 @@ jobs:
             echo "No changes detected. Infrastructure is up-to-date."
           fi
 
-      - name: Terraform apply
+      - name: Terraform apply with retry
         id: terraform-apply
         working-directory: infra
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
         run: |
-          terraform apply tfplan
-            echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
-            echo "cluster_name=\"$(terraform output -raw budibase_ecs_cluster_name)\"" \
-              >> $GITHUB_OUTPUT
-            echo "service_name=\"$(terraform output -raw budibase_ecs_service_name)\"" \
-              >> $GITHUB_OUTPUT
-            echo "create_service_function_name=\"$(terraform output -raw lambda_create_service_name)\"" \
-              >> $GITHUB_OUTPUT
-            echo "destroy_service_function_name=\"$(terraform output -raw lambda_destroy_service_name)\"" \
-              >> $GITHUB_OUTPUT
-            echo "ci_checks_for_rds_function_name=\"$(terraform output -raw lambda_ci_checks_for_rds_name)\"" \
-              >> $GITHUB_OUTPUT
-            echo "seed_db_function_name=\"$(terraform output -raw lambda_seed_db_name)\"" \
-              >> $GITHUB_OUTPUT
-            echo "http_api_function_name=\"$(terraform output -raw lambda_http_api_name)\"" \
-              >> $GITHUB_OUTPUT
-            echo "rds_connection_info_secret_name=\"$(terraform output -raw rds_connection_info_secret_name)\"" \
-              >> $GITHUB_OUTPUT
+          # Allow retries if RDS instance creation fails due to AWS capacity issues
+          MAX_RETRIES=3
+          RETRY_DELAY=120
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES"
+
+            if terraform apply tfplan 2>&1 | tee apply_output; then
+              echo "Apply succeeded!"
+
+              echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
+              echo "cluster_name=\"$(terraform output -raw budibase_ecs_cluster_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "service_name=\"$(terraform output -raw budibase_ecs_service_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "create_service_function_name=\"$(terraform output -raw lambda_create_service_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "destroy_service_function_name=\"$(terraform output -raw lambda_destroy_service_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "ci_checks_for_rds_function_name=\"$(terraform output -raw lambda_ci_checks_for_rds_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "seed_db_function_name=\"$(terraform output -raw lambda_seed_db_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "http_api_function_name=\"$(terraform output -raw lambda_http_api_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "rds_connection_info_secret_name=\"$(terraform output -raw rds_connection_info_secret_name)\"" \
+                >> $GITHUB_OUTPUT
+
+              rm apply_output
+              exit 0
+            fi
+
+            if grep -q "aws_db_instance.*insufficient-capacity" apply_output; then
+              echo "RDS capacity error detected."
+
+              # Destroy RDS instance if it was partially created
+              if terraform state show aws_db_instance.main &>/dev/null; then
+                echo "Instance exists but failed. Destroying it..."
+                terraform destroy -target=aws_db_instance.main -auto-approve
+              fi
+
+              echo "Waiting $RETRY_DELAY seconds before retry..."
+              sleep $RETRY_DELAY
+
+              # Regenerate plan - RDS create failures can take nearly 30 mins,
+              # during which time the state may have changed
+              terraform refresh
+              if ! terraform plan -out=tfplan -var-file="envs/stage/terraform.tfvars"; then
+                echo "Failed to generate fresh plan"
+                rm apply_output
+                exit 1
+              fi
+            else
+              echo "Non-capacity error:"
+              cat apply_output
+              rm apply_output
+              exit 1
+            fi
+          done
+
+          echo "Failed after $MAX_RETRIES attempts"
+          rm apply_output
+          exit 1
 
       - name: Clean up Terraform plan file
         working-directory: infra
