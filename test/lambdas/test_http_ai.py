@@ -64,6 +64,7 @@ from src.lambdas.http_api import (
     post_direct_cost,
     patch_direct_cost,
     get_client,
+    get_client_names,
     post_client,
     patch_client,
     get_tender,
@@ -100,6 +101,7 @@ GET_HANDLERS_NO_PATH = [
     get_labour_cost,
     get_direct_cost,
     get_client,
+    get_client_names,
     get_tender,
 ]
 
@@ -431,6 +433,7 @@ class TestGetHandlersReturnCursorRows:
             (get_labour_cost, [{"service_id": 1, "required_time_mins": 0}]),
             (get_direct_cost, [{"service_id": 1, "cost_gbp": Decimal("999.99")}]),
             (get_client, [{"id": 1, "client_name": "A" * 50}]),
+            (get_client_names, [{"id": 1, "client_name": "A" * 50}]),
             (
                 get_tender,
                 [
