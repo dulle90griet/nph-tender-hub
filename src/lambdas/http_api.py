@@ -462,7 +462,10 @@ def get_consumable(pagination: Annotated[Pagination, Query()]) -> list:
 
 @app.get("/consumable/names")
 def get_consumable_names() -> list:
-    """Method to GET all consumable names in the consumable table"""
+    """
+    Method to GET all consumable names in the consumable table
+    Used for populating consumable-selection dropdown lists
+    """
 
     get_consumable_names_sql = """
         SELECT
