@@ -16,7 +16,9 @@ jobs:
           enable-cache: "auto"
 
       - name: Prepare Lambda layers
-        run: make prepare-psycopg-layer
+        run: |
+          make prepare-lambda-layer
+          make prepare-psycopg-layer
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.0.0
