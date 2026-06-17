@@ -350,7 +350,7 @@ jobs:
 
       - name: Prepare Lambda layers
         run: |
-          make prepare-layer
+          make prepare-lambda-layer
           make prepare-psycopg-layer
 
       - name: Configure AWS credentials
