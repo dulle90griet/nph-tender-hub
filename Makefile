@@ -41,7 +41,7 @@ all-checks: audit security-checks code-checks terraform-checks unit-tests
 ###############################################################################
 ## CD layer and code deployment
 
-prepare-layer:
+prepare-lambda-layer:
 	uv export --only-group lambda-layer --output-file requirements-lambda.txt
 	$(PIP) install -r requirements-lambda.txt -t build/lambda-layer/python
 
