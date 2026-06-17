@@ -68,6 +68,7 @@ from src.lambdas.http_api import (
     post_client,
     patch_client,
     get_tender,
+    get_tender_titles,
     post_tender,
     patch_tender,
     get_tender_line_items,
@@ -103,6 +104,7 @@ GET_HANDLERS_NO_PATH = [
     get_client,
     get_client_names,
     get_tender,
+    get_tender_titles,
 ]
 
 PAGINATED_HANDLERS = [
@@ -444,6 +446,7 @@ class TestGetHandlersReturnCursorRows:
                     }
                 ],
             ),
+            (get_tender_titles, [{"id": 1, "tender_title": "A" * 50}]),
         ],
     )
     def test_cursor_row_returned_in_boundary_case(self, mock_cursor, handler, rows):
