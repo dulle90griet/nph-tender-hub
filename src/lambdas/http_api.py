@@ -923,6 +923,27 @@ def get_client(pagination: Annotated[Pagination, Query()]) -> list:
     return results
 
 
+@app.get("/client/names")
+def get_client_names() -> list:
+    """
+    Method to GET all client names in the client table
+    Used for populating client-selection dropdown lists
+    """
+    get_sql = SQL("""
+        SELECT
+            id
+            ,client_name
+        FROM client
+        ORDER BY client_name
+    """)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.post("/client")
 def post_client(body: Annotated[lax_lists[Client], Body()]) -> None:
     """POST method for client table"""
