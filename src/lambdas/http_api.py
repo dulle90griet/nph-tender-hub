@@ -469,7 +469,7 @@ def get_consumable_names() -> list:
 
     get_consumable_names_sql = """
         SELECT
-            id
+            id AS consumable_id
             ,consumable_name
         FROM consumable
         ORDER BY
@@ -934,7 +934,7 @@ def get_client_names() -> list:
     """
     get_sql = SQL("""
         SELECT
-            id
+            id AS client_id
             ,client_name
         FROM client
         ORDER BY client_name
@@ -1037,7 +1037,7 @@ def get_tender_titles() -> list:
     """
     get_sql = SQL("""
         SELECT
-            id
+            id AS tender_id
             ,tender_title
         FROM tender
         ORDER BY tender_title
