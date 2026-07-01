@@ -1029,6 +1029,14 @@ def get_tender(pagination: Annotated[Pagination, Query()]) -> list:
     return results
 
 
+@app.get("/tender/single/<tender_id>")
+def get_tender_single(tender_id: str):
+    """
+    Method to GET the tender record for the supplied id
+    """
+    pass
+
+
 @app.get("/tender/titles")
 def get_tender_titles() -> list:
     """

@@ -425,7 +425,7 @@ class TestGetHandlersReturnCursorRows:
                     "client": "Example Client Name",
                     "projected_sales_value_gbp": 20500,
                     "date_created": datetime(2026, 3, 2),
-                }
+                },
             ),
             (
                 999,
@@ -435,7 +435,7 @@ class TestGetHandlersReturnCursorRows:
                     "client_id": 301,
                     "projected_sales_value_gbp": 43099,
                     "date_created": datetime(2024, 12, 18),
-                }
+                },
             ),
             (
                 27,
@@ -445,7 +445,7 @@ class TestGetHandlersReturnCursorRows:
                     "client_id": 47,
                     "projected_sales_value_gbp": 5000,
                     "date_created": datetime(2025, 6, 30),
-                }
+                },
             ),
         ],
     )
@@ -512,10 +512,26 @@ class TestGetHandlersReturnCursorRows:
     )
     @settings(max_examples=50)
     @example(rows=[])
-    def test_tender_line_items_returns_all_cursor_rows(self, mock_cursor, tender_id, rows):
+    def test_tender_line_items_returns_all_cursor_rows(
+        self, mock_cursor, tender_id, rows
+    ):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
         assert get_tender_line_items(tender_id) == orig_rows
+
+
+    def test_tender_single_returns_cursor_row_with_boundary_values(self, mock_cursor):
+        id = 2**31 - 1
+        row = {
+            "id": 2**31 - 1,
+            "tender_title": "A" * 50,
+            "client_id": 2**31 - 1,
+            "projected_sales_value_gbp": 2**31 - 1,
+            "date_created": datetime(294276, 12, 31),
+        }
+        mock_cursor.fetchall.return_value = row
+        orig_row = deepcopy(row)
+        assert get_tender_single(id) == orig_row
 
     def test_tender_line_items_returns_cursor_row_in_boundary_case(self, mock_cursor):
         rows = [
@@ -551,7 +567,9 @@ class TestGetHandlersReturnCursorRows:
         orig_rows = deepcopy(rows)
         assert get_rich_tender_line_items(tender_id) == orig_rows
 
-    def test_rich_tender_line_items_returns_cursor_row_in_boundary_case(self, mock_cursor):
+    def test_rich_tender_line_items_returns_cursor_row_in_boundary_case(
+        self, mock_cursor
+    ):
         rows = [
             {
                 "tender_id": 1,
