@@ -414,7 +414,7 @@ class TestGetHandlersReturnCursorRows:
             assert handler() == orig_rows
 
     @pytest.mark.parametrize(
-        "id, row",
+        "tender_id, row",
         [
             (
                 1,
@@ -449,10 +449,10 @@ class TestGetHandlersReturnCursorRows:
             ),
         ],
     )
-    def test_tender_single_returns_cursor_row(self, mock_cursor, row):
+    def test_tender_single_returns_cursor_row(self, mock_cursor, tender_id, row):
         mock_cursor.fetchall.return_value = row
         orig_row = deepcopy(row)
-        assert get_tender_single(id) == orig_row
+        assert get_tender_single(tender_id) == orig_row
 
     @pytest.mark.parametrize(
         "handler, rows",
@@ -520,17 +520,19 @@ class TestGetHandlersReturnCursorRows:
         assert get_tender_line_items(tender_id) == orig_rows
 
     def test_tender_single_returns_cursor_row_with_boundary_values(self, mock_cursor):
-        id = 2**31 - 1
+        tender_id = 2**31 - 1
         row = {
             "id": 2**31 - 1,
             "tender_title": "A" * 50,
             "client_id": 2**31 - 1,
             "projected_sales_value_gbp": 2**31 - 1,
-            "date_created": datetime(294276, 12, 31),
+            "date_created": datetime(
+                9999, 12, 31
+            ),  # limit of Python datetime, not PSQL timestamp
         }
         mock_cursor.fetchall.return_value = row
         orig_row = deepcopy(row)
-        assert get_tender_single(id) == orig_row
+        assert get_tender_single(tender_id) == orig_row
 
     def test_tender_line_items_returns_cursor_row_in_boundary_case(self, mock_cursor):
         rows = [
@@ -689,9 +691,9 @@ class TestHandlersCallExecuteOnce:
             handler()
         assert mock_cursor.execute.call_count == 1
 
-    @pytest.mark.parametrize("id", [1, 10, 999, 102345])
-    def test_tender_single_calls_execute_once(self, mock_cursor):
-        get_tender_single(id)
+    @pytest.mark.parametrize("tender_id", [1, 10, 999, 102345])
+    def test_tender_single_calls_execute_once(self, mock_cursor, tender_id):
+        get_tender_single(tender_id)
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize("tender_id", ["1", "42"])
@@ -732,7 +734,7 @@ class TestHandlersCallExecuteOnce:
 class TestGetHandlersSQLReflectsParams:
     # ── GET /tender/single ──────────────────────────────────
     @pytest.mark.parametrize(
-        "id, expected_params",
+        "tender_id, expected_params",
         [
             (1, [1]),
             (10, [10]),
@@ -742,10 +744,15 @@ class TestGetHandlersSQLReflectsParams:
         ],
     )
     def test_tender_single_SQL_reflects_id_param(
-        self, mock_cursor, id, expected_params
+        self, mock_cursor, tender_id, expected_params
     ):
-        expected_sql_phrases = ["SELECT", "FROM tender", "WHERE ID = %s"]
-        get_tender_single(id)
+        expected_sql_phrases = [
+            "SELECT",
+            "FROM tender",
+            "JOIN client",
+            "WHERE t.id = %s",
+        ]
+        get_tender_single(tender_id)
         args = mock_cursor.execute.call_args[0]
         assert_sql_contains(
             args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True

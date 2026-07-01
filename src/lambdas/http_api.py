@@ -1034,7 +1034,25 @@ def get_tender_single(tender_id: str):
     """
     Method to GET the tender record for the supplied id
     """
-    pass
+    get_tender_sql = SQL("""
+        SELECT
+            t.id
+            ,t.tender_title
+            ,t.client_id
+            ,t.client_name AS client
+            ,t.projected_sales_value_gbp
+            ,t.date_created
+        FROM tender t
+        LEFT OUTER JOIN client c
+            ON t.client_id = c.id
+        WHERE t.id = %s
+    """)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_tender_sql, [int(tender_id)])
+        results = cursor.fetchall()
+
+    return results
 
 
 @app.get("/tender/titles")
