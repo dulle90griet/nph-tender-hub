@@ -217,6 +217,13 @@ resource "aws_apigatewayv2_route" "http_api_get_tender_route" {
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
 
+resource "aws_apigatewayv2_route" "http_api_get_tender_single_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /tender/single/{tender_id}"
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+}
+
 resource "aws_apigatewayv2_route" "http_api_get_tender_titles_route" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "GET /tender/titles"
