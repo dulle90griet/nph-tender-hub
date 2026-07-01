@@ -1017,7 +1017,7 @@ def get_tender(pagination: Annotated[Pagination, Query()]) -> list:
         FROM tender t
         LEFT OUTER JOIN client c
             ON t.client_id = c.id
-        ORDER BY t.id
+        ORDER BY t.date_created DESC
         LIMIT {per_page}
         OFFSET {offset}
     """).format(per_page=per_page, offset=offset)
