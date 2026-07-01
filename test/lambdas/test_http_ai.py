@@ -383,7 +383,7 @@ def assert_sql_contains(sql_string, *phrases, in_order=False):
 
 
 # ══════════════════════════════════════════════════════════════════
-# 1. Handler returns exactly what cursor produced
+# Handler returns exactly what cursor produced
 # ══════════════════════════════════════════════════════════════════
 class TestGetHandlersReturnCursorRows:
     """Property: every GET handler returns exactly what the cursor produced."""
@@ -601,7 +601,7 @@ class TestGetHandlersReturnCursorRows:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 2. Pagination clamping
+# Pagination clamping
 # ══════════════════════════════════════════════════════════════════
 class TestPaginationClamping:
     @pytest.mark.parametrize(
@@ -674,7 +674,7 @@ class TestPaginationClamping:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 3. Handlers call cursor.execute the expected number of times
+# Handlers call cursor.execute the expected number of times
 # ══════════════════════════════════════════════════════════════════
 class TestHandlersCallExecuteOnce:
     """Every handler must call cursor.execute exactly once."""
@@ -727,7 +727,34 @@ class TestHandlersCallExecuteOnce:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 4. POST/PATCH SQL reflects request body as expected
+# GET SQL reflects path params as expected
+# ══════════════════════════════════════════════════════════════════
+class TestGetHandlersSQLReflectsParams:
+    # ── GET /tender/single ──────────────────────────────────
+    @pytest.mark.parametrize(
+        "id, expected_params",
+        [
+            (1, [1]),
+            (10, [10]),
+            (999, [999]),
+            (102345, [102345]),
+            (2**31 - 1, [2**31 - 1]),
+        ],
+    )
+    def test_tender_single_SQL_reflects_id_param(
+        self, mock_cursor, id, expected_params
+    ):
+        expected_sql_phrases = ["SELECT", "FROM tender", "WHERE ID = %s"]
+        get_tender_single(id)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(
+            args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
+        )
+        assert args[1] == expected_params
+
+
+# ══════════════════════════════════════════════════════════════════
+# POST/PATCH SQL reflects request body as expected
 # ══════════════════════════════════════════════════════════════════
 class TestPostHandlersSQLReflectsParams:
     # ── POST /job-title ─────────────────────────────────────
@@ -1394,7 +1421,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 5. Handlers handle invalid query parameters gracefully
+# Handlers handle invalid query parameters gracefully
 # ══════════════════════════════════════════════════════════════════
 class TestInvalidQueryParameters:
     @pytest.mark.disable_autouse
@@ -1445,7 +1472,7 @@ class TestInvalidQueryParameters:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 6. POST/PATCH handlers handle malformed body gracefully
+# POST/PATCH handlers handle malformed body gracefully
 # ══════════════════════════════════════════════════════════════════
 INVALID_VALUES = {
     int: ["not an int", 1.5, "1.23", [], {}],
