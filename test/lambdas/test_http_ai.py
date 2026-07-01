@@ -519,7 +519,6 @@ class TestGetHandlersReturnCursorRows:
         orig_rows = deepcopy(rows)
         assert get_tender_line_items(tender_id) == orig_rows
 
-
     def test_tender_single_returns_cursor_row_with_boundary_values(self, mock_cursor):
         id = 2**31 - 1
         row = {
@@ -688,6 +687,11 @@ class TestHandlersCallExecuteOnce:
             handler(Pagination())
         else:
             handler()
+        assert mock_cursor.execute.call_count == 1
+
+    @pytest.mark.parametrize("id", [1, 10, 999, 102345])
+    def test_tender_single_calls_execute_once(self, mock_cursor):
+        get_tender_single(id)
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize("tender_id", ["1", "42"])
