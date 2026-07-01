@@ -1187,7 +1187,7 @@ psycopg-layer = [
 [package.metadata.requires-dev]
 audit = [{ name = "pip-audit", specifier = ">=2.10.0" }]
 audit-fixes = [
-    { name = "cryptography", specifier = ">=46.0.6" },
+    { name = "cryptography", specifier = ">=48.0.1" },
     { name = "idna", specifier = ">=3.15" },
     { name = "pygments", specifier = ">=2.20.0" },
     { name = "requests", specifier = ">=2.33.0" },
@@ -1211,7 +1211,7 @@ local-dev = [
     { name = "aws-lambda-powertools", specifier = ">=3.26.0" },
     { name = "bandit", specifier = ">=1.9.0" },
     { name = "boto3", specifier = ">=1.42.0" },
-    { name = "cryptography", specifier = ">=46.0.6" },
+    { name = "cryptography", specifier = ">=48.0.1" },
     { name = "hypothesis", specifier = ">=6.152.0" },
     { name = "idna", specifier = ">=3.15" },
     { name = "moto", specifier = ">=5.0.0" },
