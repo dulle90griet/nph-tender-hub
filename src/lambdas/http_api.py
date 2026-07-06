@@ -1039,7 +1039,7 @@ def get_tender_single(tender_id: str):
             t.id
             ,t.tender_title
             ,t.client_id
-            ,t.client_name AS client
+            ,c.client_name AS client
             ,t.projected_sales_value_gbp
             ,t.date_created
         FROM tender t
