@@ -4,9 +4,9 @@ from datetime import datetime
 import json
 import logging
 
-from typing import Optional, TypeVar, ClassVar, Type
+from typing import Optional, TypeVar, ClassVar, Type, TypeAlias
 from typing_extensions import Annotated
-from pydantic import RootModel, BaseModel, Field, model_validator
+from pydantic import RootModel, BaseModel, Field, BeforeValidator, model_validator
 from pydantic_strict_partial import create_partial_model
 
 import psycopg_pool
@@ -25,6 +25,40 @@ logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
 
+def empty_to_none(value: str | Decimal | None) -> Decimal | None:
+    """
+    Convert empty strings to None for optional Decimal fields.
+
+    This validator runs before Pydantic's built-in validation,
+    so empty strings are treated as None instead of raising an error.
+    """
+    if value == "":
+        return None
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(value)
+
+
+def OptionalDecimal(max_digits: int, decimal_places: int) -> TypeAlias:
+    """
+    Create an Optional Decimal type with empty string handling and constraints.
+
+    Args:
+        max_digits: Maximum total number of digits
+        decimal_places: Maximum number of decimal places
+
+    Returns:
+        A type alias that can be used in Pydantic models
+    """
+    return Annotated[
+        None
+        | Annotated[
+            Decimal, Field(max_digits=max_digits, decimal_places=decimal_places)
+        ],
+        BeforeValidator(empty_to_none),
+    ]
+
+
 class Pagination(BaseModel):
     page: Optional[int] = 1
     per_page: Optional[int] = 10
@@ -41,15 +75,9 @@ class JobTitle(BaseModel):
     default_ft_weekly_hours: Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
     default_lunch_break_hours: Annotated[Decimal, Field(max_digits=2, decimal_places=1)]
     hourly_rate_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=2)]
-    default_annual_holiday_days: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
-    default_annual_training_days: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
-    default_annual_sick_days: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
+    default_annual_holiday_days: OptionalDecimal(3, 1) = None
+    default_annual_training_days: OptionalDecimal(3, 1) = None
+    default_annual_sick_days: OptionalDecimal(3, 1) = None
 
 
 UpdateJobTitle = create_partial_model(JobTitle)
