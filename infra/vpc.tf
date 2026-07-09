@@ -1,4 +1,4 @@
-# VPCs
+# VPC - shared among all environments
 
 resource "aws_vpc" "main" {
   count = var.ENVIRONMENT == "shared" ? 1 : 0
@@ -14,7 +14,7 @@ resource "aws_vpc" "main" {
   }
 
   lifecycle {
-    prevent_destroy = false
+    prevent_destroy = true
   }
 }
 
@@ -28,6 +28,35 @@ data "aws_vpc" "main" {
 
 locals {
   vpc_id = var.ENVIRONMENT == "shared" ? aws_vpc.main[0].id : data.aws_vpc.main[0].id
+}
+
+
+# Internet gateway - shared among all environments
+
+resource "aws_internet_gateway" "igw" {
+  count = var.ENVIRONMENT == "shared" ? 1 : 0
+
+  vpc_id = local.vpc_id
+
+  tags = {
+    Name = "${var.PREFIX}-${var.ENVIRONMENT}-igw"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+data "aws_internet_gateway" "igw" {
+  count = var.ENVIRONMENT == "shared" ? 0 : 1
+
+  tags = {
+    Name = "${var.PREFIX}-${var.ENVIRONMENT}-igw"
+  }
+}
+
+locals {
+  gateway_id = var.ENVIRONMENT == "shared" ? aws_internet_gateway.igw[0].id : data.aws_internet_gateway.igw[0].id
 }
 
 
@@ -115,17 +144,6 @@ resource "aws_subnet" "private" {
 }
 
 
-# Create internet gateway
-
-resource "aws_internet_gateway" "igw" {
-  vpc_id = local.vpc_id
-
-  tags = {
-    Name = "${var.PREFIX}-${var.ENVIRONMENT}-igw"
-  }
-}
-
-
 # Create route table
 
 resource "aws_route_table" "public" {
@@ -133,7 +151,7 @@ resource "aws_route_table" "public" {
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
+    gateway_id = local.gateway_id
   }
 
   tags = {
