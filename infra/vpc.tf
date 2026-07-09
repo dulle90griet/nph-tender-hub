@@ -51,7 +51,7 @@ data "aws_internet_gateway" "igw" {
   count = var.ENVIRONMENT == "shared" ? 0 : 1
 
   tags = {
-    Name = "${var.PREFIX}-${var.ENVIRONMENT}-igw"
+    Name = "${var.PREFIX}-shared-igw"
   }
 }
 
