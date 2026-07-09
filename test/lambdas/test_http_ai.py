@@ -64,9 +64,12 @@ from src.lambdas.http_api import (
     post_direct_cost,
     patch_direct_cost,
     get_client,
+    get_client_names,
     post_client,
     patch_client,
     get_tender,
+    get_tender_single,
+    get_tender_titles,
     post_tender,
     patch_tender,
     get_tender_line_items,
@@ -100,7 +103,9 @@ GET_HANDLERS_NO_PATH = [
     get_labour_cost,
     get_direct_cost,
     get_client,
+    get_client_names,
     get_tender,
+    get_tender_titles,
 ]
 
 PAGINATED_HANDLERS = [
@@ -350,8 +355,8 @@ def mock_cursor():
 
 @pytest.fixture(autouse=True)
 def set_current_event(request):
+    """Set a clean app.current_event before every test."""
     if "disable_autouse" not in request.keywords:
-        """Set a clean app.current_event before every test."""
         event = MagicMock()
         event.query_string_parameters = {}
         event.body = None
@@ -363,9 +368,9 @@ def set_current_event(request):
 
 
 # ── Helper: case‑/whitespace‑insensitive regex ────────────────────
-def assert_sql_contains(sql_str, *phrases, in_order=False):
-    """Assert that sql_str (after collapsing whitespace) contains each phrase."""
-    collapsed = re.sub(r"\s+", " ", sql_str)
+def assert_sql_contains(sql_string, *phrases, in_order=False):
+    """Assert that sql_string (after collapsing whitespace) contains each phrase."""
+    collapsed = re.sub(r"\s+", " ", sql_string)
     for phrase in phrases:
         match = re.search(re.escape(phrase), collapsed, re.IGNORECASE)
         assert match, (
@@ -378,7 +383,7 @@ def assert_sql_contains(sql_str, *phrases, in_order=False):
 
 
 # ══════════════════════════════════════════════════════════════════
-# 1. Handler returns exactly what cursor produced
+# Handler returns exactly what cursor produced
 # ══════════════════════════════════════════════════════════════════
 class TestGetHandlersReturnCursorRows:
     """Property: every GET handler returns exactly what the cursor produced."""
@@ -409,6 +414,47 @@ class TestGetHandlersReturnCursorRows:
             assert handler() == orig_rows
 
     @pytest.mark.parametrize(
+        "tender_id, row",
+        [
+            (
+                1,
+                {
+                    "id": 1,
+                    "tender_title": "Example Title",
+                    "client_id": 22,
+                    "client": "Example Client Name",
+                    "projected_sales_value_gbp": 20500,
+                    "date_created": datetime(2026, 3, 2),
+                },
+            ),
+            (
+                999,
+                {
+                    "id": 999,
+                    "tender_title": "Another Tender",
+                    "client_id": 301,
+                    "projected_sales_value_gbp": 43099,
+                    "date_created": datetime(2024, 12, 18),
+                },
+            ),
+            (
+                27,
+                {
+                    "id": 27,
+                    "tender_title": "Grimsby Services Health Drive",
+                    "client_id": 47,
+                    "projected_sales_value_gbp": 5000,
+                    "date_created": datetime(2025, 6, 30),
+                },
+            ),
+        ],
+    )
+    def test_tender_single_returns_cursor_row(self, mock_cursor, tender_id, row):
+        mock_cursor.fetchall.return_value = row
+        orig_row = deepcopy(row)
+        assert get_tender_single(tender_id) == orig_row
+
+    @pytest.mark.parametrize(
         "handler, rows",
         [
             (get_department, [{"id": 1, "name": "A" * 50}]),
@@ -431,6 +477,7 @@ class TestGetHandlersReturnCursorRows:
             (get_labour_cost, [{"service_id": 1, "required_time_mins": 0}]),
             (get_direct_cost, [{"service_id": 1, "cost_gbp": Decimal("999.99")}]),
             (get_client, [{"id": 1, "client_name": "A" * 50}]),
+            (get_client_names, [{"id": 1, "client_name": "A" * 50}]),
             (
                 get_tender,
                 [
@@ -441,11 +488,10 @@ class TestGetHandlersReturnCursorRows:
                     }
                 ],
             ),
+            (get_tender_titles, [{"id": 1, "tender_title": "A" * 50}]),
         ],
     )
-    def test_returns_all_cursor_rows_in_boundary_cases(
-        self, mock_cursor, handler, rows
-    ):
+    def test_cursor_row_returned_in_boundary_case(self, mock_cursor, handler, rows):
         """Each handler handles schema-limit values without error."""
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
@@ -466,12 +512,29 @@ class TestGetHandlersReturnCursorRows:
     )
     @settings(max_examples=50)
     @example(rows=[])
-    def test_tender_line_items_returns_all_rows(self, mock_cursor, tender_id, rows):
+    def test_tender_line_items_returns_all_cursor_rows(
+        self, mock_cursor, tender_id, rows
+    ):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
         assert get_tender_line_items(tender_id) == orig_rows
 
-    def test_tender_line_items_boundary_case(self, mock_cursor):
+    def test_tender_single_returns_cursor_row_with_boundary_values(self, mock_cursor):
+        tender_id = 2**31 - 1
+        row = {
+            "id": 2**31 - 1,
+            "tender_title": "A" * 50,
+            "client_id": 2**31 - 1,
+            "projected_sales_value_gbp": 2**31 - 1,
+            "date_created": datetime(
+                9999, 12, 31
+            ),  # limit of Python datetime, not PSQL timestamp
+        }
+        mock_cursor.fetchall.return_value = row
+        orig_row = deepcopy(row)
+        assert get_tender_single(tender_id) == orig_row
+
+    def test_tender_line_items_returns_cursor_row_in_boundary_case(self, mock_cursor):
         rows = [
             {
                 "tender_id": 1,
@@ -498,14 +561,16 @@ class TestGetHandlersReturnCursorRows:
     )
     @settings(max_examples=50)
     @example(rows=[])
-    def test_rich_tender_line_items_returns_all_rows(
+    def test_rich_tender_line_items_returns_all_cursor_rows(
         self, mock_cursor, tender_id, rows
     ):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
         assert get_rich_tender_line_items(tender_id) == orig_rows
 
-    def test_rich_tender_line_items_boundary_case(self, mock_cursor):
+    def test_rich_tender_line_items_returns_cursor_row_in_boundary_case(
+        self, mock_cursor
+    ):
         rows = [
             {
                 "tender_id": 1,
@@ -538,7 +603,7 @@ class TestGetHandlersReturnCursorRows:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 2. Pagination clamping
+# Pagination clamping
 # ══════════════════════════════════════════════════════════════════
 class TestPaginationClamping:
     @pytest.mark.parametrize(
@@ -611,7 +676,7 @@ class TestPaginationClamping:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 3. Handlers call cursor.execute the expected number of times
+# Handlers call cursor.execute the expected number of times
 # ══════════════════════════════════════════════════════════════════
 class TestHandlersCallExecuteOnce:
     """Every handler must call cursor.execute exactly once."""
@@ -624,6 +689,11 @@ class TestHandlersCallExecuteOnce:
             handler(Pagination())
         else:
             handler()
+        assert mock_cursor.execute.call_count == 1
+
+    @pytest.mark.parametrize("tender_id", [1, 10, 999, 102345])
+    def test_tender_single_calls_execute_once(self, mock_cursor, tender_id):
+        get_tender_single(tender_id)
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize("tender_id", ["1", "42"])
@@ -659,7 +729,39 @@ class TestHandlersCallExecuteOnce:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 4. POST/PATCH SQL reflects request body as expected
+# GET SQL reflects path params as expected
+# ══════════════════════════════════════════════════════════════════
+class TestGetHandlersSQLReflectsParams:
+    # ── GET /tender/single ──────────────────────────────────
+    @pytest.mark.parametrize(
+        "tender_id, expected_params",
+        [
+            (1, [1]),
+            (10, [10]),
+            (999, [999]),
+            (102345, [102345]),
+            (2**31 - 1, [2**31 - 1]),
+        ],
+    )
+    def test_tender_single_SQL_reflects_id_param(
+        self, mock_cursor, tender_id, expected_params
+    ):
+        expected_sql_phrases = [
+            "SELECT",
+            "FROM tender",
+            "JOIN client",
+            "WHERE t.id = %s",
+        ]
+        get_tender_single(tender_id)
+        args = mock_cursor.execute.call_args[0]
+        assert_sql_contains(
+            args[0].as_string(mock_cursor), *expected_sql_phrases, in_order=True
+        )
+        assert args[1] == expected_params
+
+
+# ══════════════════════════════════════════════════════════════════
+# POST/PATCH SQL reflects request body as expected
 # ══════════════════════════════════════════════════════════════════
 class TestPostHandlersSQLReflectsParams:
     # ── POST /job-title ─────────────────────────────────────
@@ -1326,7 +1428,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 5. Handlers handle invalid query parameters gracefully
+# Handlers handle invalid query parameters gracefully
 # ══════════════════════════════════════════════════════════════════
 class TestInvalidQueryParameters:
     @pytest.mark.disable_autouse
@@ -1377,7 +1479,7 @@ class TestInvalidQueryParameters:
 
 
 # ══════════════════════════════════════════════════════════════════
-# 6. POST/PATCH handlers handle malformed body gracefully
+# POST/PATCH handlers handle malformed body gracefully
 # ══════════════════════════════════════════════════════════════════
 INVALID_VALUES = {
     int: ["not an int", 1.5, "1.23", [], {}],
@@ -1444,12 +1546,20 @@ def get_invalid_values_for_field(
     """
     annotation = unwrap_annotation(field.annotation)
 
-    if annotation in invalid_values:
-        return invalid_values[annotation]
-    raise TypeError(
-        f"Field type `{annotation}` not covered by test suite. Please use another "
-        f"annotation or implement testing of `{annotation}`."
-    )
+    if annotation not in invalid_values:
+        raise TypeError(
+            f"Field type `{annotation}` not covered by test suite. Please use another "
+            f"annotation or implement testing of `{annotation}`."
+        )
+
+    values = invalid_values[annotation]
+
+    # For optional Decimal fields, exclude "" from the values to test
+    # (should be accepted and treated as None)
+    if not field.is_required() and annotation is Decimal:
+        values = [v for v in values if v != ""]
+
+    return values
 
 
 def generate_invalid_post_test_cases(

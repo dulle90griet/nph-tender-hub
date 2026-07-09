@@ -1,12 +1,12 @@
 import os
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation as InvalidDecimalOperation
 from datetime import datetime
 import json
 import logging
 
-from typing import Optional, TypeVar, ClassVar, Type
+from typing import Optional, TypeVar, ClassVar, Type, TypeAlias
 from typing_extensions import Annotated
-from pydantic import RootModel, BaseModel, Field, model_validator
+from pydantic import RootModel, BaseModel, Field, BeforeValidator, model_validator
 from pydantic_strict_partial import create_partial_model
 
 import psycopg_pool
@@ -25,6 +25,45 @@ logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
 
+def empty_to_none(value: str | Decimal | None) -> Decimal | None:
+    """
+    Convert empty strings to None for optional Decimal fields.
+
+    This validator runs before Pydantic's built-in validation,
+    so empty strings are treated as None instead of raising an error.
+    """
+    if value in ("", None):
+        return None
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, bool):
+        raise ValueError("Boolean values are not allowed for Decimal fields")
+    try:
+        return Decimal(value)
+    except (InvalidDecimalOperation, TypeError) as e:
+        raise ValueError(f"Invalid decimal value: {value}") from e
+
+
+def OptionalDecimal(max_digits: int, decimal_places: int) -> TypeAlias:
+    """
+    Create an Optional Decimal type with empty string handling and constraints.
+
+    Args:
+        max_digits: Maximum total number of digits
+        decimal_places: Maximum number of decimal places
+
+    Returns:
+        A type alias that can be used in Pydantic models
+    """
+    return Annotated[
+        None
+        | Annotated[
+            Decimal, Field(max_digits=max_digits, decimal_places=decimal_places)
+        ],
+        BeforeValidator(empty_to_none),
+    ]
+
+
 class Pagination(BaseModel):
     page: Optional[int] = 1
     per_page: Optional[int] = 10
@@ -41,15 +80,9 @@ class JobTitle(BaseModel):
     default_ft_weekly_hours: Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
     default_lunch_break_hours: Annotated[Decimal, Field(max_digits=2, decimal_places=1)]
     hourly_rate_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=2)]
-    default_annual_holiday_days: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
-    default_annual_training_days: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
-    default_annual_sick_days: Optional[
-        Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
-    ] = None
+    default_annual_holiday_days: OptionalDecimal(3, 1) = None
+    default_annual_training_days: OptionalDecimal(3, 1) = None
+    default_annual_sick_days: OptionalDecimal(3, 1) = None
 
 
 UpdateJobTitle = create_partial_model(JobTitle)
@@ -57,9 +90,7 @@ UpdateJobTitle = create_partial_model(JobTitle)
 
 class Consumable(BaseModel):
     consumable_name: Annotated[str, Field(max_length=100)]
-    default_unit_cost_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
-    ] = None
+    default_unit_cost_gbp: OptionalDecimal(6, 2) = None
 
 
 UpdateConsumable = create_partial_model(Consumable)
@@ -80,12 +111,8 @@ class Service(BaseModel):
     our_current_unit_price_gbp: Annotated[
         Decimal, Field(max_digits=8, decimal_places=2)
     ]
-    new_unit_price_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
-    ] = None
-    new_day_rate_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=9, decimal_places=2)]
-    ] = None
+    new_unit_price_gbp: OptionalDecimal(8, 2) = None
+    new_day_rate_gbp: OptionalDecimal(9, 2) = None
     comments: Optional[Annotated[str, Field(max_length=100)]] = None
 
 
@@ -140,9 +167,7 @@ class TenderLineItem(BaseModel):
     tender_id: int
     service_id: int
     total_number_pa: int
-    unit_price_override_gbp: Optional[
-        Annotated[Decimal, Field(max_digits=8, decimal_places=2)]
-    ] = None
+    unit_price_override_gbp: OptionalDecimal(8, 2) = None
 
 
 UpdateTenderLineItem = create_partial_model(TenderLineItem)
@@ -462,11 +487,14 @@ def get_consumable(pagination: Annotated[Pagination, Query()]) -> list:
 
 @app.get("/consumable/names")
 def get_consumable_names() -> list:
-    """Method to GET all consumable names in the consumable table"""
+    """
+    Method to GET all consumable names in the consumable table
+    Used for populating consumable-selection dropdown lists
+    """
 
     get_consumable_names_sql = """
         SELECT
-            id
+            id AS consumable_id
             ,consumable_name
         FROM consumable
         ORDER BY
@@ -923,6 +951,27 @@ def get_client(pagination: Annotated[Pagination, Query()]) -> list:
     return results
 
 
+@app.get("/client/names")
+def get_client_names() -> list:
+    """
+    Method to GET all client names in the client table
+    Used for populating client-selection dropdown lists
+    """
+    get_sql = SQL("""
+        SELECT
+            id AS client_id
+            ,client_name
+        FROM client
+        ORDER BY client_name
+    """)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
 @app.post("/client")
 def post_client(body: Annotated[lax_lists[Client], Body()]) -> None:
     """POST method for client table"""
@@ -993,10 +1042,57 @@ def get_tender(pagination: Annotated[Pagination, Query()]) -> list:
         FROM tender t
         LEFT OUTER JOIN client c
             ON t.client_id = c.id
-        ORDER BY t.id
+        ORDER BY t.date_created DESC
         LIMIT {per_page}
         OFFSET {offset}
     """).format(per_page=per_page, offset=offset)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_sql)
+        results = cursor.fetchall()
+
+    return results
+
+
+@app.get("/tender/single/<tender_id>")
+def get_tender_single(tender_id: str):
+    """
+    Method to GET the tender record for the supplied id
+    """
+    get_tender_sql = SQL("""
+        SELECT
+            t.id
+            ,t.tender_title
+            ,t.client_id
+            ,c.client_name AS client
+            ,t.projected_sales_value_gbp
+            ,t.date_created
+        FROM tender t
+        LEFT OUTER JOIN client c
+            ON t.client_id = c.id
+        WHERE t.id = %s
+    """)
+
+    with DatabaseCursor() as cursor:
+        cursor.execute(get_tender_sql, [int(tender_id)])
+        results = cursor.fetchall()
+
+    return results
+
+
+@app.get("/tender/titles")
+def get_tender_titles() -> list:
+    """
+    Method to GET all tender titles in the tender table
+    Used for populating tender-selection dropdown lists
+    """
+    get_sql = SQL("""
+        SELECT
+            id AS tender_id
+            ,tender_title
+        FROM tender
+        ORDER BY tender_title
+    """)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_sql)
@@ -1288,6 +1384,8 @@ def patch_tender_line_item(
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
+    logger.info(f"event: {event}\ncontext: {context}")
+
     response = app.resolve(event, context)
 
     # If Lambda is about to be destroyed, clean up
