@@ -1546,12 +1546,20 @@ def get_invalid_values_for_field(
     """
     annotation = unwrap_annotation(field.annotation)
 
-    if annotation in invalid_values:
-        return invalid_values[annotation]
-    raise TypeError(
-        f"Field type `{annotation}` not covered by test suite. Please use another "
-        f"annotation or implement testing of `{annotation}`."
-    )
+    if annotation not in invalid_values:
+        raise TypeError(
+            f"Field type `{annotation}` not covered by test suite. Please use another "
+            f"annotation or implement testing of `{annotation}`."
+        )
+
+    values = invalid_values[annotation]
+
+    # For optional Decimal fields, exclude "" from the values to test
+    # (should be accepted and treated as None)
+    if not field.is_required() and annotation is Decimal:
+        values = [v for v in values if v != ""]
+
+    return values
 
 
 def generate_invalid_post_test_cases(

@@ -1,5 +1,5 @@
 import os
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation as InvalidDecimalOperation
 from datetime import datetime
 import json
 import logging
@@ -32,11 +32,16 @@ def empty_to_none(value: str | Decimal | None) -> Decimal | None:
     This validator runs before Pydantic's built-in validation,
     so empty strings are treated as None instead of raising an error.
     """
-    if value == "":
+    if value in ("", None):
         return None
     if isinstance(value, Decimal):
         return value
-    return Decimal(value)
+    if isinstance(value, bool):
+        raise ValueError("Boolean values are not allowed for Decimal fields")
+    try:
+        return Decimal(value)
+    except (InvalidDecimalOperation, TypeError) as e:
+        raise ValueError(f"Invalid decimal value: {value}") from e
 
 
 def OptionalDecimal(max_digits: int, decimal_places: int) -> TypeAlias:
