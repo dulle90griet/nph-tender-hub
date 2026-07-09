@@ -261,7 +261,7 @@ resource "aws_apigatewayv2_route" "http_api_post_tender_line_items_route" {
 
 resource "aws_apigatewayv2_route" "http_api_patch_tender_line_items_route" {
   api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /tender/line-items/{tender_id}/{service_id}/{title_engaged_id}"
+  route_key = "PATCH /tender/line-items/{tender_id}/{service_id}"
 
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
