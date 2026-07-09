@@ -1,3 +1,10 @@
 # Specifies environment-specific variables
 
 ENVIRONMENT = "shared"
+CODE_BUCKET = ""
+
+LAMBDA_CREATE_SERVICE_VERSION    = ""
+LAMBDA_DESTROY_SERVICE_VERSION   = ""
+LAMBDA_CI_CHECKS_FOR_RDS_VERSION = ""
+LAMBDA_SEED_DB_VERSION           = ""
+LAMBDA_HTTP_API_VERSION          = ""
