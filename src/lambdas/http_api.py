@@ -1379,6 +1379,8 @@ def patch_tender_line_item(
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
+    logger.info(f"event: {event}\ncontext: {context}")
+
     response = app.resolve(event, context)
 
     # If Lambda is about to be destroyed, clean up
