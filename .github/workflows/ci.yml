@@ -419,7 +419,7 @@ jobs:
             LAMBDA_SEED_DB_VERSION="$SHORT_SHA_CODE"
           else
             LAMBDA_SEED_DB_VERSION="$(
-              jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
+              jq -r '.Latest.Python.seed_db' ../manifest.json
             )"
           fi
           echo "Deploying seed_db Lambda code version: $LAMBDA_SEED_DB_VERSION"
@@ -428,7 +428,7 @@ jobs:
             LAMBDA_HTTP_API_VERSION="$SHORT_SHA_CODE"
           else
             LAMBDA_HTTP_API_VERSION="$(
-              jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
+              jq -r '.Latest.Python.http_api' ../manifest.json
             )"
           fi
           echo "Deploying http_api Lambda code version: $LAMBDA_HTTP_API_VERSION"
