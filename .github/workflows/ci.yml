@@ -829,6 +829,8 @@ jobs:
   update-manifest:
     runs-on: ubuntu-latest
     environment: stage
+    permissions:
+      contents: write
     needs: [
       pre-checks,
       python-test-and-deploy,
