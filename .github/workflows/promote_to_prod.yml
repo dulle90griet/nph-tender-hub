@@ -71,6 +71,7 @@ jobs:
             exit 1
           else
             echo "Manifest fetched successfully."
+            echo "$(jq '.' manifest.json)"
           fi
 
           echo "terraform_version=$(jq -r '.Latest.Terraform' manifest.json)" \
