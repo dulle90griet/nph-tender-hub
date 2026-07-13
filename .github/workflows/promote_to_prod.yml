@@ -139,22 +139,22 @@ jobs:
           promote_lambda create_budibase_instance "$LAMBDA_CREATE_SERVICE_VERSION"
 
           LAMBDA_DESTROY_SERVICE_VERSION="$(
-            jq -r '.Latest.Python.destroy_budibase_instance' ../manifest.json
+            jq -r '.Latest.Python.destroy_budibase_instance' manifest.json
           )"
           promote_lambda destroy_budibase_instance "$LAMBDA_DESTROY_SERVICE_VERSION"
 
           LAMBDA_CI_CHECKS_FOR_RDS_VERSION="$(
-            jq -r '.Latest.Python.ci_checks_for_rds' ../manifest.json
+            jq -r '.Latest.Python.ci_checks_for_rds' manifest.json
           )"
           promote_lambda ci_checks_for_rds "$LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
 
           LAMBDA_SEED_DB_VERSION="$(
-            jq -r '.Latest.Python.seed_db' ../manifest.json
+            jq -r '.Latest.Python.seed_db' manifest.json
           )"
           promote_lambda seed_db "$LAMBDA_SEED_DB_VERSION"
 
           LAMBDA_HTTP_API_VERSION="$(
-            jq -r '.Latest.Python.http_api' ../manifest.json
+            jq -r '.Latest.Python.http_api' manifest.json
           )"
           promote_lambda http_api "$LAMBDA_HTTP_API_VERSION"
 
