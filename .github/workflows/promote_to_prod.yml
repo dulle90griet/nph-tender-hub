@@ -47,15 +47,12 @@ jobs:
       - name: Download manifest
         id: download-manifest
         run: |
-          # Generate short SHA of the input manifest SHA (idempotent)
-          MANIFEST_SHA="$(git rev-parse --short "${{ inputs.manifest_sha }}")"
-
           # Try to fetch manifest
-          echo "Fetching manifest with id $MANIFEST_SHA from S3..."
+          echo "Fetching manifest with id ${{ inputs.manifest_sha }} from S3..."
           set +e
           aws s3 cp \
             --region "${{ vars.AWS_REGION }}" \
-            "s3://${{ vars.MANIFEST_BUCKET }}/${MANIFEST_SHA}.json" \
+            "s3://${{ vars.MANIFEST_BUCKET }}/${{ inputs.manifest_sha }}.json" \
             manifest.json
           EXIT_CODE="$?"
           set -e
@@ -69,7 +66,6 @@ jobs:
             echo "Manifest fetched successfully."
           fi
 
-          echo "manifest_sha=$MANIFEST_SHA" >> $GITHUB_OUTPUT
           echo "terraform_version=$(jq -r '.Latest.Terraform' manifest.json)" \
             >> $GITHUB_OUTPUT
 
@@ -79,7 +75,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Check whether a tag for the manifest exists; alert and terminate if not
-          MANIFEST_TAG="manifest/${{ steps.download-manifest.outputs.manifest_sha }}"
+          MANIFEST_TAG="manifest/${{ inputs.manifest_sha }}"
           if ! git ls-remote --tags origin "$MANIFEST_TAG" | grep -q "$MANIFEST_TAG"; then
             echo "ERROR: Tag $MANIFEST_TAG not found."
             echo "Terminating workflow."
@@ -94,9 +90,9 @@ jobs:
             -f ref="$MANIFEST_TAG" \
             -f environment='prod' \
             -F auto_merge=false \
-            -f description='Promoting manifest ${{ steps.download-manifest.outputs.manifest_sha }}' \
+            -f description='Promoting manifest ${{ inputs.manifest_sha }}' \
             -F payload="$(jq -n \
-              --arg manifest_sha "${{ steps.download-manifest.outputs.manifest_sha }}" \
+              --arg manifest_sha "${{ inputs.manifest_sha }}" \
               --arg components "$(jq -c '.Latest' manifest.json)" \
               '{manifest_sha: $manifest_sha, components: $components | fromjson}')" \
             --jq '.id')
@@ -110,7 +106,7 @@ jobs:
           # This currently fudges things by simply relying
           # on the UV lock file in use when the manifest commit passed its tests
 
-          git checkout ${{ steps.download-manifest.outputs.manifest_sha }}
+          git checkout ${{ inputs.manifest_sha }}
 
           make prepare-lambda-layer
           make prepare-psycopg-layer
@@ -330,7 +326,7 @@ jobs:
             '/repos/${{ github.repository }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses' \
             -f state='success' \
             -f environment='prod' \
-            -f description='Manifest ${{ steps.download-manifest.outputs.manifest_sha }} promoted to production'
+            -f description='Manifest ${{ inputs.manifest_sha }} promoted to production'
 
       - name: Report promotion failure
         if: failure() && steps.create-deployment.outputs.deployment_id != ''
@@ -343,4 +339,4 @@ jobs:
             '/repos/${{ github.repository }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses' \
             -f state='failure' \
             -f environment='prod' \
-            -f description='Manifest ${{ steps.download-manifest.outputs.manifest_sha }} promotion failed'
+            -f description='Manifest ${{ inputs.manifest_sha }} promotion failed'
