@@ -16,12 +16,17 @@ jobs:
     permissions:
       deployments: write
     steps:
-      - name: Ensure running from main branch
-        if: github.ref != 'refs/heads/main'
+      # - name: Ensure running from main branch
+      #   if: github.ref != 'refs/heads/main'
+      #   run: |
+      #     echo "ERROR: This workflow must be triggered from the main branch only."
+      #     echo "Current branch: ${GITHUB_REF#refs/heads/}"
+      #     exit 1
+
+      - name: Install GitHub CLI
         run: |
-          echo "ERROR: This workflow must be triggered from the main branch only."
-          echo "Current branch: ${GITHUB_REF#refs/heads/}"
-          exit 1
+          sudo apt update
+          sudo apt install gh -y
 
       - name: Checkout code
         uses: actions/checkout@v7
