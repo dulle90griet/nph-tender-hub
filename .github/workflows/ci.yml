@@ -918,7 +918,19 @@ jobs:
             manifest.json \
             "s3://${{ vars.MANIFEST_BUCKET }}/${SHORT_SHA_MERGE}.json"
           echo "Manifest uploaded successfully."
-      
+
+          echo "manifest_id=$SHORT_SHA_MERGE" >> $GITHUB_OUTPUT
+
+      - name: Generate manifest tag
+        if: ${{ steps.update-manifest.outcome == 'success' }}
+        run: |
+          # Provided no tag for this manifest exists (none should!), make one
+          MANIFEST_TAG='manifest/${{ steps.update-manifest.outputs.manifest_id }}'
+          if ! git ls-remote --tags origin "$MANIFEST_TAG" | grep -q "$MANIFEST_TAG"; then
+            git tag "$MANIFEST_TAG"
+            git push origin "$MANIFEST_TAG"
+          fi
+
       - name: Update manifest ID fallback tracking parameter
         if: ${{ steps.update-manifest.outcome == 'success' }}
         run: |

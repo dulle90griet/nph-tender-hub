@@ -1,0 +1,316 @@
+name: Tender Hub Manual Promote to Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_sha:
+        description: 'Manifest version to deploy'
+        required: true
+
+jobs:
+  terraform-deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    concurrency:
+      group: deploy-to-prod
+    permissions:
+      deployments: write
+    steps:
+      - name: Ensure running from main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "ERROR: This workflow must be triggered from the main branch only."
+          echo "Current branch: ${GITHUB_REF#refs/heads/}"
+          exit 1
+
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: "auto"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.2
+        with:
+          aws-access-key-id:
+            ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key:
+            ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:
+            ${{ vars.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Download manifest
+        id: download-manifest
+        run: |
+          # Generate short SHA of the input manifest SHA (idempotent)
+          MANIFEST_SHA="$(git rev-parse --short "${{ inputs.manifest_sha }}")"
+
+          # Try to fetch manifest
+          echo "Fetching manifest with id $MANIFEST_SHA from S3..."
+          set +e
+          aws s3 cp \
+            --region "${{ vars.AWS_REGION }}" \
+            "s3://${{ vars.MANIFEST_BUCKET }}/${MANIFEST_SHA}.json" \
+            manifest.json
+          EXIT_CODE="$?"
+          set -e
+
+          if [ $EXIT_CODE -eq 1 ]; then
+            echo "ERROR: Manifest not found or S3 download failed."
+            echo "Please check the manifest ID and try again."
+            echo "Terminating workflow."
+            exit 1
+          else
+            echo "Manifest fetched successfully."
+          fi
+
+          echo "manifest_sha=$MANIFEST_SHA" >> $GITHUB_OUTPUT
+          echo "terraform_version=$(jq -r '.Latest.Terraform' manifest.json)" \
+            >> $GITHUB_OUTPUT
+
+      - name: Create deployment for manifest promotion
+        id: create-deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Check whether a tag for the manifest exists; alert and terminate if not
+          MANIFEST_TAG="manifest/${{ steps.download-manifest.outputs.manifest_sha }}"
+          if ! git ls-remote --tags origin "$MANIFEST_TAG" | grep -q "$MANIFEST_TAG"; then
+            echo "ERROR: Tag $MANIFEST_TAG not found."
+            echo "Terminating workflow."
+            exit 1
+          fi
+
+          # Create deployment using tag as ref
+          DEPLOYMENT_ID=$(gh api \
+            -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            '/repos/${{ github.repository }}/deployments' \
+            -f ref="$MANIFEST_TAG" \
+            -f environment='prod' \
+            --raw-field auto_merge=false \
+            -f description='Promoting manifest ${{ steps.download-manifest.outputs.manifest_sha }}' \
+            -F payload="$(jq -n \
+              --arg manifest_sha "${{ steps.download-manifest.outputs.manifest_sha }}" \
+              --arg components "$(jq -c '.Latest' manifest.json)" \
+              '{manifest_sha: $manifest_sha, components: $components | fromjson}')"
+            --jq '.id')
+
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "Deployment created with ID: $DEPLOYMENT_ID"
+
+      - name: Prepare Lambda layers
+        run: |
+          # This currently fudges things by simply relying
+          # on the UV lock file in use when the manifest commit passed its tests
+
+          git checkout ${{ steps.download-manifest.outputs.manifest_sha }}
+
+          make prepare-lambda-layer
+          make prepare-psycopg-layer
+
+      - name: Check out infra version specified by manifest
+        run: git checkout ${{ steps.download-manifest.outputs.terraform_version }}
+
+      - name: Create Terraform backend and env configuration
+        working-directory: infra
+        run: |
+          echo "Deploying Terraform infra code version: " \
+            "${{ steps.download-manifest.outputs.terraform_version }}"
+
+          # Determine Lambda code versions for deployment
+
+          LAMBDA_CREATE_SERVICE_VERSION="$(
+            jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
+          )"
+          echo "Deploying create_service Lambda code version: $LAMBDA_CREATE_SERVICE_VERSION"
+
+          LAMBDA_DESTROY_SERVICE_VERSION="$(
+            jq -r '.Latest.Python.destroy_budibase_instance' ../manifest.json
+          )"
+          echo "Deploying destroy_service Lambda code version: $LAMBDA_DESTROY_SERVICE_VERSION"
+
+          LAMBDA_CI_CHECKS_FOR_RDS_VERSION="$(
+            jq -r '.Latest.Python.ci_checks_for_rds' ../manifest.json
+          )"
+          echo "Deploying ci_checks_for_rds Lambda code version: $LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
+
+          LAMBDA_SEED_DB_VERSION="$(
+            jq -r '.Latest.Python.seed_db' ../manifest.json
+          )"
+          echo "Deploying seed_db Lambda code version: $LAMBDA_SEED_DB_VERSION"
+
+          LAMBDA_HTTP_API_VERSION="$(
+            jq -r '.Latest.Python.http_api' ../manifest.json
+          )"
+          echo "Deploying http_api Lambda code version: $LAMBDA_HTTP_API_VERSION"
+
+          # Create backend
+
+          mkdir -p envs/prod
+          cat > envs/prod/backend.hcl <<EOF
+          region      = "${{ vars.AWS_REGION }}"
+          bucket      = "${{ vars.STATE_BUCKET }}"
+          key         = "${{ vars.STATE_KEY }}"
+          EOF
+          echo "envs/prod/backend.hcl generated."
+
+          cat > envs/prod/terraform.tfvars <<EOF
+          ENVIRONMENT = "prod"
+          CODE_BUCKET = "${{ vars.CODE_BUCKET }}"
+
+          LAMBDA_CREATE_SERVICE_VERSION    = "$LAMBDA_CREATE_SERVICE_VERSION"
+          LAMBDA_DESTROY_SERVICE_VERSION   = "$LAMBDA_DESTROY_SERVICE_VERSION"
+          LAMBDA_CI_CHECKS_FOR_RDS_VERSION = "$LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
+          LAMBDA_SEED_DB_VERSION           = "$LAMBDA_SEED_DB_VERSION"
+          LAMBDA_HTTP_API_VERSION          = "$LAMBDA_HTTP_API_VERSION"
+          EOF
+          echo "envs/prod/terraform.tfvars generated."
+
+          # Create global .tfvars file
+          # For REPO_NAME, sed strips "user-name/repo-name" to just "repo-name"
+
+          cat > global.auto.tfvars <<EOF
+          AWS_REGION         = "${{ vars.AWS_REGION }}"
+          IAM_USER           = "${{ secrets.IAM_USER }}"
+          REPO_NAME          = "$(echo "${{ github.repository }}" | sed -E "s/.+\///g")"
+          PREFIX             = "${{ vars.PREFIX }}"
+          CLIENT             = "${{ vars.CLIENT }}"
+          PROJECT            = "${{ vars.PROJECT }}"
+          BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"   # Change this later to allow input selection
+          EOF
+          echo "global.auto.tfvars generated."
+
+      - name: Initialize Terraform
+        working-directory: infra
+        run: terraform init -reconfigure -backend-config="envs/prod/backend.hcl"
+
+      - name: Use Terraform workspace
+        working-directory: infra
+        run: ./switch_env.sh prod
+
+      - name: Terraform plan with check for changes
+        id: terraform-plan
+        working-directory: infra
+        run: |
+          set +e
+          terraform plan \
+            -detailed-exitcode \
+            -out=tfplan \
+            -var-file="envs/prod/terraform.tfvars"
+          EXIT_CODE="$?"
+          set -e
+
+          if [ $EXIT_CODE -eq 2 ]; then
+            echo "Changes detected in Terraform configuration."
+            echo "runapply=true" >> $GITHUB_OUTPUT
+          elif [ $EXIT_CODE -eq 1 ]; then
+            echo "Error during Terraform plan. Exiting."
+            exit 1
+          else
+            echo "No changes detected. Specified manifest already promoted to prod."
+          fi
+
+      - name: Terraform apply with retry
+        working-directory: infra
+        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+        run: |
+          # Allow retries if RDS instance creation fails due to AWS capacity issues
+          MAX_RETRIES=3
+          RETRY_DELAY=120
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES"
+
+            if terraform apply tfplan 2>&1 | tee apply_output; then
+              echo "Apply succeeded!"
+
+              echo "lb_url=\"$(terraform output -raw lb_url)\"" >> $GITHUB_OUTPUT
+              echo "cluster_name=\"$(terraform output -raw budibase_ecs_cluster_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "service_name=\"$(terraform output -raw budibase_ecs_service_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "create_service_function_name=\"$(terraform output -raw lambda_create_service_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "destroy_service_function_name=\"$(terraform output -raw lambda_destroy_service_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "ci_checks_for_rds_function_name=\"$(terraform output -raw lambda_ci_checks_for_rds_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "seed_db_function_name=\"$(terraform output -raw lambda_seed_db_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "http_api_function_name=\"$(terraform output -raw lambda_http_api_name)\"" \
+                >> $GITHUB_OUTPUT
+              echo "rds_connection_info_secret_name=\"$(terraform output -raw rds_connection_info_secret_name)\"" \
+                >> $GITHUB_OUTPUT
+
+              rm apply_output
+              exit 0
+            fi
+
+            if grep -q "aws_db_instance.*insufficient-capacity" apply_output; then
+              echo "RDS capacity error detected."
+
+              # Destroy RDS instance if it was partially created
+              if terraform state show aws_db_instance.main &>/dev/null; then
+                echo "Instance exists but failed. Destroying it..."
+                terraform destroy -target=aws_db_instance.main -auto-approve
+              fi
+
+              echo "Waiting $RETRY_DELAY seconds before retry..."
+              sleep $RETRY_DELAY
+
+              # Regenerate plan - RDS create failures can take nearly 30 mins,
+              # during which time the state may have changed
+              terraform refresh
+              if ! terraform plan -out=tfplan -var-file="envs/prod/terraform.tfvars"; then
+                echo "Failed to generate fresh plan"
+                rm apply_output
+                exit 1
+              fi
+            else
+              echo "Non-capacity error:"
+              cat apply_output
+              rm apply_output
+              exit 1
+            fi
+          done
+
+          echo "Failed after $MAX_RETRIES attempts"
+          rm apply_output
+          exit 1
+
+      - name: Clean up Terraform plan file
+        working-directory: infra
+        if: always()
+        run: rm -f tfplan
+
+      - name: Report promotion success
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            '/repos/${{ github.repository }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses' \
+            -f state='success' \
+            -f environment='prod' \
+            -f description='Manifest ${{ steps.download-manifest.outputs.manifest_sha }} promoted to production'
+
+      - name: Report promotion failure
+        if: failure() && steps.create-deployment.outputs.deployment_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            '/repos/${{ github.repository }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses' \
+            -f state='failure' \
+            -f environment='prod' \
+            -f description='Manifest ${{ steps.download-manifest.outputs.manifest_sha }} promotion failed'
