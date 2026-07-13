@@ -6,8 +6,6 @@ on:
       manifest_sha:
         description: 'Manifest version to deploy'
         required: true
-    branches:
-      - main
 
 jobs:
   terraform-deploy:
