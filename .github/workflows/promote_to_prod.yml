@@ -3,9 +3,11 @@ name: Tender Hub Manual Promote to Prod
 on:
   workflow_dispatch:
     inputs:
-      manifest:
+      manifest_sha:
         description: 'Manifest version to deploy'
         required: true
+    branches:
+      - main
 
 jobs:
   terraform-deploy:
@@ -16,18 +18,25 @@ jobs:
     permissions:
       deployments: write
     steps:
+      - name: Ensure running from main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "ERROR: This workflow must be triggered from the main branch only."
+          echo "Current branch: ${GITHUB_REF#refs/heads/}"
+          exit 1
+
       - name: Checkout code
         uses: actions/checkout@v7
-      
+
       - name: Install uv
         uses: astral-sh/setup-uv@v8
         with:
           enable-cache: "auto"
-      
-      - name: Prepare Lambda layers
-        run: |
-          make prepare-lambda-layer    # is this needed or even a problem? - use TF archive count = 0 if prod?
-          make prepare-psycopg-layer   # is this needed or even a problem? - use TF archive count = 0 if prod?
+
+      # - name: Prepare Lambda layers
+      #   run: |
+      #     make prepare-lambda-layer    # is this needed or even a problem? - use TF archive count = 0 if prod?
+      #     make prepare-psycopg-layer   # is this needed or even a problem? - use TF archive count = 0 if prod?
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.2.2
@@ -38,37 +47,78 @@ jobs:
             ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:
             ${{ vars.AWS_REGION }}
-  
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v4
-      
+
       - name: Download manifest
+        id: download-manifest
         run: |
           # Generate short SHA of the input manifest SHA (idempotent)
-          MANIFEST_SHA="$(git rev-parse --short "${{ inputs.manifest }}")"
+          MANIFEST_SHA="$(git rev-parse --short "${{ inputs.manifest_sha }}")"
 
           # Try to fetch manifest
           echo "Fetching manifest with id $MANIFEST_SHA from S3..."
           set +e
           aws s3 cp \
             --region "${{ vars.AWS_REGION }}" \
-            "s3://${{ vars.MANIFEST_BUCKET }}/${SHORT_SHA_BASE}.json" \
+            "s3://${{ vars.MANIFEST_BUCKET }}/${MANIFEST_SHA}.json" \
             manifest.json
           EXIT_CODE="$?"
           set -e
 
           if [ $EXIT_CODE -eq 1 ]; then
-            printf "ERROR: Manifest not found or S3 download failed.\n" \
-              "Please check the manifest ID and try again.\n" \
-              "Terminating workflow.\n"
+            echo "ERROR: Manifest not found or S3 download failed."
+            echo "Please check the manifest ID and try again."
+            echo "Terminating workflow."
             exit 1
           else
             echo "Manifest fetched successfully."
           fi
 
+          echo "terraform_version=$(jq -r '.Latest.Terraform' manifest.json)" \
+            >> $GITHUB_OUTPUT
+
+      - name: Create deployment for manifest promotion
+        id: create-deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Check whether a tag for the manifest exists; alert and terminate if not
+          MANIFEST_TAG="manifest/${{ inputs.manifest_sha }}"
+          if ! git ls-remote --tags origin "$MANIFEST_TAG" | grep -q "$MANIFEST_TAG"; then
+            echo "ERROR: Tag $MANIFEST_TAG not found."
+            echo "Terminating workflow."
+            exit 1
+          fi
+
+          # Create deployment using tag as ref
+          DEPLOYMENT_ID=$(gh api \
+            -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            '/repos/${{ github.repository }}/deployments' \
+            -f ref="$MANIFEST_TAG" \
+            -f environment='prod' \
+            --raw-field auto_merge=false \
+            -f description='Promoting manifest ${{ inputs.manifest_sha }}' \
+            -F payload="$(jq -n \
+              --arg manifest_sha "${{ inputs.manifest_sha }}" \
+              --arg components "$(jq -c '.Latest' manifest.json)" \
+              '{manifest_sha: $manifest_sha, components: $components | fromjson}')"
+            --jq '.id')
+
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "Deployment created with ID: $DEPLOYMENT_ID"
+
+      - name: Check out infra version specified by manifest
+        run: git checkout ${{ steps.download-manifest.outputs.terraform_version }}
+
       - name: Create Terraform backend and env configuration
         working-directory: infra
         run: |
+          echo "Deploying Terraform infra code version: " \
+            "${{ steps.download-manifest.outputs.terraform_version }}"
+
           # Determine Lambda code versions for deployment
 
           LAMBDA_CREATE_SERVICE_VERSION="$(
@@ -92,7 +142,7 @@ jobs:
           echo "Deploying seed_db Lambda code version: $LAMBDA_SEED_DB_VERSION"
 
           LAMBDA_HTTP_API_VERSION="$(
-            jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
+            jq -r '.Latest.Python.http_api' ../manifest.json
           )"
           echo "Deploying http_api Lambda code version: $LAMBDA_HTTP_API_VERSION"
 
@@ -131,7 +181,7 @@ jobs:
           BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"   # Change this later to allow input selection
           EOF
           echo "global.auto.tfvars generated."
-      
+
       - name: Initialize Terraform
         working-directory: infra
         run: terraform init -reconfigure -backend-config="envs/prod/backend.hcl"
@@ -161,7 +211,7 @@ jobs:
           else
             echo "No changes detected. Specified manifest already promoted to prod."
           fi
-      
+
       - name: Terraform apply with retry
         working-directory: infra
         if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
@@ -213,7 +263,7 @@ jobs:
               # Regenerate plan - RDS create failures can take nearly 30 mins,
               # during which time the state may have changed
               terraform refresh
-              if ! terraform plan -out=tfplan -var-file="envs/stage/terraform.tfvars"; then
+              if ! terraform plan -out=tfplan -var-file="envs/prod/terraform.tfvars"; then
                 echo "Failed to generate fresh plan"
                 rm apply_output
                 exit 1
@@ -232,6 +282,31 @@ jobs:
 
       - name: Clean up Terraform plan file
         working-directory: infra
-        if: ${{ steps.terraform-plan.outputs.runapply == 'true' }}
+        if: always()
         run: rm -f tfplan
-        
+
+      - name: Report promotion success
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            '/repos/${{ github.repository }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses' \
+            -f state='success' \
+            -f environment='prod' \
+            -f description='Manifest ${{ inputs.manifest_sha }} promoted to production'
+
+      - name: Report promotion failure
+        if: failure() && steps.create-deployment.outputs.deployment_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            '/repos/${{ github.repository }}/deployments/${{ steps.create-deployment.outputs.deployment_id }}/statuses' \
+            -f state='failure' \
+            -f environment='prod' \
+            -f description='Manifest ${{ inputs.manifest_sha }} promotion failed'
