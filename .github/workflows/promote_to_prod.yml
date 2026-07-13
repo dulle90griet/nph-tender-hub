@@ -133,7 +133,10 @@ jobs:
               echo "Terminating."
               exit 1
             else
-              aws s3 cp s3://${{ vars.ORIGIN_BUCKET }}/$KEY s3://${{ vars.CODE_BUCKET }}/$KEY
+              aws s3 cp \
+                s3://${{ vars.ORIGIN_BUCKET }}/$KEY \
+                s3://${{ vars.CODE_BUCKET }}/$KEY \
+                --no-overwrite
               echo "Promoted $1 Lambda code version: $2"
             fi
           }
