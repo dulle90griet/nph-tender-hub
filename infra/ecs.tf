@@ -152,7 +152,7 @@ resource "aws_lb" "budibase_alb" {
     aws_subnet.public[key].id
   ])
 
-  enable_deletion_protection = var.ENVIRONMENT == "prod"
+  # enable_deletion_protection = var.ENVIRONMENT == "prod"
 }
 
 resource "aws_lb_target_group" "budibase_alb_target_group" {
