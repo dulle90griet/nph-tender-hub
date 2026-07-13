@@ -105,6 +105,7 @@ jobs:
           echo "Deployment created with ID: $DEPLOYMENT_ID"
 
       - name: Prepare Lambda layers
+        id: prepare-lambda-layers
         run: |
           # This currently fudges things by simply relying
           # on the UV lock file in use when the manifest commit passed its tests
@@ -114,42 +115,71 @@ jobs:
           make prepare-lambda-layer
           make prepare-psycopg-layer
 
-      - name: Check out infra version specified by manifest
-        run: git checkout ${{ steps.download-manifest.outputs.terraform_version }}
-
-      - name: Create Terraform backend and env configuration
-        working-directory: infra
+      - name: Promote Lambda code
+        id: promote-lambda-code
         run: |
-          echo "Deploying Terraform infra code version: " \
-            "${{ steps.download-manifest.outputs.terraform_version }}"
+          # Check specified Lambda code files exist in stage
+          # If so, copy them to prod; if not, fail
+          promote_lambda() {
+            KEY="$1/$2.zip"
 
-          # Determine Lambda code versions for deployment
+            if ! aws s3api head-object \
+              --bucket ${{ vars.ORIGIN_BUCKET }} \
+              --key $KEY > /dev/null 2>&1; then
+              echo "$1 Lambda code version $2 not found in staging bucket."
+              echo "Terminating."
+              exit 1
+            else
+              aws s3 cp s3://${{ vars.ORIGIN_BUCKET }}/$KEY s3://${{ vars.CODE_BUCKET }}/$KEY
+              echo "Promoted $1 Lambda code version: $2"
+            fi
+          }
 
           LAMBDA_CREATE_SERVICE_VERSION="$(
-            jq -r '.Latest.Python.create_budibase_instance' ../manifest.json
+            jq -r '.Latest.Python.create_budibase_instance' manifest.json
           )"
-          echo "Deploying create_service Lambda code version: $LAMBDA_CREATE_SERVICE_VERSION"
+          promote_lambda create_budibase_instance "$LAMBDA_CREATE_SERVICE_VERSION"
 
           LAMBDA_DESTROY_SERVICE_VERSION="$(
             jq -r '.Latest.Python.destroy_budibase_instance' ../manifest.json
           )"
-          echo "Deploying destroy_service Lambda code version: $LAMBDA_DESTROY_SERVICE_VERSION"
+          promote_lambda destroy_budibase_instance "$LAMBDA_DESTROY_SERVICE_VERSION"
 
           LAMBDA_CI_CHECKS_FOR_RDS_VERSION="$(
             jq -r '.Latest.Python.ci_checks_for_rds' ../manifest.json
           )"
-          echo "Deploying ci_checks_for_rds Lambda code version: $LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
+          promote_lambda ci_checks_for_rds "$LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
 
           LAMBDA_SEED_DB_VERSION="$(
             jq -r '.Latest.Python.seed_db' ../manifest.json
           )"
-          echo "Deploying seed_db Lambda code version: $LAMBDA_SEED_DB_VERSION"
+          promote_lambda seed_db "$LAMBDA_SEED_DB_VERSION"
 
           LAMBDA_HTTP_API_VERSION="$(
             jq -r '.Latest.Python.http_api' ../manifest.json
           )"
-          echo "Deploying http_api Lambda code version: $LAMBDA_HTTP_API_VERSION"
+          promote_lambda http_api "$LAMBDA_HTTP_API_VERSION"
 
+          echo "lambda_create_service_version=$LAMBDA_CREATE_SERVICE_VERSION" \
+            >> $GITHUB_OUTPUT
+          echo "lambda_destroy_service_version=$LAMBDA_DESTROY_SERVICE_VERSION" \
+            >> $GITHUB_OUTPUT
+          echo "lambda_ci_checks_for_rds_version=$LAMBDA_CI_CHECKS_FOR_RDS_VERSION" \
+            >> $GITHUB_OUTPUT
+          echo "lambda_seed_db_version=$LAMBDA_SEED_DB_VERSION" \
+            >> $GITHUB_OUTPUT
+          echo "lambda_http_api_version=$LAMBDA_HTTP_API_VERSION" \
+            >> $GITHUB_OUTPUT
+
+      - name: Check out infra version specified by manifest
+        run: |
+          git checkout ${{ steps.download-manifest.outputs.terraform_version }}
+          echo "Deploying AWS Terraform infrastructure version: " \
+            "${{ steps.download-manifest.outputs.terraform_version }}"
+
+      - name: Create Terraform backend and env configuration
+        working-directory: infra
+        run: |
           # Create backend
 
           mkdir -p envs/prod
@@ -164,11 +194,11 @@ jobs:
           ENVIRONMENT = "prod"
           CODE_BUCKET = "${{ vars.CODE_BUCKET }}"
 
-          LAMBDA_CREATE_SERVICE_VERSION    = "$LAMBDA_CREATE_SERVICE_VERSION"
-          LAMBDA_DESTROY_SERVICE_VERSION   = "$LAMBDA_DESTROY_SERVICE_VERSION"
-          LAMBDA_CI_CHECKS_FOR_RDS_VERSION = "$LAMBDA_CI_CHECKS_FOR_RDS_VERSION"
-          LAMBDA_SEED_DB_VERSION           = "$LAMBDA_SEED_DB_VERSION"
-          LAMBDA_HTTP_API_VERSION          = "$LAMBDA_HTTP_API_VERSION"
+          LAMBDA_CREATE_SERVICE_VERSION    = "${{ steps.promote-lambda-code.outputs.lambda_create_service_version }}"
+          LAMBDA_DESTROY_SERVICE_VERSION   = "${{ steps.promote-lambda-code.outputs.lambda_destroy_service_version }}"
+          LAMBDA_CI_CHECKS_FOR_RDS_VERSION = "${{ steps.promote-lambda-code.outputs.lambda_ci_checks_for_rds_version }}"
+          LAMBDA_SEED_DB_VERSION           = "${{ steps.promote-lambda-code.outputs.lambda_seed_db_version }}"
+          LAMBDA_HTTP_API_VERSION          = "${{ steps.promote-lambda-code.outputs.lambda_http_api_version }}"
           EOF
           echo "envs/prod/terraform.tfvars generated."
 
