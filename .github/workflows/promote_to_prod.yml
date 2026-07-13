@@ -222,9 +222,15 @@ jobs:
         working-directory: infra
         run: ./switch_env.sh prod
 
+      - name: Validate Terraform configuration
+        working-directory: infra
+        run: terraform validate
+
       - name: Terraform plan with check for changes
         id: terraform-plan
         working-directory: infra
+        env:
+          TF_LOG: DEBUG
         run: |
           set +e
           terraform plan \
