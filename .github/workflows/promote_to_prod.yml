@@ -16,21 +16,22 @@ jobs:
     permissions:
       deployments: write
     steps:
-      # - name: Ensure running from main branch
-      #   if: github.ref != 'refs/heads/main'
-      #   run: |
-      #     echo "ERROR: This workflow must be triggered from the main branch only."
-      #     echo "Current branch: ${GITHUB_REF#refs/heads/}"
-      #     exit 1
-
-      - name: Install GitHub CLI
+      - name: Ensure running from main branch
+        if: github.ref != 'refs/heads/main'
         run: |
-          sudo apt update
-          sudo apt install gh -y
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
-            && unzip awscliv2.zip \
-            && ./aws/install \
-            && rm -rf awscliv2.zip aws
+          echo "ERROR: This workflow must be triggered from the main branch only."
+          echo "Current branch: ${GITHUB_REF#refs/heads/}"
+          exit 1
+
+      # # Step needed only for local execution:
+      # - name: Install GitHub CLI
+      #   run: |
+      #     sudo apt update
+      #     sudo apt install gh -y
+      #     curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+      #       && unzip awscliv2.zip \
+      #       && ./aws/install \
+      #       && rm -rf awscliv2.zip aws
 
       - name: Checkout code
         uses: actions/checkout@v7
@@ -54,6 +55,8 @@ jobs:
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
 
       - name: Download manifest
         id: download-manifest
@@ -248,11 +251,10 @@ jobs:
             -detailed-exitcode \
             -out=tfplan \
             -var-file="envs/prod/terraform.tfvars"
-          echo "The exit code was $?"
           EXIT_CODE="$?"
           set -e
 
-          if [ $EXIT_CODE -eq 2 ] || [ $EXIT_CODE -eq 0 ]; then
+          if [ $EXIT_CODE -eq 2 ]; then
             echo "Changes detected in Terraform configuration."
             echo "runapply=true" >> $GITHUB_OUTPUT
           elif [ $EXIT_CODE -eq 1 ]; then
