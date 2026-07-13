@@ -93,12 +93,12 @@ jobs:
             '/repos/${{ github.repository }}/deployments' \
             -f ref="$MANIFEST_TAG" \
             -f environment='prod' \
-            --raw-field auto_merge=false \
+            -F auto_merge=false \
             -f description='Promoting manifest ${{ steps.download-manifest.outputs.manifest_sha }}' \
             -F payload="$(jq -n \
               --arg manifest_sha "${{ steps.download-manifest.outputs.manifest_sha }}" \
               --arg components "$(jq -c '.Latest' manifest.json)" \
-              '{manifest_sha: $manifest_sha, components: $components | fromjson}')"
+              '{manifest_sha: $manifest_sha, components: $components | fromjson}')" \
             --jq '.id')
 
           echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
