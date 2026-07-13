@@ -229,8 +229,6 @@ jobs:
       - name: Terraform plan with check for changes
         id: terraform-plan
         working-directory: infra
-        env:
-          TF_LOG: DEBUG
         run: |
           set +e
           terraform plan \
