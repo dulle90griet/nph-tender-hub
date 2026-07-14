@@ -85,7 +85,7 @@ resource "aws_ecs_task_definition" "budibase_ecs_task" {
       name = "${local.budibase_container_name}"
       # Essential: Yes
       essential = true
-      image     = "${var.BUDIBASE_IMAGE_URL}:latest"
+      image     = "${var.BUDIBASE_IMAGE_URL}"
       # Resource allocation limits:
       #   - CPU: 2 vCPU
       cpu = 2048
