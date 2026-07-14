@@ -1266,9 +1266,9 @@ def get_rich_tender_line_items(tender_id: str) -> list:
                     ,ft.service_id
                     ,s.service_name AS service
                     ,ft.total_number_pa
-                    ,lc.total_cost_gbp AS labour_cost_gbp
+                    ,COALESCE(lc.total_cost_gbp, 0) AS labour_cost_gbp
                     ,200 AS overhead_recovery_on_labour_percentage
-                    ,dc.total_cost_gbp AS direct_cost_gbp
+                    ,COALESCE(dc.total_cost_gbp, 0) AS direct_cost_gbp
                     ,s.required_profit_margin_percentage
                     ,s.our_current_unit_price_gbp
                     ,ft.unit_price_override_gbp AS tender_override_unit_price_gbp
