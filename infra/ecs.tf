@@ -44,7 +44,7 @@ resource "aws_ecs_task_definition" "budibase_ecs_task" {
     cpu_architecture        = "X86_64"
   }
 
-  family = "${var.PREFIX}-budibase-ecs-task"
+  family = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-ecs-task"
   # Launch type: AWS Fargate
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
