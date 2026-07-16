@@ -10,7 +10,7 @@ from pydantic import RootModel, BaseModel, Field, BeforeValidator, model_validat
 from pydantic_strict_partial import create_partial_model
 
 import psycopg_pool
-from psycopg.sql import SQL, Identifier, Placeholder
+from psycopg.sql import Composable, SQL, Identifier, Placeholder
 from psycopg.rows import dict_row
 
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
@@ -23,6 +23,17 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
+
+
+def build_sort_clause(args: tuple[str]) -> Composable:
+    sort_column = args[0]
+    sort_order = args[1]
+
+    sort_clause = SQL("ORDER BY {column} {order}").format(
+        column=Identifier(sort_column),
+        order=SQL(sort_order.upper()),
+    )
+    return sort_clause
 
 
 def empty_to_none(value: str | Decimal | None) -> Decimal | None:
