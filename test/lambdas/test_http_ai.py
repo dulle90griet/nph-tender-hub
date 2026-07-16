@@ -761,6 +761,17 @@ class TestSortClauseHelperSQLReflectsArguments:
             == 'ORDER BY "service_id" ASC, "projected_sales_value_gbp" DESC, "date_created" ASC'
         )
 
+    def test_build_sort_clause_handles_table_column_qualified_references(self):
+        assert (
+            build_sort_clause(("table.column", "DESC")).as_string()
+            == 'ORDER BY "table"."column" DESC'
+        )
+
+        assert (
+            build_sort_clause(("adb.stage_name", "ASC")).as_string()
+            == 'ORDER BY "adb"."stage_name" ASC'
+        )
+
     def test_build_sort_clause_raises_value_error_on_invalid_order(self):
         with pytest.raises(ValueError):
             build_sort_clause(("created_at", "invalid"))
