@@ -735,12 +735,30 @@ class TestHandlersCallExecuteOnce:
 class TestSortClauseHelperSQLReflectsArguments:
     def test_build_sort_clause_forms_valid_single_order_SQL(self):
         assert (
-            build_sort_clause(("service_id", "asc")).as_string()
+            build_sort_clause(("service_id", "ASC")).as_string()
             == 'ORDER BY "service_id" ASC'
         )
         assert (
-            build_sort_clause(("projected_sales_value_gbp", "desc")).as_string()
+            build_sort_clause(("projected_sales_value_gbp", "DESC")).as_string()
             == 'ORDER BY "projected_sales_value_gbp" DESC'
+        )
+
+    def test_build_sort_clause_forms_valid_multiple_order_SQL(self):
+        assert(
+            build_sort_clause(
+                ("consumable_id", "DESC"),
+                ("cost_type", "ASC"),
+            ).as_string()
+            == 'ORDER BY "consumable_id" DESC, "cost_type" ASC'
+        )
+
+        assert (
+            build_sort_clause(
+                ("service_id", "ASC"),
+                ("projected_sales_value_gbp", "DESC"),
+                ("date_created", "ASC"),
+            ).as_string()
+            == 'ORDER BY "service_id" ASC, "projected_sales_value_gbp" DESC, "date_created" ASC'
         )
 
 
