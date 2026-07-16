@@ -772,6 +772,15 @@ class TestSortClauseHelperSQLReflectsArguments:
             == 'ORDER BY "adb"."stage_name" ASC'
         )
 
+    def test_build_sort_clause_raises_value_error_on_three_or_more_reference_parts(
+        self,
+    ):
+        with pytest.raises(ValueError):
+            build_sort_clause(("x.y.z", "ASC"))
+
+        with pytest.raises(ValueError):
+            build_sort_clause(("valid_column", "ASC"), ("schema.table.column", "DESC"))
+
     def test_build_sort_clause_raises_value_error_on_invalid_order(self):
         with pytest.raises(ValueError):
             build_sort_clause(("created_at", "invalid"))
