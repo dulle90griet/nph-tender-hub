@@ -31,6 +31,9 @@ def build_sort_clause(*args: tuple[str]) -> Composable:
         sort_column = arg_pair[0]
         sort_order = arg_pair[1]
 
+        if sort_order.upper() not in ("ASC", "DESC"):
+            raise ValueError(f"Invalid order: {sort_order}")
+
         sort_part = Identifier(sort_column) + SQL(f" {sort_order.upper()}")
         sort_parts.append(sort_part)
 
