@@ -32,20 +32,26 @@ def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
 
     Args:
         *sort_pairs: One or more tuples of (column_name, sort_order)
-            sort criteria, where sort_order must be "ASC" or "DESC"
-            (case-insensitive). The pairs are applied in the order
-            given, creating a multi-level sort.
+            sort criteria. column_name may contain only a column alias
+            or a two-part qualified reference (table.column). sort_order
+            must be "ASC" or "DESC" (case-insensitive). The pairs are
+            applied in the order supplied, creating a multi-level sort.
     """
 
     sort_parts = []
     for sort_pair in sort_pairs:
         sort_column = sort_pair[0]
-        sort_order = sort_pair[1]
+        column_parts = sort_column.split(".")
+        if len(column_parts) == 1:
+            sort_column = Identifier(sort_pair[0])
+        elif len(column_parts) == 2:
+            sort_column = Identifier(*column_parts)
 
+        sort_order = sort_pair[1]
         if sort_order.upper() not in ("ASC", "DESC"):
             raise ValueError(f"Invalid order: {sort_order}")
 
-        sort_part = Identifier(sort_column) + SQL(f" {sort_order.upper()}")
+        sort_part = sort_column + SQL(f" {sort_order.upper()}")
         sort_parts.append(sort_part)
 
     sort_clause = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
