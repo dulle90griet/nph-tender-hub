@@ -19,6 +19,7 @@ from polyfactory.factories.pydantic_factory import ModelFactory
 from src.lambdas.http_api import (
     logger,
     app,
+    build_sort_clause,
     Pagination,
     CustomJSONEncoder,
     # Department,
@@ -726,6 +727,21 @@ class TestHandlersCallExecuteOnce:
     ):
         handler(*path_args, body)
         assert mock_cursor.execute.call_count == 1
+
+
+# ══════════════════════════════════════════════════════════════════
+# Sort-clause helper function builds expected SQL
+# ══════════════════════════════════════════════════════════════════
+class TestSortClauseHelperSQLReflectsArguments:
+    def test_build_sort_clause_forms_valid_single_order_SQL(self):
+        assert (
+            build_sort_clause(("service_id", "asc")).as_string()
+            == 'ORDER BY "service_id" ASC'
+        )
+        assert (
+            build_sort_clause(("projected_sales_value_gbp", "desc")).as_string()
+            == 'ORDER BY "projected_sales_value_gbp" DESC'
+        )
 
 
 # ══════════════════════════════════════════════════════════════════
