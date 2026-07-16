@@ -46,6 +46,10 @@ def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
             sort_column = Identifier(sort_pair[0])
         elif len(column_parts) == 2:
             sort_column = Identifier(*column_parts)
+        elif len(column_parts) > 2:
+            raise ValueError(
+                f"Qualified reference of more than two parts: {sort_pair[0]}"
+            )
 
         sort_order = sort_pair[1]
         if sort_order.upper() not in ("ASC", "DESC"):

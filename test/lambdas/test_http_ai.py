@@ -776,7 +776,7 @@ class TestSortClauseHelperSQLReflectsArguments:
         self,
     ):
         with pytest.raises(ValueError):
-            build_sort_clause(("x.y.z", "ASC"))
+            build_sort_clause(("x.y.z.n", "ASC"))
 
         with pytest.raises(ValueError):
             build_sort_clause(("valid_column", "ASC"), ("schema.table.column", "DESC"))
