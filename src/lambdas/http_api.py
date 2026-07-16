@@ -376,11 +376,13 @@ class DatabaseCursor:
 @app.get("/department")
 def get_department() -> None:
     """GET method for department table"""
+    sort_clause = build_sort_clause(("name", "ASC"))
 
-    get_department_sql = """
+    get_department_sql = SQL("""
         SELECT *
         FROM department
-    """
+        {sort_clause}
+    """).format(sort_clause=sort_clause)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_department_sql)
@@ -397,7 +399,11 @@ def get_job_title(pagination: Annotated[Pagination, Query()]) -> list:
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
-    get_sql = SQL("""
+    sort_clause = build_sort_clause(
+        ("department", "ASC"),
+        ("jt.id", "ASC"),
+    )
+    get_job_title_sql = SQL("""
         SELECT
             jt.id
             ,d.name AS department
@@ -411,13 +417,13 @@ def get_job_title(pagination: Annotated[Pagination, Query()]) -> list:
         FROM job_title jt
         LEFT OUTER JOIN department d
             ON jt.department_id = d.id
-        ORDER BY jt.id
+        ORDER BY {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(per_page=per_page, offset=offset)
+    """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
-        cursor.execute(get_sql)
+        cursor.execute(get_job_title_sql)
         results = cursor.fetchall()
 
     return results
@@ -431,14 +437,14 @@ def get_job_title(pagination: Annotated[Pagination, Query()]) -> list:
 @app.get("/job-title/titles")
 def get_job_title_titles() -> list:
     """Method to GET all titles in the job_title table"""
-
-    get_titles_sql = """
+    sort_clause = build_sort_clause(("title", "ASC"))
+    get_titles_sql = SQL("""
         SELECT
             id
             ,title
         FROM job_title
-        ORDER BY title
-    """
+        {sort_clause}
+    """).format(sort_clause=sort_clause)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_titles_sql)
@@ -450,7 +456,6 @@ def get_job_title_titles() -> list:
 @app.post("/job-title")
 def post_job_title(body: Annotated[lax_lists[JobTitle], Body()]) -> None:
     """POST method for job_title table"""
-
     columns = (
         "department_id",
         "title",
@@ -480,7 +485,6 @@ def post_job_title(body: Annotated[lax_lists[JobTitle], Body()]) -> None:
 @app.patch("/job-title/<job_title_id>")
 def patch_job_title(job_title_id: str, body: Annotated[UpdateJobTitle, Body()]) -> None:
     """PATCH method for job_title table"""
-
     logger.info("PATCHing job title ID: %s", job_title_id)
     logger.info(app.current_event.body)
 
@@ -508,12 +512,14 @@ def get_consumable(pagination: Annotated[Pagination, Query()]) -> list:
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
+    sort_clause = build_sort_clause(("consumable_name", "ASC"))
     get_sql = SQL("""
         SELECT *
         FROM consumable
+        {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(per_page=per_page, offset=offset)
+    """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_sql)
@@ -528,15 +534,14 @@ def get_consumable_names() -> list:
     Method to GET all consumable names in the consumable table
     Used for populating consumable-selection dropdown lists
     """
-
-    get_consumable_names_sql = """
+    sort_clause = build_sort_clause(("consumable_name", "ASC"))
+    get_consumable_names_sql = SQL("""
         SELECT
             id AS consumable_id
             ,consumable_name
         FROM consumable
-        ORDER BY
-            consumable_name
-    """
+        {sort_clause}
+    """).format(sort_clause=sort_clause)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_consumable_names_sql)
@@ -548,7 +553,6 @@ def get_consumable_names() -> list:
 @app.post("/consumable")
 def post_consumable(body: Annotated[lax_lists[Consumable], Body()]) -> None:
     """POST method for consumable table"""
-
     columns = ("consumable_name", "default_unit_cost_gbp")
 
     rows = body.root
@@ -603,12 +607,18 @@ def get_service(pagination: Annotated[Pagination, Query()]) -> list:
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
+    sort_clause = build_sort_clause(
+        ("pillar", "ASC"),
+        ("category", "ASC"),
+        ("service_name", "ASC"),
+    )
     get_sql = SQL("""
         SELECT *
         FROM service
+        {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(per_page=per_page, offset=offset)
+    """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_sql)
@@ -621,14 +631,14 @@ def get_service(pagination: Annotated[Pagination, Query()]) -> list:
 @app.get("/service/slugs")
 def get_service_slugs() -> list:
     """Method to GET all service slugs in the service table"""
-
-    get_service_slugs_sql = """
+    sort_clause = build_sort_clause(("category", "ASC"), ("service_name", "ASC"))
+    get_service_slugs_sql = SQL("""
         SELECT
             id AS service_id
             ,category || ': ' || service_name AS service_slug
         FROM service
-        ORDER BY service_slug
-    """
+        {sort_clause}
+    """).format(sort_clause=sort_clause)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_service_slugs_sql)
@@ -640,7 +650,6 @@ def get_service_slugs() -> list:
 @app.post("/service")
 def post_service(body: Annotated[lax_lists[Service], Body()]) -> None:
     """POST method for service table"""
-
     columns = (
         "pillar",
         "category",
@@ -681,7 +690,6 @@ def post_service(body: Annotated[lax_lists[Service], Body()]) -> None:
 @app.patch("/service/<service_id>")
 def patch_service(service_id: str, body: Annotated[UpdateService, Body()]) -> None:
     """PATCH method for service table"""
-
     logger.info("PATCHing service ID: %s", service_id)
     logger.info(app.current_event.body)
 
@@ -709,12 +717,17 @@ def get_overhead_cost(pagination: Annotated[Pagination, Query()]) -> list:
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
+    sort_clause = build_sort_clause(
+        ("cost_type", "ASC"),
+        ("cost_description", "ASC"),
+    )
     get_overhead_cost_sql = SQL("""
         SELECT *
         FROM overhead_cost
+        {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(per_page=per_page, offset=offset)
+    """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_overhead_cost_sql)
@@ -727,9 +740,7 @@ def get_overhead_cost(pagination: Annotated[Pagination, Query()]) -> list:
 @app.post("/overhead-cost")
 def post_overhead_cost(body: Annotated[lax_lists[OverheadCost], Body()]) -> None:
     """POST method for overhead_cost table"""
-
     columns = ("cost_type", "cost_description", "budgeted_spend_gbp")
-
     rows = body.root
 
     logger.info("POST into overhead_cost values:")
@@ -758,7 +769,6 @@ def patch_overhead_cost(
     overhead_cost_id: str, body: Annotated[UpdateOverheadCost, Body()]
 ) -> None:
     """PATCH method for overhead_cost table"""
-
     logger.info("PATCHing overhead_cost ID: %s", overhead_cost_id)
     logger.info(app.current_event.body)
 
@@ -786,6 +796,10 @@ def get_labour_cost(pagination: Annotated[Pagination, Query()]) -> list:
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
+    sort_clause = build_sort_clause(
+        ("service", "ASC"),
+        ("title_engaged", "ASC"),
+    )
     get_labour_cost_sql = SQL("""
         SELECT
             lc.service_id
@@ -798,12 +812,10 @@ def get_labour_cost(pagination: Annotated[Pagination, Query()]) -> list:
             ON lc.service_id = s.id
         LEFT OUTER JOIN job_title jt
             ON lc.title_engaged_id = jt.id
-        ORDER BY
-            service
-            ,title_engaged
+        {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(per_page=per_page, offset=offset)
+    """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
     with DatabaseCursor() as cursor:
         cursor.execute(get_labour_cost_sql)
         results = cursor.fetchall()
@@ -815,9 +827,7 @@ def get_labour_cost(pagination: Annotated[Pagination, Query()]) -> list:
 @app.post("/labour-cost")
 def post_labour_cost(body: Annotated[lax_lists[LabourCost], Body()]) -> None:
     """POST method for labour_cost table"""
-
     columns = ("service_id", "title_engaged_id", "required_time_mins")
-
     rows = body.root
 
     logger.info("POST into labour_cost values:")
@@ -846,7 +856,6 @@ def patch_labour_cost(
     service_id: str, title_engaged_id: str, body: Annotated[UpdateLabourCost, Body()]
 ) -> None:
     """PATCH method for labour_cost table"""
-
     logger.info(
         "PATCHing labour_cost with service ID %s and job title ID %s",
         service_id,
@@ -880,6 +889,10 @@ def get_direct_cost(pagination: Annotated[Pagination, Query()]) -> list:
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
+    sort_clause = build_sort_clause(
+        ("service", "ASC"),
+        ("consumable", "ASC"),
+    )
     get_direct_cost_sql = SQL("""
         SELECT
             dc.service_id
@@ -892,12 +905,10 @@ def get_direct_cost(pagination: Annotated[Pagination, Query()]) -> list:
             ON dc.service_id = s.id
         LEFT OUTER JOIN consumable c
             ON dc.consumable_id = c.id
-        ORDER BY
-            service
-            ,consumable
+        {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(per_page=per_page, offset=offset)
+    """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
     with DatabaseCursor() as cursor:
         cursor.execute(get_direct_cost_sql)
         results = cursor.fetchall()
@@ -909,9 +920,7 @@ def get_direct_cost(pagination: Annotated[Pagination, Query()]) -> list:
 @app.post("/direct-cost")
 def post_direct_cost(body: Annotated[lax_lists[DirectCost], Body()]) -> None:
     """POST method for direct_cost table"""
-
     columns = ("service_id", "consumable_id", "cost_gbp")
-
     rows = body.root
 
     logger.info("POST into direct_cost values:")
@@ -940,7 +949,6 @@ def patch_direct_cost(
     service_id: str, consumable_id: str, body: Annotated[UpdateDirectCost, Body()]
 ) -> None:
     """PATCH method for direct_cost table"""
-
     logger.info(
         "PATCHing direct_cost with service ID %s and consumable ID %s",
         service_id,
@@ -974,15 +982,17 @@ def get_client(pagination: Annotated[Pagination, Query()]) -> list:
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
-    get_sql = SQL("""
-        SELECT * FROM client
-        ORDER BY client_name
+    sort_clause = build_sort_clause(("client_name", "ASC"))
+    get_client_sql = SQL("""
+        SELECT *
+        FROM client
+        {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(per_page=per_page, offset=offset)
+    """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
-        cursor.execute(get_sql)
+        cursor.execute(get_client_sql)
         results = cursor.fetchall()
 
     return results
@@ -994,16 +1004,17 @@ def get_client_names() -> list:
     Method to GET all client names in the client table
     Used for populating client-selection dropdown lists
     """
-    get_sql = SQL("""
+    sort_clause = build_sort_clause(("client_name", "ASC"))
+    get_client_names_sql = SQL("""
         SELECT
             id AS client_id
             ,client_name
         FROM client
-        ORDER BY client_name
-    """)
+        {sort_clause}
+    """).format(sort_clause=sort_clause)
 
     with DatabaseCursor() as cursor:
-        cursor.execute(get_sql)
+        cursor.execute(get_client_names_sql)
         results = cursor.fetchall()
 
     return results
@@ -1012,9 +1023,7 @@ def get_client_names() -> list:
 @app.post("/client")
 def post_client(body: Annotated[lax_lists[Client], Body()]) -> None:
     """POST method for client table"""
-
     columns = ("client_name",)
-
     rows = body.root
 
     logger.info("POST into client values:")
@@ -1037,7 +1046,6 @@ def post_client(body: Annotated[lax_lists[Client], Body()]) -> None:
 @app.patch("/client/<client_id>")
 def patch_client(client_id: str, body: Annotated[UpdateClient, Body()]) -> None:
     """PATCH method for client table"""
-
     logger.info("PATCHing client ID: %s", client_id)
     logger.info(app.current_event.body)
 
@@ -1068,24 +1076,25 @@ def get_tender(pagination: Annotated[Pagination, Query()]) -> list:
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
-    get_sql = SQL("""
+    sort_clause = build_sort_clause(("t.date_created", "DESC"))
+    get_tender_sql = SQL("""
         SELECT
             t.id
             ,t.tender_title
             ,t.client_id
-            ,c.client_name as client
+            ,c.client_name AS client
             ,t.projected_sales_value_gbp
             ,t.date_created
         FROM tender t
         LEFT OUTER JOIN client c
             ON t.client_id = c.id
-        ORDER BY t.date_created DESC
+        {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(per_page=per_page, offset=offset)
+    """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
-        cursor.execute(get_sql)
+        cursor.execute(get_tender_sql)
         results = cursor.fetchall()
 
     return results
@@ -1123,16 +1132,17 @@ def get_tender_titles() -> list:
     Method to GET all tender titles in the tender table
     Used for populating tender-selection dropdown lists
     """
-    get_sql = SQL("""
+    sort_clause = build_sort_clause(("tender_title", "ASC"))
+    get_tender_titles_sql = SQL("""
         SELECT
             id AS tender_id
             ,tender_title
         FROM tender
-        ORDER BY tender_title
-    """)
+        {sort_clause}
+    """).format(sort_clause=sort_clause)
 
     with DatabaseCursor() as cursor:
-        cursor.execute(get_sql)
+        cursor.execute(get_tender_titles_sql)
         results = cursor.fetchall()
 
     return results
@@ -1142,7 +1152,6 @@ def get_tender_titles() -> list:
 def post_tender(body: Annotated[lax_lists[Tender], Body()]) -> None:
     """POST method for tender table"""
     columns = ("tender_title", "client_id", "projected_sales_value_gbp", "date_created")
-
     rows = body.root
 
     logger.info("POST into tender values:")
@@ -1165,7 +1174,6 @@ def post_tender(body: Annotated[lax_lists[Tender], Body()]) -> None:
 @app.patch("/tender/<tender_id>")
 def patch_tender(tender_id: str, body: Annotated[UpdateTender, Body()]) -> None:
     """PATCH method for tender table"""
-
     logger.info("PATCHing tender ID: %s", tender_id)
     logger.info(app.current_event.body)
 
@@ -1197,7 +1205,11 @@ def get_tender_line_items(tender_id: str) -> list:
 
     offset = per_page * (page - 1)
 
-    get_sql = SQL("""
+    sort_clause = build_sort_clause(
+        ("ft.tender_title", "ASC"),
+        ("ft.service_name", "ASC"),
+    )
+    get_line_items_sql = SQL("""
         WITH filtered_tender_line_items AS (
             SELECT *
             FROM tenders_services
@@ -1215,15 +1227,15 @@ def get_tender_line_items(tender_id: str) -> list:
             ON ft.tender_id = t.id
         LEFT OUTER JOIN service s
             ON ft.service_id = s.id
-        ORDER BY
-            ft.tender_id
-            ,ft.service_id
+        {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(tender_id=tender_id, per_page=per_page, offset=offset)
+    """).format(
+        tender_id=tender_id, sort_clause=sort_clause, per_page=per_page, offset=offset
+    )
 
     with DatabaseCursor() as cursor:
-        cursor.execute(get_sql)
+        cursor.execute(get_line_items_sql)
         results = cursor.fetchall()
 
     return results
@@ -1271,7 +1283,11 @@ def get_rich_tender_line_items(tender_id: str) -> list:
         ({annual_sales_gbp}) - ({annual_total_gbp})
     """
 
-    get_sql = SQL(f"""
+    sort_clause = build_sort_clause(
+        ("base.service_category", "ASC"),
+        ("base.service", "ASC"),
+    )
+    get_rich_line_items_sql = SQL(f"""
         WITH
             tender_line_items_filtered AS (
                 SELECT *
@@ -1344,15 +1360,15 @@ def get_rich_tender_line_items(tender_id: str) -> list:
             ,ROUND({annual_total_gbp}, 2) AS annual_total_gbp
             ,ROUND({annual_profit_gbp}, 2) AS annual_profit_gbp
         FROM base
-        ORDER BY
-            base.tender_id
-            ,base.service_id
+        {sort_clause}
         LIMIT {{per_page}}
         OFFSET {{offset}}
-    """).format(tender_id=tender_id, per_page=per_page, offset=offset)
+    """).format(
+        tender_id=tender_id, sort_clause=sort_clause, per_page=per_page, offset=offset
+    )
 
     with DatabaseCursor() as cursor:
-        cursor.execute(get_sql)
+        cursor.execute(get_rich_line_items_sql)
         results = cursor.fetchall()
 
     return results
@@ -1361,14 +1377,12 @@ def get_rich_tender_line_items(tender_id: str) -> list:
 @app.post("/tender/line-items")
 def post_tender_line_items(body: Annotated[lax_lists[TenderLineItem], Body()]) -> None:
     """POST method for tenders_services table"""
-
     columns = (
         "tender_id",
         "service_id",
         "total_number_pa",
         "unit_price_override_gbp",
     )
-
     rows = body.root
 
     logger.info("POST into tenders_services values:")
@@ -1393,7 +1407,6 @@ def patch_tender_line_item(
     tender_id: str, service_id: str, body: Annotated[UpdateTenderLineItem, Body()]
 ) -> None:
     """PATCH method for tenders_services table"""
-
     logger.info(
         "PATCHing tenders_services ID %s, service ID %s",
         tender_id,
