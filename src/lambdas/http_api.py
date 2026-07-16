@@ -25,11 +25,22 @@ logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
 
-def build_sort_clause(*args: tuple[str]) -> Composable:
+def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
+    """
+    Build a single- or multi-level ORDER BY clause,
+    using the supplied fields and arguments.
+
+    Args:
+        *sort_pairs: One or more tuples of (column_name, sort_order)
+            sort criteria, where sort_order must be "ASC" or "DESC"
+            (case-insensitive). The pairs are applied in the order
+            given, creating a multi-level sort.
+    """
+
     sort_parts = []
-    for arg_pair in args:
-        sort_column = arg_pair[0]
-        sort_order = arg_pair[1]
+    for sort_pair in sort_pairs:
+        sort_column = sort_pair[0]
+        sort_order = sort_pair[1]
 
         if sort_order.upper() not in ("ASC", "DESC"):
             raise ValueError(f"Invalid order: {sort_order}")
