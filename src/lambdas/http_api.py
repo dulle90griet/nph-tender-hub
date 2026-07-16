@@ -25,14 +25,16 @@ logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
 
-def build_sort_clause(args: tuple[str]) -> Composable:
-    sort_column = args[0]
-    sort_order = args[1]
+def build_sort_clause(*args: tuple[str]) -> Composable:
+    sort_parts = []
+    for arg_pair in args:
+        sort_column = arg_pair[0]
+        sort_order = arg_pair[1]
 
-    sort_clause = SQL("ORDER BY {column} {order}").format(
-        column=Identifier(sort_column),
-        order=SQL(sort_order.upper()),
-    )
+        sort_part = Identifier(sort_column) + SQL(f" {sort_order.upper()}")
+        sort_parts.append(sort_part)
+
+    sort_clause = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
     return sort_clause
 
 
