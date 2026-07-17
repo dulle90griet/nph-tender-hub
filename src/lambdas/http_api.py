@@ -401,7 +401,7 @@ def get_job_title(pagination: Annotated[Pagination, Query()]) -> list:
 
     sort_clause = build_sort_clause(
         ("department", "ASC"),
-        ("jt.id", "ASC"),
+        ("jt.title", "ASC"),
     )
     get_job_title_sql = SQL("""
         SELECT
@@ -417,7 +417,7 @@ def get_job_title(pagination: Annotated[Pagination, Query()]) -> list:
         FROM job_title jt
         LEFT OUTER JOIN department d
             ON jt.department_id = d.id
-        ORDER BY {sort_clause}
+        {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
     """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
