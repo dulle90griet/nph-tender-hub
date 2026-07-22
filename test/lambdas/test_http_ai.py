@@ -730,9 +730,9 @@ class TestHandlersCallExecuteOnce:
 
 
 # ══════════════════════════════════════════════════════════════════
-# Sort-clause helper function builds expected SQL
+# Sort-clause helper function
 # ══════════════════════════════════════════════════════════════════
-class TestSortClauseHelperSQLReflectsArguments:
+class TestSortClauseHelper:
     def test_build_sort_clause_forms_valid_single_order_SQL(self):
         assert (
             build_sort_clause(("service_id", "ASC")).as_string()
