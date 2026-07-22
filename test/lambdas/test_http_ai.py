@@ -19,6 +19,7 @@ from polyfactory.factories.pydantic_factory import ModelFactory
 from src.lambdas.http_api import (
     logger,
     app,
+    build_sort_clause,
     Pagination,
     CustomJSONEncoder,
     # Department,
@@ -726,6 +727,66 @@ class TestHandlersCallExecuteOnce:
     ):
         handler(*path_args, body)
         assert mock_cursor.execute.call_count == 1
+
+
+# ══════════════════════════════════════════════════════════════════
+# Sort-clause helper function
+# ══════════════════════════════════════════════════════════════════
+class TestSortClauseHelper:
+    def test_build_sort_clause_forms_valid_single_order_SQL(self):
+        assert (
+            build_sort_clause(("service_id", "ASC")).as_string()
+            == 'ORDER BY "service_id" ASC'
+        )
+        assert (
+            build_sort_clause(("projected_sales_value_gbp", "DESC")).as_string()
+            == 'ORDER BY "projected_sales_value_gbp" DESC'
+        )
+
+    def test_build_sort_clause_forms_valid_multiple_order_SQL(self):
+        assert (
+            build_sort_clause(
+                ("consumable_id", "DESC"),
+                ("cost_type", "ASC"),
+            ).as_string()
+            == 'ORDER BY "consumable_id" DESC, "cost_type" ASC'
+        )
+
+        assert (
+            build_sort_clause(
+                ("service_id", "ASC"),
+                ("projected_sales_value_gbp", "DESC"),
+                ("date_created", "ASC"),
+            ).as_string()
+            == 'ORDER BY "service_id" ASC, "projected_sales_value_gbp" DESC, "date_created" ASC'
+        )
+
+    def test_build_sort_clause_handles_table_column_qualified_references(self):
+        assert (
+            build_sort_clause(("table.column", "DESC")).as_string()
+            == 'ORDER BY "table"."column" DESC'
+        )
+
+        assert (
+            build_sort_clause(("adb.stage_name", "ASC")).as_string()
+            == 'ORDER BY "adb"."stage_name" ASC'
+        )
+
+    def test_build_sort_clause_raises_value_error_on_three_or_more_reference_parts(
+        self,
+    ):
+        with pytest.raises(ValueError):
+            build_sort_clause(("x.y.z.n", "ASC"))
+
+        with pytest.raises(ValueError):
+            build_sort_clause(("valid_column", "ASC"), ("schema.table.column", "DESC"))
+
+    def test_build_sort_clause_raises_value_error_on_invalid_order(self):
+        with pytest.raises(ValueError):
+            build_sort_clause(("created_at", "invalid"))
+
+        with pytest.raises(ValueError):
+            build_sort_clause("tender_title", "alphanumeric")
 
 
 # ══════════════════════════════════════════════════════════════════
