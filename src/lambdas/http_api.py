@@ -1206,8 +1206,8 @@ def get_tender_line_items(tender_id: str) -> list:
     offset = per_page * (page - 1)
 
     sort_clause = build_sort_clause(
-        ("ft.tender_title", "ASC"),
-        ("ft.service_name", "ASC"),
+        ("t.tender_title", "ASC"),
+        ("s.service_name", "ASC"),
     )
     get_line_items_sql = SQL("""
         WITH filtered_tender_line_items AS (
@@ -1360,7 +1360,7 @@ def get_rich_tender_line_items(tender_id: str) -> list:
             ,ROUND({annual_total_gbp}, 2) AS annual_total_gbp
             ,ROUND({annual_profit_gbp}, 2) AS annual_profit_gbp
         FROM base
-        {sort_clause}
+        {{sort_clause}}
         LIMIT {{per_page}}
         OFFSET {{offset}}
     """).format(

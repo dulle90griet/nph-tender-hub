@@ -40,7 +40,6 @@ variable "REPO_NAME" {
 variable "IAM_USER" {
   type        = string
   description = "The name of the dev IAM user"
-  default     = "nph_developer"
 }
 
 variable "BUDIBASE_IMAGE_URL" {
