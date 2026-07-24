@@ -868,7 +868,7 @@ class TestWhitelistHelper:
     @pytest.mark.parametrize(
         "values_to_test, whitelist",
         [
-            (["B", "D", "F"], ["A", "B", "C"]),
+            (["B", "D", "F"], ["A", "C", "E"]),
             (
                 ["service_id", "total_number_pa"],
                 ["consumable_name", "unit_cost_gbp"],

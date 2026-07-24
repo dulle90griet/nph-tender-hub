@@ -74,6 +74,8 @@ def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=N
             is raised only if all values in list_to_filter are invalid.
             In "strict" mode, a ValueError is raised if any value is invalid.
     """
+    if not list_to_filter:
+        return None
     if not isinstance(list_to_filter, list):
         list_to_filter = [list_to_filter]
 
@@ -85,6 +87,8 @@ def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=N
         else:
             all_whitelisted = False
 
+    if error_mode == "lax" and not valid_items:
+        raise ValueError("Expected at least one whitelisted value, got none")
     return valid_items
 
 def empty_to_none(value: str | Decimal | None) -> Decimal | None:
