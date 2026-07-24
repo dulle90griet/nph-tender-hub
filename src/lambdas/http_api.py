@@ -61,6 +61,20 @@ def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
 
 
 def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=None) -> list:
+    """
+    Check the provided list against the provided whitelist,
+    returning a list containing only accepted values and raising
+    errors for invalid values based on the specified error mode.
+
+    Args:
+        list_to_filter: The list of values to be checked for inclusion
+            in the whitelist. May also be a single non-list value.
+        whitelist: The list of all accepted values.
+        error_mode: If None, no errors are raised. If "lax", a ValueError
+            is raised only if all values in list_to_filter are invalid.
+            In "strict" mode, a ValueError is raised if any value is invalid.
+    """
+
     pass
 
 
