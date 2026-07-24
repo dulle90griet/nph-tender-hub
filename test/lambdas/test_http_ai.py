@@ -863,7 +863,7 @@ class TestWhitelistHelper:
     def test_whitelist_helper_in_default_mode_returns_only_valid_values(
         self, values_to_test, whitelist, expected
     ):
-        assert filter_by_whitelist(value_to_test, whitelist) == expected
+        assert filter_by_whitelist(values_to_test, whitelist) == expected
 
     @pytest.mark.parametrize(
         "values_to_test, whitelist",
