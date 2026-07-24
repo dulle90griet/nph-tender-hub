@@ -60,7 +60,9 @@ def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
     return sort_clause
 
 
-def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=None) -> list:
+def filter_by_whitelist(
+    list_to_filter: list, whitelist: list, error_mode: str = None
+) -> list:
     """
     Check the provided list against the provided whitelist,
     returning a list containing only accepted values and raising
@@ -74,7 +76,7 @@ def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=N
             is raised only if all values in list_to_filter are invalid.
             In "strict" mode, a ValueError is raised if any value is invalid.
     """
-    if not list_to_filter:
+    if not list_to_filter or not whitelist:
         return None
     if not isinstance(list_to_filter, list):
         list_to_filter = [list_to_filter]
@@ -89,6 +91,7 @@ def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=N
     if error_mode == "lax" and not valid_items:
         raise ValueError("Expected at least one whitelisted value, got none.")
     return valid_items
+
 
 def empty_to_none(value: str | Decimal | None) -> Decimal | None:
     """
