@@ -795,6 +795,24 @@ class TestSortClauseHelper:
 # ══════════════════════════════════════════════════════════════════
 class TestWhitelistHelper:
     @pytest.mark.parametrize(
+        "value_to_test, whitelist",
+        [
+            (None, ["A", "B"]),
+            ([], ["A", "B"]),
+            (["A", "B"], None),
+            (["A", "B"], []),
+            (None, None),
+            (None, []),
+            ([], None),
+            ([], []),
+        ],
+    )
+    def test_whitelist_helper_returns_None_if_either_list_is_None(
+        self, value_to_test, whitelist
+    ):
+        assert filter_by_whitelist(value_to_test, whitelist) == None
+
+    @pytest.mark.parametrize(
         "value_to_test, whitelist, expected",
         [
             (["valid_column"], ["valid_column"], ["valid_column"]),
