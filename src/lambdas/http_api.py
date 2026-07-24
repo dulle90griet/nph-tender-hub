@@ -75,7 +75,8 @@ def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=N
             In "strict" mode, a ValueError is raised if any value is invalid.
     """
 
-    pass
+    if list_to_filter[0] in whitelist:
+        return [list_to_filter[0]]
 
 
 def empty_to_none(value: str | Decimal | None) -> Decimal | None:
