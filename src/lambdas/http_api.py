@@ -60,6 +60,10 @@ def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
     return sort_clause
 
 
+def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=None) -> list:
+    pass
+
+
 def empty_to_none(value: str | Decimal | None) -> Decimal | None:
     """
     Convert empty strings to None for optional Decimal fields.

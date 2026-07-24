@@ -20,6 +20,7 @@ from src.lambdas.http_api import (
     logger,
     app,
     build_sort_clause,
+    filter_by_whitelist,
     Pagination,
     CustomJSONEncoder,
     # Department,
@@ -787,6 +788,114 @@ class TestSortClauseHelper:
 
         with pytest.raises(ValueError):
             build_sort_clause("tender_title", "alphanumeric")
+
+
+# ══════════════════════════════════════════════════════════════════
+# Custom-sortable GET handlers behave predictably and securely
+# ══════════════════════════════════════════════════════════════════
+class TestWhitelistHelper:
+    @pytest.mark.parametrize(
+        "value_to_test, whitelist, expected",
+        [
+            (["valid_column"], ["valid_column"], ["valid_column"]),
+            (["A"], ["A", "B", "C"], ["A"]),
+            (["B"], ["A", "B", "C"], ["B"]),
+            (["C"], ["A", "B", "C"], ["C"]),
+        ],
+    )
+    def test_whitelist_helper_returns_list_for_single_valid_value(
+        self, value_to_test, whitelist, expected
+    ):
+        assert filter_by_whitelist(value_to_test, whitelist) == expected
+
+    @pytest.mark.parametrize(
+        "value_to_test, whitelist, expected",
+        [
+            ("valid_column", ["valid_column"], ["valid_column"]),
+            ("A", ["A", "B", "C"], ["A"]),
+            ("B", ["A", "B", "C"], ["B"]),
+            ("C", ["A", "B", "C"], ["C"]),
+        ],
+    )
+    def test_whitelist_helper_returns_list_for_single_valid_non_list_value(
+        self, value_to_test, whitelist, expected
+    ):
+        assert filter_by_whitelist(value_to_test, whitelist) == expected
+
+    @pytest.mark.parametrize(
+        "values_to_test, whitelist, expected",
+        [
+            (["A", "C", "F"], ["A", "B", "C", "D", "E", "F", "G"], ["A", "C", "F"]),
+            (
+                ["service_id", "total_number_pa"],
+                [
+                    "tender_id",
+                    "tender_title",
+                    "service_id",
+                    "service_name",
+                    "total_number_pa",
+                ],
+                ["service_id", "total_number_pa"],
+            ),
+        ],
+    )
+    def test_whitelist_helper_returns_all_valid_value_list_in_full(
+        self, values_to_test, whitelist, expected
+    ):
+        assert filter_by_whitelist(value_to_test, whitelist) == expected
+
+    @pytest.mark.parametrize(
+        "values_to_test, whitelist, expected",
+        [
+            (["A", "C", "H"], ["A", "B", "C", "D", "E", "F", "G"], ["A", "C"]),
+            (
+                ["service_id", "total_number_pa"],
+                [
+                    "tender_id",
+                    "tender_title",
+                    "service_name",
+                    "total_number_pa",
+                ],
+                ["total_number_pa"],
+            ),
+        ],
+    )
+    def test_whitelist_helper_in_default_mode_returns_only_valid_values(
+        self, values_to_test, whitelist, expected
+    ):
+        assert filter_by_whitelist(value_to_test, whitelist) == expected
+
+    @pytest.mark.parametrize(
+        "values_to_test, whitelist",
+        [
+            (["B", "D", "F"], ["A", "B", "C"]),
+            (
+                ["service_id", "total_number_pa"],
+                ["consumable_name", "unit_cost_gbp"],
+            ),
+        ],
+    )
+    def test_whitelist_helper_in_lax_error_mode_raises_error_if_all_values_invalid(
+        self, values_to_test, whitelist
+    ):
+        with pytest.raises(ValueError):
+            filter_by_whitelist(values_to_test, whitelist, error_mode="lax")
+
+    @pytest.mark.parametrize(
+        "values_to_test, whitelist",
+        [
+            (["A", "D", "C"], ["A", "B", "C"]),
+            (
+                ["service_id", "total_number_pa"],
+                ["consumable_name", "total_number_pa"],
+            ),
+        ],
+    )
+    def test_whitelist_helper_in_strict_error_mode_raises_error_if_any_values_invalid(
+        self, values_to_test, whitelist
+    ):
+        with pytest.raises(ValueError):
+            filter_by_whitelist(values_to_test, whitelist, error_mode="strict")
 
 
 # ══════════════════════════════════════════════════════════════════
