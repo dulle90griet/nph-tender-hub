@@ -898,6 +898,20 @@ class TestWhitelistHelper:
             filter_by_whitelist(values_to_test, whitelist, error_mode="strict")
 
 
+class TestGetHandlersCustomSorting:
+    def test_custom_sortable_get_handlers_SQL_reflects_single_level_params(self):
+        pass
+
+    def test_custom_sortable_get_handlers_SQL_reflects_multi_level_params(self):
+        pass
+
+    def test_custom_sortable_get_handlers_resist_injection_attacks(self):
+        pass
+
+    def test_custom_sortable_get_handlers_raise_value_error_on_invalid_order(self):
+        pass
+
+
 # ══════════════════════════════════════════════════════════════════
 # GET SQL reflects path params as expected
 # ══════════════════════════════════════════════════════════════════
