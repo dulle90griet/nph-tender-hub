@@ -79,16 +79,15 @@ def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=N
     if not isinstance(list_to_filter, list):
         list_to_filter = [list_to_filter]
 
-    all_whitelisted = True
     valid_items = []
     for item in list_to_filter:
         if item in whitelist:
             valid_items.append(item)
-        else:
-            all_whitelisted = False
+        elif error_mode == "strict":
+            raise ValueError(f"Invalid value {item}. All values must be whitelisted.")
 
     if error_mode == "lax" and not valid_items:
-        raise ValueError("Expected at least one whitelisted value, got none")
+        raise ValueError("Expected at least one whitelisted value, got none.")
     return valid_items
 
 def empty_to_none(value: str | Decimal | None) -> Decimal | None:
