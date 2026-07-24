@@ -78,8 +78,13 @@ def filter_by_whitelist(list_to_filter: list, whitelist: list, error_mode: str=N
     if not isinstance(list_to_filter, list):
         list_to_filter = [list_to_filter]
 
-    if list_to_filter[0] in whitelist:
-        return [list_to_filter[0]]
+    all_whitelisted = True
+    for item in list_to_filter:
+        if item not in whitelist:
+            all_whitelisted = False
+
+    if all_whitelisted:
+        return [item for item in list_to_filter]
 
 
 def empty_to_none(value: str | Decimal | None) -> Decimal | None:
