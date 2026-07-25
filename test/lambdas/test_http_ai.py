@@ -917,10 +917,71 @@ class TestWhitelistHelper:
 
 
 class TestGetHandlersCustomSorting:
-    def test_custom_sortable_get_handlers_SQL_reflects_single_level_params(self):
+    @pytest.mark.parametrize(
+        "handler, sort_params, expected_sql_sorts",
+        [
+            (get_job_title, "-jt.title", '"jt"."title" DESC'),
+            (get_consumable, "-consumable_name", '"consumable_name" DESC'),
+            (
+                get_service,
+                "overhead_recovery_on_labour_percentage",
+                '"overhead_recovery_on_labour_percentage" ASC',
+            ),
+            (get_overhead_cost, "-cost_type", '"cost_type" DESC'),
+            (get_labour_cost, "lc.required_time_mins", '"lc"."required_time_mins" ASC'),
+            (get_direct_cost, "cost_gbp", '"cost_gbp" ASC'),
+            (get_client, "-client_name", '"client_name" DESC'),
+            (get_tender, "date_created", '"date_created" ASC'),
+        ],
+    )
+    def test_pathless_custom_sortable_get_handlers_SQL_reflects_single_level_params(
+        self, mock_cursor, handler, sort_params, expected_sql_sorts
+    ):
+        handler(sort_params)
+        executed_sql = mock_cursor.execute.call_args[0]
+        assert f"ORDER BY {expected_sql_sorts}" in executed_sql.as_string()
+        assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
+
+    def test_custom_sortable_get_handlers_with_path_SQL_reflects_single_level_params(
+        self,
+    ):
         pass
 
-    def test_custom_sortable_get_handlers_SQL_reflects_multi_level_params(self):
+    @pytest.mark.parametrize(
+        "handler, sort_params",
+        [
+            (get_job_title, (("jt.title", "asc"), ("jt.hourly_rate_gbp", "desc"))),
+            (
+                get_consumable,
+                (("default_unit_cost_gbp", "desc"), ("consumable_name", "asc")),
+            ),
+            (
+                get_service,
+                (
+                    ("comments", "desc"),
+                    ("xero_code", "asc"),
+                    ("required_profit_margin_percentage", "desc"),
+                ),
+            ),
+            (
+                get_overhead_cost,
+                (("cost_description", "desc"), ("budgeted_spend_gbp", "desc")),
+            ),
+            (
+                get_labour_cost,
+                (
+                    ("service", "desc"),
+                    ("title_engaged", "asc"),
+                    ("required_time_mins", "asc"),
+                ),
+            ),
+            (get_direct_cost, (("service", "asc"), ("consumable", "desc"))),
+            (get_tender, (("t.projected_sales_value_gbp", "desc"), ("client", "asc"))),
+        ],
+    )
+    def test_pathless_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
+        self, handler, sort_params
+    ):
         pass
 
     def test_custom_sortable_get_handlers_resist_injection_attacks(self):
@@ -931,7 +992,7 @@ class TestGetHandlersCustomSorting:
 
 
 # ══════════════════════════════════════════════════════════════════
-# GET SQL reflects path params as expected
+# GET SQL reflects ID path param as expected
 # ══════════════════════════════════════════════════════════════════
 class TestGetHandlersSQLReflectsParams:
     # ── GET /tender/single ──────────────────────────────────
