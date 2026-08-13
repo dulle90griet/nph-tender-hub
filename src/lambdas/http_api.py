@@ -86,7 +86,9 @@ def filter_by_whitelist(
         if item in whitelist:
             valid_items.append(item)
         elif error_mode == "strict":
-            raise ValueError(f"Invalid value {item}. All values must be whitelisted.")
+            raise ValueError(
+                f"Invalid value {item}. For any values to be accepted, only whitelisted values must be provided."
+            )
 
     if error_mode == "lax" and not valid_items:
         raise ValueError("Expected at least one whitelisted value, got none.")
