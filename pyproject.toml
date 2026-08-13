@@ -21,7 +21,7 @@ audit = [
     "pip-audit>=2.10.0"
 ]
 audit-fixes = [
-    "cryptography>=48.0.1",
+    "cryptography>=50.0.0",
     "msgpack>=1.2.1", # Required by 'cachecontrol' (-> 'pip-audit')
     "pygments>=2.20.0",
     "requests>=2.33.0", # Required by 'moto', 'pip-audit', others
