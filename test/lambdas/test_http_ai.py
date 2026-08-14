@@ -954,7 +954,7 @@ class TestGetHandlersCustomSorting:
             (get_rich_tender_line_items, "service_category", '"service_category" ASC'),
         ],
     )
-    def test_custom_sortable_get_handlers_with_path_SQL_reflects_single_level_params(
+    def test_pathed_custom_sortable_get_handlers_SQL_reflects_single_level_params(
         self, mock_cursor, handler, sort_string, expected_sort_sql
     ):
         handler(1, SortClauses(sort=sort_string))
@@ -1002,6 +1002,29 @@ class TestGetHandlersCustomSorting:
         self, mock_cursor, handler, sort_string, expected_sort_sql
     ):
         handler(Pagination(), SortClauses(sort=sort_string))
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
+        assert f"ORDER BY {expected_sort_sql}" in executed_sql
+        assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
+
+    @pytest.mark.parametrize(
+        "handler, sort_string, expected_sort_sql",
+        [
+            (
+                get_tender_line_items,
+                "tender_id,-service_name",
+                '"tender_id" ASC, "service_name" DESC',
+            ),
+            (
+                get_rich_tender_line_items,
+                "-annual_sales_gbp,tender_title,-total_number_pa",
+                '"annual_sales_gbp" DESC, "tender_title" ASC, "total_number_pa" DESC',
+            ),
+        ],
+    )
+    def test_pathed_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
+        self, mock_cursor, handler, sort_string, expected_sort_sql
+    ):
+        handler("1", SortClauses(sort=sort_string))
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
