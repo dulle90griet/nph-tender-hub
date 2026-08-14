@@ -955,7 +955,11 @@ class TestGetHandlersCustomSorting:
     @pytest.mark.parametrize(
         "handler, sort_string, expected_sort_sql",
         [
-            (get_job_title, "title,-hourly_rate_gbp", '"title" ASC, "hourly_rate_gbp" DESC'),
+            (
+                get_job_title,
+                "title,-hourly_rate_gbp",
+                '"title" ASC, "hourly_rate_gbp" DESC',
+            ),
             # (
             #     get_consumable,
             #     (("default_unit_cost_gbp", "desc"), ("consumable_name", "asc")),
@@ -995,8 +999,18 @@ class TestGetHandlersCustomSorting:
     def test_custom_sortable_get_handlers_resist_injection_attacks(self):
         pass
 
-    def test_custom_sortable_get_handlers_raise_value_error_on_invalid_order(self):
-        pass
+    @pytest.mark.parametrize(
+        "handler, sort_string",
+        [
+            (get_job_title, "invalid_column"),
+            (get_job_title, "title,faketable.fakecolumn,-jt.id"),
+        ],
+    )
+    def test_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
+        self, mock_cursor, handler, sort_string
+    ):
+        with pytest.raises(ValueError):
+            handler(Pagination(), SortClauses(sort=sort_string))
 
 
 # ══════════════════════════════════════════════════════════════════
