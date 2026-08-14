@@ -139,6 +139,34 @@ class Pagination(BaseModel):
     per_page: Optional[int] = 10
 
 
+class SortClauses(BaseModel):
+    sort: dict = None
+
+    @field_validator("sort", mode="before")
+    @classmethod
+    def parse_sort_clauses(cls, value: str) -> dict:
+        """
+        Parse a string sort list in the format "col1,-col2,col3"
+        (where "-" is descending) into a dict of sort columns and sort orders.
+        """
+        sort_clause_dict = {}  # dicts retain insertion order since Python 3.7
+        sort_clauses_split = value.split(",")
+        for sort_clause in sort_clauses_split:
+            if sort_clause:
+                if sort_clause[0] == "-" and len(sort_clause) >= 2:
+                    order = "DESC"
+                    column = sort_clause[1:]
+                elif len(sort_clause) >= 1:
+                    order = "ASC"
+                    column = sort_clause
+                else:
+                    continue
+                if column in sort_clause_dict:
+                    raise ValueError("Duplicate sort column provided.")
+                sort_clause_dict[column] = order
+        return sort_clause_dict
+
+
 # class Department(BaseModel):
 #     id: int
 #     name: Annotated[str, Field(max_length=50)]
