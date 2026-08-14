@@ -68,7 +68,7 @@ def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
 
 
 def filter_by_whitelist(
-    list_to_filter: list, whitelist: list, error_mode: str = None
+    list_to_filter: list, whitelist: list, mode: str = "strict"
 ) -> list:
     """
     Check the provided list against the provided whitelist,
@@ -88,18 +88,26 @@ def filter_by_whitelist(
     if not isinstance(list_to_filter, list):
         list_to_filter = [list_to_filter]
 
-    valid_items = []
-    for item in list_to_filter:
-        if item in whitelist:
-            valid_items.append(item)
-        elif error_mode == "strict":
+    if mode == "strict":
+        set_to_check = set(list_to_filter)
+        whitelist_set = set(whitelist)
+        if set_to_check <= whitelist_set:
+            return list_to_filter
+        else:
             raise ValueError(
-                f"Invalid value {item}. For any values to be accepted, only whitelisted values must be provided."
+                f"Invalid value encountered. For any values to be accepted, only whitelisted values must be provided."
             )
+    elif mode == "lax":
+        valid_items = []
+        for item in list_to_filter:
+            if item in whitelist:
+                valid_items.append(item)
 
-    if error_mode == "lax" and not valid_items:
-        raise ValueError("Expected at least one whitelisted value, got none.")
-    return valid_items
+        if not valid_items:
+            raise ValueError("Expected at least one whitelisted value, got none.")
+        return valid_items
+    else:
+        raise ValueError("Invalid mode name.")
 
 
 def empty_to_none(value: str | Decimal | None) -> Decimal | None:

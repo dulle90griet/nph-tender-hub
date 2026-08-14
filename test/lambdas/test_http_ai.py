@@ -879,10 +879,10 @@ class TestWhitelistHelper:
             ),
         ],
     )
-    def test_whitelist_helper_in_default_mode_returns_only_valid_values(
+    def test_whitelist_helper_in_lax_mode_returns_only_valid_values(
         self, values_to_test, whitelist, expected
     ):
-        assert filter_by_whitelist(values_to_test, whitelist) == expected
+        assert filter_by_whitelist(values_to_test, whitelist, mode="lax") == expected
 
     @pytest.mark.parametrize(
         "values_to_test, whitelist",
@@ -898,7 +898,7 @@ class TestWhitelistHelper:
         self, values_to_test, whitelist
     ):
         with pytest.raises(ValueError):
-            filter_by_whitelist(values_to_test, whitelist, error_mode="lax")
+            filter_by_whitelist(values_to_test, whitelist, mode="lax")
 
     @pytest.mark.parametrize(
         "values_to_test, whitelist",
@@ -914,7 +914,11 @@ class TestWhitelistHelper:
         self, values_to_test, whitelist
     ):
         with pytest.raises(ValueError):
-            filter_by_whitelist(values_to_test, whitelist, error_mode="strict")
+            filter_by_whitelist(values_to_test, whitelist, mode="strict")
+
+    def test_whitelist_helper_raises_error_if_invalid_mode_specified(self):
+        with pytest.raises(ValueError):
+            filter_by_whitelist(["a", "b", "c"], ["a", "b", "c"], mode="xyzklmabc")
 
 
 class TestGetHandlersCustomSorting:
