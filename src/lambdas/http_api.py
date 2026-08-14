@@ -1292,7 +1292,9 @@ def patch_tender(tender_id: str, body: Annotated[UpdateTender, Body()]) -> None:
 
 
 @app.get("/tender/line-items/<tender_id>")
-def get_tender_line_items(tender_id: str) -> list:
+def get_tender_line_items(
+    tender_id: str, sort_clauses: Annotated[SortClauses, Query()]
+) -> list:
     """GET method for tenders_services table"""
     max_per_page = 100
 
@@ -1303,10 +1305,14 @@ def get_tender_line_items(tender_id: str) -> list:
 
     offset = per_page * (page - 1)
 
-    sort_clause = build_sort_clause(
-        ("t.tender_title", "ASC"),
-        ("s.service_name", "ASC"),
-    )
+    if sort_clauses.sort:
+        sort_clause = build_sort_clause(*list(sort_clauses.sort.items()))
+    else:
+        sort_clause = build_sort_clause(
+            ("t.tender_title", "ASC"),
+            ("s.service_name", "ASC"),
+        )
+
     get_line_items_sql = SQL("""
         WITH filtered_tender_line_items AS (
             SELECT *
@@ -1340,7 +1346,9 @@ def get_tender_line_items(tender_id: str) -> list:
 
 
 @app.get("/tender/line-items/rich/<tender_id>")
-def get_rich_tender_line_items(tender_id: str) -> list:
+def get_rich_tender_line_items(
+    tender_id: str, sort_clauses: Annotated[SortClauses, Query()]
+) -> list:
     """Enriched GET method for tenders_services table"""
     max_per_page = 100
 
@@ -1381,10 +1389,14 @@ def get_rich_tender_line_items(tender_id: str) -> list:
         ({annual_sales_gbp}) - ({annual_total_gbp})
     """
 
-    sort_clause = build_sort_clause(
-        ("base.service_category", "ASC"),
-        ("base.service", "ASC"),
-    )
+    if sort_clauses.sort:
+        sort_clause = build_sort_clause(*list(sort_clauses.sort.items()))
+    else:
+        sort_clause = build_sort_clause(
+            ("base.service_category", "ASC"),
+            ("base.service", "ASC"),
+        )
+
     get_rich_line_items_sql = SQL(f"""
         WITH
             tender_line_items_filtered AS (
