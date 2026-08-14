@@ -947,10 +947,20 @@ class TestGetHandlersCustomSorting:
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
 
+    @pytest.mark.parametrize(
+        "handler, sort_string, expected_sort_sql",
+        [
+            (get_tender_line_items, "-tender_id", '"tender_id" DESC'),
+            (get_rich_tender_line_items, "service_category", '"service_category" ASC'),
+        ],
+    )
     def test_custom_sortable_get_handlers_with_path_SQL_reflects_single_level_params(
-        self,
+        self, mock_cursor, handler, sort_string, expected_sort_sql
     ):
-        pass
+        handler(1, SortClauses(sort=sort_string))
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
+        assert f"ORDER BY {expected_sort_sql}" in executed_sql
+        assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
 
     @pytest.mark.parametrize(
         "handler, sort_string, expected_sort_sql",
@@ -995,9 +1005,6 @@ class TestGetHandlersCustomSorting:
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
-
-    def test_custom_sortable_get_handlers_resist_injection_attacks(self):
-        pass
 
     @pytest.mark.parametrize(
         "handler, sort_string",
