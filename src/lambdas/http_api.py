@@ -95,7 +95,7 @@ def filter_by_whitelist(
             return list_to_filter
         else:
             raise ValueError(
-                f"Invalid value encountered. For any values to be accepted, only whitelisted values must be provided."
+                "Invalid value encountered. For any values to be accepted, only whitelisted values must be provided."
             )
     elif mode == "lax":
         valid_items = []
@@ -478,25 +478,23 @@ def get_job_title(
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
-    valid_sort_columns = [
-        "jt.id",
-        "department",
-        "title",
-        "default_ft_weekly_hours",
-        "default_lunch_break_hours",
-        "hourly_rate_gbp",
-        "default_annual_holiday_days",
-        "default_annual_training_days",
-        "default_annual_sick_days",
-    ]
-    sort_columns_filtered = filter_by_whitelist(
-        list(sort_clauses.sort.keys()), valid_sort_columns
-    )
-    sort_clauses_filtered = {
-        column: sort_clauses.sort[column] for column in sort_columns_filtered
-    }
-    if sort_clauses_filtered:
-        sort_clause_sql = build_sort_clause(*list(sort_clauses_filtered.items()))
+    if sort_clauses.sort:
+        valid_sort_columns = [
+            "jt.id",
+            "department",
+            "title",
+            "default_ft_weekly_hours",
+            "default_lunch_break_hours",
+            "hourly_rate_gbp",
+            "default_annual_holiday_days",
+            "default_annual_training_days",
+            "default_annual_sick_days",
+        ]
+        sort_columns_whitelisted = filter_by_whitelist(
+            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+        )
+        if sort_columns_whitelisted:
+            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
     else:
         sort_clause_sql = build_sort_clause(
             ("department", "ASC"),
