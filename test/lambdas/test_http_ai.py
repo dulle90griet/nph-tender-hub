@@ -949,41 +949,44 @@ class TestGetHandlersCustomSorting:
         pass
 
     @pytest.mark.parametrize(
-        "handler, sort_params",
+        "handler, sort_string, expected_sort_sql",
         [
-            (get_job_title, (("jt.title", "asc"), ("jt.hourly_rate_gbp", "desc"))),
-            (
-                get_consumable,
-                (("default_unit_cost_gbp", "desc"), ("consumable_name", "asc")),
-            ),
-            (
-                get_service,
-                (
-                    ("comments", "desc"),
-                    ("xero_code", "asc"),
-                    ("required_profit_margin_percentage", "desc"),
-                ),
-            ),
-            (
-                get_overhead_cost,
-                (("cost_description", "desc"), ("budgeted_spend_gbp", "desc")),
-            ),
-            (
-                get_labour_cost,
-                (
-                    ("service", "desc"),
-                    ("title_engaged", "asc"),
-                    ("required_time_mins", "asc"),
-                ),
-            ),
-            (get_direct_cost, (("service", "asc"), ("consumable", "desc"))),
-            (get_tender, (("t.projected_sales_value_gbp", "desc"), ("client", "asc"))),
+            (get_job_title, "title,-hourly_rate_gbp", '"title" ASC, "hourly_rate_gbp" DESC'),
+            # (
+            #     get_consumable,
+            #     (("default_unit_cost_gbp", "desc"), ("consumable_name", "asc")),
+            # ),
+            # (
+            #     get_service,
+            #     (
+            #         ("comments", "desc"),
+            #         ("xero_code", "asc"),
+            #         ("required_profit_margin_percentage", "desc"),
+            #     ),
+            # ),
+            # (
+            #     get_overhead_cost,
+            #     (("cost_description", "desc"), ("budgeted_spend_gbp", "desc")),
+            # ),
+            # (
+            #     get_labour_cost,
+            #     (
+            #         ("service", "desc"),
+            #         ("title_engaged", "asc"),
+            #         ("required_time_mins", "asc"),
+            #     ),
+            # ),
+            # (get_direct_cost, (("service", "asc"), ("consumable", "desc"))),
+            # (get_tender, (("t.projected_sales_value_gbp", "desc"), ("client", "asc"))),
         ],
     )
     def test_pathless_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
-        self, handler, sort_params
+        self, mock_cursor, handler, sort_string, expected_sort_sql
     ):
-        pass
+        handler(Pagination(), SortClauses(sort=sort_string))
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
+        assert f"ORDER BY {expected_sort_sql}" in executed_sql
+        assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
 
     def test_custom_sortable_get_handlers_resist_injection_attacks(self):
         pass
