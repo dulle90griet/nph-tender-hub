@@ -6,7 +6,14 @@ import logging
 
 from typing import Optional, TypeVar, ClassVar, Type, TypeAlias
 from typing_extensions import Annotated
-from pydantic import RootModel, BaseModel, Field, BeforeValidator, model_validator
+from pydantic import (
+    RootModel,
+    BaseModel,
+    Field,
+    BeforeValidator,
+    model_validator,
+    field_validator,
+)
 from pydantic_strict_partial import create_partial_model
 
 import psycopg_pool
@@ -453,17 +460,41 @@ def get_department() -> None:
 
 
 @app.get("/job-title")
-def get_job_title(pagination: Annotated[Pagination, Query()]) -> list:
+def get_job_title(
+    pagination: Annotated[Pagination, Query()],
+    sort_clauses: Annotated[SortClauses, Query()],
+) -> list:
     """GET method for job_title table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
-    sort_clause = build_sort_clause(
-        ("department", "ASC"),
-        ("jt.title", "ASC"),
+    valid_sort_columns = [
+        "jt.id",
+        "department",
+        "title",
+        "default_ft_weekly_hours",
+        "default_lunch_break_hours",
+        "hourly_rate_gbp",
+        "default_annual_holiday_days",
+        "default_annual_training_days",
+        "default_annual_sick_days",
+    ]
+    sort_columns_filtered = filter_by_whitelist(
+        list(sort_clauses.sort.keys()), valid_sort_columns
     )
+    sort_clauses_filtered = {
+        column: sort_clauses.sort[column] for column in sort_columns_filtered
+    }
+    if sort_clauses_filtered:
+        sort_clause_sql = build_sort_clause(*list(sort_clauses_filtered.items()))
+    else:
+        sort_clause_sql = build_sort_clause(
+            ("department", "ASC"),
+            ("jt.title", "ASC"),
+        )
+
     get_job_title_sql = SQL("""
         SELECT
             jt.id
@@ -481,7 +512,7 @@ def get_job_title(pagination: Annotated[Pagination, Query()]) -> list:
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(sort_clause=sort_clause, per_page=per_page, offset=offset)
+    """).format(sort_clause=sort_clause_sql, per_page=per_page, offset=offset)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_job_title_sql)
