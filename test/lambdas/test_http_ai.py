@@ -926,17 +926,17 @@ class TestGetHandlersCustomSorting:
         "handler, sort_string, expected_sort_sql",
         [
             (get_job_title, "-jt.id", '"jt"."id" DESC'),
-            # (get_consumable, "-consumable_name", '"consumable_name" DESC'),
-            # (
-            #     get_service,
-            #     "overhead_recovery_on_labour_percentage",
-            #     '"overhead_recovery_on_labour_percentage" ASC',
-            # ),
-            # (get_overhead_cost, "-cost_type", '"cost_type" DESC'),
-            # (get_labour_cost, "lc.required_time_mins", '"lc"."required_time_mins" ASC'),
-            # (get_direct_cost, "cost_gbp", '"cost_gbp" ASC'),
-            # (get_client, "-client_name", '"client_name" DESC'),
-            # (get_tender, "date_created", '"date_created" ASC'),
+            (get_consumable, "-consumable_name", '"consumable_name" DESC'),
+            (
+                get_service,
+                "overhead_recovery_on_labour_percentage",
+                '"overhead_recovery_on_labour_percentage" ASC',
+            ),
+            (get_overhead_cost, "-cost_type", '"cost_type" DESC'),
+            (get_labour_cost, "lc.required_time_mins", '"lc"."required_time_mins" ASC'),
+            (get_direct_cost, "cost_gbp", '"cost_gbp" ASC'),
+            (get_client, "-client_name", '"client_name" DESC'),
+            (get_tender, "date_created", '"date_created" ASC'),
         ],
     )
     def test_pathless_custom_sortable_get_handlers_SQL_reflects_single_level_params(
