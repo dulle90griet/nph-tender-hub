@@ -764,6 +764,20 @@ class TestPaginationClamping:
 # ══════════════════════════════════════════════════════════════════
 # Handlers call cursor.execute the expected number of times
 # ══════════════════════════════════════════════════════════════════
+SORT_TO_TEST = {
+    get_job_title: "department",
+    get_consumable: "-default_unit_cost_gbp",
+    get_service: "xero_code",
+    get_overhead_cost: "-budgeted_spend_gbp",
+    get_labour_cost: "title_engaged_id",
+    get_direct_cost: "-cost_gbp",
+    get_client: "-client_name",
+    get_tender: "-date_created",
+    get_tender_line_items: "total_number_pa",
+    get_rich_tender_line_items: "-annual_labour_gbp",
+}
+
+
 class TestHandlersCallExecuteOnce:
     """Every handler must call cursor.execute exactly once."""
 
@@ -773,25 +787,68 @@ class TestHandlersCallExecuteOnce:
         "handler",
         GET_HANDLERS_NO_PATH_NO_QUERY + GET_HANDLERS_NO_PATH_WITH_QUERY,
     )
-    def test_pathless_get_handlers_call_execute_once_no_query(self, mock_cursor, handler):
+    def test_pathless_get_handlers_call_execute_once_with_empty_query(
+        self, mock_cursor, handler
+    ):
         if GET_HANDLER_TYPES[handler] == "no path, with query":
             handler(Pagination(), SortClauses())
         else:
             handler()
         assert mock_cursor.execute.call_count == 1
 
-    @pytest.mark.parametrize(
-        "id", ["1", "4", "999"]
-    )
+    @pytest.mark.parametrize("id", ["1", "4", "999"])
     @pytest.mark.parametrize(
         "handler",
         GET_HANDLERS_WITH_PATH_NO_QUERY + GET_HANDLERS_WITH_PATH_WITH_QUERY,
     )
-    def test_pathed_get_handlers_call_execute_once_no_query(self, mock_cursor, handler, id):
+    def test_pathed_get_handlers_call_execute_once_with_empty_query(
+        self, mock_cursor, handler, id
+    ):
         if GET_HANDLER_TYPES[handler] == "with path, with query":
             handler(id, Pagination(), SortClauses())
         else:
             handler(id)
+        assert mock_cursor.execute.call_count == 1
+
+    @pytest.mark.parametrize(
+        "handler", GET_HANDLERS_NO_PATH_WITH_QUERY + GET_HANDLERS_WITH_PATH_WITH_QUERY
+    )
+    def test_get_handlers_call_execute_once_with_pagination(self, mock_cursor, handler):
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler("1", Pagination(page="2", per_page="75"), SortClauses())
+        else:
+            handler(Pagination(page="2", per_page="75"), SortClauses())
+        assert mock_cursor.execute.call_count == 1
+
+    @pytest.mark.parametrize(
+        "handler", GET_HANDLERS_NO_PATH_WITH_QUERY + GET_HANDLERS_WITH_PATH_WITH_QUERY
+    )
+    def test_get_handlers_call_execute_once_with_custom_sort(
+        self, mock_cursor, handler
+    ):
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler("1", Pagination(), SortClauses(sort=SORT_TO_TEST[handler]))
+        else:
+            handler(Pagination(), SortClauses(sort=SORT_TO_TEST[handler]))
+        assert mock_cursor.execute.call_count == 1
+
+    @pytest.mark.parametrize(
+        "handler", GET_HANDLERS_NO_PATH_WITH_QUERY + GET_HANDLERS_WITH_PATH_WITH_QUERY
+    )
+    def test_get_handlers_call_execute_once_with_pagination_and_sort(
+        self, mock_cursor, handler
+    ):
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler(
+                "1",
+                Pagination(page="2", per_page="75"),
+                SortClauses(sort=SORT_TO_TEST[handler]),
+            )
+        else:
+            handler(
+                Pagination(page="2", per_page="75"),
+                SortClauses(sort=SORT_TO_TEST[handler]),
+            )
         assert mock_cursor.execute.call_count == 1
 
     # DEPRECATED -- TO DELETE
