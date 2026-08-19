@@ -1334,10 +1334,19 @@ def get_tender_line_items(
     offset = per_page * (page - 1)
 
     if sort_clauses.sort:
-        sort_clause = build_sort_clause(*list(sort_clauses.sort.items()))
+        valid_sort_columns = [
+            "service_id",
+            "service",
+            "total_number_pa",
+            "unit_price_override_gbp",
+        ]
+        sort_columns_whitelisted = filter_by_whitelist(
+            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+        )
+        if sort_columns_whitelisted:
+            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
     else:
-        sort_clause = build_sort_clause(
-            ("t.tender_title", "ASC"),
+        sort_clause_sql = build_sort_clause(
             ("s.service_name", "ASC"),
         )
 
@@ -1363,7 +1372,7 @@ def get_tender_line_items(
         LIMIT {per_page}
         OFFSET {offset}
     """).format(
-        tender_id=tender_id, sort_clause=sort_clause, per_page=per_page, offset=offset
+        tender_id=tender_id, sort_clause=sort_clause_sql, per_page=per_page, offset=offset
     )
 
     with DatabaseCursor() as cursor:
@@ -1418,9 +1427,35 @@ def get_rich_tender_line_items(
     """
 
     if sort_clauses.sort:
-        sort_clause = build_sort_clause(*list(sort_clauses.sort.items()))
+        valid_sort_columns = [
+            "service_category",
+            "service_id",
+            "service",
+            "total_number_pa",
+            "unit_labour_cost_gbp",
+            "overhead_recovery_on_labour_percentage",
+            "overhead_recovery_on_labour_cost_gbp",
+            "unit_direct_cost_gbp",
+            "fully_absorbed_cost_gbp",
+            "required_profit_margin_percentage",
+            "profit_margin_gbp",
+            "recommended_unit_price_gbp",
+            "our_current_unit_price_gbp",
+            "tender_override_unit_price_gbp",
+            "annual_sales_gbp",
+            "annual_labour_gbp",
+            "annual_direct_gbp",
+            "annual_overhead_gbp",
+            "annual_total_gbp",
+            "annual_profit_gbp",
+        ]
+        sort_columns_whitelisted = filter_by_whitelist(
+            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+        )
+        if sort_columns_whitelisted:
+            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
     else:
-        sort_clause = build_sort_clause(
+        sort_clause_sql = build_sort_clause(
             ("base.service_category", "ASC"),
             ("base.service", "ASC"),
         )
@@ -1498,11 +1533,11 @@ def get_rich_tender_line_items(
             ,ROUND({annual_total_gbp}, 2) AS annual_total_gbp
             ,ROUND({annual_profit_gbp}, 2) AS annual_profit_gbp
         FROM base
-        {{sort_clause}}
+        {{sort_clause_sql}}
         LIMIT {{per_page}}
         OFFSET {{offset}}
     """).format(
-        tender_id=tender_id, sort_clause=sort_clause, per_page=per_page, offset=offset
+        tender_id=tender_id, sort_clause=sort_clause_sql, per_page=per_page, offset=offset
     )
 
     with DatabaseCursor() as cursor:
