@@ -970,32 +970,36 @@ class TestGetHandlersCustomSorting:
                 "title,-hourly_rate_gbp",
                 '"title" ASC, "hourly_rate_gbp" DESC',
             ),
-            # (
-            #     get_consumable,
-            #     (("default_unit_cost_gbp", "desc"), ("consumable_name", "asc")),
-            # ),
-            # (
-            #     get_service,
-            #     (
-            #         ("comments", "desc"),
-            #         ("xero_code", "asc"),
-            #         ("required_profit_margin_percentage", "desc"),
-            #     ),
-            # ),
-            # (
-            #     get_overhead_cost,
-            #     (("cost_description", "desc"), ("budgeted_spend_gbp", "desc")),
-            # ),
-            # (
-            #     get_labour_cost,
-            #     (
-            #         ("service", "desc"),
-            #         ("title_engaged", "asc"),
-            #         ("required_time_mins", "asc"),
-            #     ),
-            # ),
-            # (get_direct_cost, (("service", "asc"), ("consumable", "desc"))),
-            # (get_tender, (("t.projected_sales_value_gbp", "desc"), ("client", "asc"))),
+            (
+                get_consumable,
+                "-default_unit_cost_gbp,consumable_name",
+                '"default_unit_cost_gbp" DESC, "consumable_name" ASC',
+            ),
+            (
+                get_service,
+                "-comments,xero_code,-required_profit_margin_percentage",
+                '"comments" DESC, "xero_code" ASC, "required_profit_margin_percentage" DESC',
+            ),
+            (
+                get_overhead_cost,
+                "-cost_description,-budgeted_spend_gbp",
+                '"cost_description" DESC, "budgeted_spend_gbp" DESC',
+            ),
+            (
+                get_labour_cost,
+                "-service,title_engaged,required_time_mins",
+                '"service" DESC, "title_engaged" ASC, "required_time_mins" ASC',
+            ),
+            (
+                get_direct_cost,
+                "service,-consumable",
+                '"service" ASC, "consumable" DESC',
+            ),
+            (
+                get_tender,
+                "-t.projected_sales_value_gbp,client",
+                '"t"."projected_sales_value_gbp" DESC, "client" ASC',
+            ),
         ],
     )
     def test_pathless_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
