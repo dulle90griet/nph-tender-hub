@@ -773,29 +773,46 @@ class TestHandlersCallExecuteOnce:
         "handler",
         GET_HANDLERS_NO_PATH_NO_QUERY + GET_HANDLERS_NO_PATH_WITH_QUERY,
     )
-    def test_get_handlers_call_execute_once(self, mock_cursor, handler):
-        if GET_HANDLER_TYPES[handler] == TYPES[1]:
+    def test_pathless_get_handlers_call_execute_once_no_query(self, mock_cursor, handler):
+        if GET_HANDLER_TYPES[handler] == "no path, with query":
             handler(Pagination(), SortClauses())
         else:
             handler()
         assert mock_cursor.execute.call_count == 1
 
-    @pytest.mark.parametrize("tender_id", [1, 10, 999, 102345])
-    def test_tender_single_calls_execute_once(self, mock_cursor, tender_id):
-        get_tender_single(tender_id)
+    @pytest.mark.parametrize(
+        "id", ["1", "4", "999"]
+    )
+    @pytest.mark.parametrize(
+        "handler",
+        GET_HANDLERS_WITH_PATH_NO_QUERY + GET_HANDLERS_WITH_PATH_WITH_QUERY,
+    )
+    def test_pathed_get_handlers_call_execute_once_no_query(self, mock_cursor, handler, id):
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler(id, Pagination(), SortClauses())
+        else:
+            handler(id)
         assert mock_cursor.execute.call_count == 1
 
-    @pytest.mark.parametrize("tender_id", ["1", "42"])
-    def test_get_tender_line_items_calls_execute_once(self, mock_cursor, tender_id):
-        get_tender_line_items(tender_id, Pagination(), SortClauses())
-        assert mock_cursor.execute.call_count == 1
+    # DEPRECATED -- TO DELETE
+    # @pytest.mark.parametrize("tender_id", [1, 10, 999, 102345])
+    # def test_tender_single_calls_execute_once(self, mock_cursor, tender_id):
+    #     get_tender_single(tender_id)
+    #     assert mock_cursor.execute.call_count == 1
 
-    @pytest.mark.parametrize("tender_id", ["5", "999"])
-    def test_get_rich_tender_line_items_calls_execute_once(
-        self, mock_cursor, tender_id
-    ):
-        get_rich_tender_line_items(tender_id, Pagination(), SortClauses())
-        assert mock_cursor.execute.call_count == 1
+    # DEPRECATED -- TO DELETE
+    # @pytest.mark.parametrize("tender_id", ["1", "42"])
+    # def test_get_tender_line_items_calls_execute_once(self, mock_cursor, tender_id):
+    #     get_tender_line_items(tender_id, Pagination(), SortClauses())
+    #     assert mock_cursor.execute.call_count == 1
+
+    # DEPRECATED -- TO DELETE
+    # @pytest.mark.parametrize("tender_id", ["5", "999"])
+    # def test_get_rich_tender_line_items_calls_execute_once(
+    #     self, mock_cursor, tender_id
+    # ):
+    #     get_rich_tender_line_items(tender_id, Pagination(), SortClauses())
+    #     assert mock_cursor.execute.call_count == 1
 
     # ── POST handlers ─────────────────────────────────────────
 
