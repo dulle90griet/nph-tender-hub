@@ -484,48 +484,6 @@ class TestGetHandlersReturnCursorRows:
             args = tuple()
         assert handler(*args) == orig_rows
 
-    # DEPRECATED -- TO DELETE
-    # @pytest.mark.parametrize(
-    #     "tender_id, row",
-    #     [
-    #         (
-    #             1,
-    #             {
-    #                 "id": 1,
-    #                 "tender_title": "Example Title",
-    #                 "client_id": 22,
-    #                 "client": "Example Client Name",
-    #                 "projected_sales_value_gbp": 20500,
-    #                 "date_created": datetime(2026, 3, 2),
-    #             },
-    #         ),
-    #         (
-    #             999,
-    #             {
-    #                 "id": 999,
-    #                 "tender_title": "Another Tender",
-    #                 "client_id": 301,
-    #                 "projected_sales_value_gbp": 43099,
-    #                 "date_created": datetime(2024, 12, 18),
-    #             },
-    #         ),
-    #         (
-    #             27,
-    #             {
-    #                 "id": 27,
-    #                 "tender_title": "Grimsby Services Health Drive",
-    #                 "client_id": 47,
-    #                 "projected_sales_value_gbp": 5000,
-    #                 "date_created": datetime(2025, 6, 30),
-    #             },
-    #         ),
-    #     ],
-    # )
-    # def test_tender_single_returns_cursor_row(self, mock_cursor, tender_id, row):
-    #     mock_cursor.fetchall.return_value = row
-    #     orig_row = deepcopy(row)
-    #     assert get_tender_single(tender_id) == orig_row
-
     @pytest.mark.parametrize(
         "handler, rows",
         [
@@ -572,26 +530,6 @@ class TestGetHandlersReturnCursorRows:
         else:
             assert handler() == orig_rows
 
-    # DEPRECATED -- TO DELETE
-    # @pytest.mark.parametrize("tender_id", ["5", "1", "999"])
-    # @given(
-    #     rows=st.lists(
-    #         st.dictionaries(
-    #             keys=st.text(), values=st.none() | st.integers() | st.text()
-    #         ),
-    #         min_size=0,
-    #         max_size=50,
-    #     )
-    # )
-    # @settings(max_examples=50)
-    # @example(rows=[])
-    # def test_tender_line_items_returns_all_cursor_rows(
-    #     self, mock_cursor, tender_id, rows
-    # ):
-    #     mock_cursor.fetchall.return_value = rows
-    #     orig_rows = deepcopy(rows)
-    #     assert get_tender_line_items(tender_id) == orig_rows
-
     def test_tender_single_returns_cursor_row_with_boundary_values(self, mock_cursor):
         tender_id = 2**31 - 1
         row = {
@@ -621,26 +559,6 @@ class TestGetHandlersReturnCursorRows:
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
         assert get_tender_line_items("1", Pagination(), SortClauses()) == orig_rows
-
-    # DEPRECATED -- TO DELETE
-    # @pytest.mark.parametrize("tender_id", ["1", "42"])
-    # @given(
-    #     rows=st.lists(
-    #         st.dictionaries(
-    #             keys=st.text(), values=st.none() | st.integers() | st.text()
-    #         ),
-    #         min_size=0,
-    #         max_size=20,
-    #     )
-    # )
-    # @settings(max_examples=50)
-    # @example(rows=[])
-    # def test_rich_tender_line_items_returns_all_cursor_rows(
-    #     self, mock_cursor, tender_id, rows
-    # ):
-    #     mock_cursor.fetchall.return_value = rows
-    #     orig_rows = deepcopy(rows)
-    #     assert get_rich_tender_line_items(tender_id) == orig_rows
 
     def test_rich_tender_line_items_returns_cursor_row_in_boundary_case(
         self, mock_cursor
