@@ -94,20 +94,92 @@ settings.load_profile("this_module")
 
 
 # ── Constants ─────────────────────────────────────────────────────
-GET_HANDLERS_NO_PATH = [
+GET_HANDLERS_NO_PATH_NO_QUERY = [
     get_department,
-    get_job_title,
     get_job_title_titles,
-    get_consumable,
     get_consumable_names,
-    get_service,
     get_service_slugs,
+    get_client_names,
+    get_tender_titles,
+]
+
+GET_HANDLERS_NO_PATH_WITH_QUERY = [
+    get_job_title,
+    get_consumable,
+    get_service,
     get_overhead_cost,
     get_labour_cost,
     get_direct_cost,
     get_client,
-    get_client_names,
     get_tender,
+]
+
+GET_HANDLERS_WITH_PATH_NO_QUERY = [
+    get_tender_single,
+]
+
+GET_HANDLERS_WITH_PATH_WITH_QUERY = [
+    get_tender_line_items,
+    get_rich_tender_line_items,
+]
+
+GET_HANDLERS = (
+    GET_HANDLERS_NO_PATH_NO_QUERY
+    + GET_HANDLERS_NO_PATH_WITH_QUERY
+    + GET_HANDLERS_WITH_PATH_NO_QUERY
+    + GET_HANDLERS_WITH_PATH_WITH_QUERY
+)
+
+TYPES = [
+    "no path, no query",
+    "no path, with query",
+    "with path, no query",
+    "with path, with query",
+]
+
+GET_HANDLER_TYPES = {
+    get_department: TYPES[0],
+    get_job_title_titles: TYPES[0],
+    get_consumable_names: TYPES[0],
+    get_service_slugs: TYPES[0],
+    get_client_names: TYPES[0],
+    get_tender_titles: TYPES[0],
+    get_job_title: TYPES[1],
+    get_consumable: TYPES[1],
+    get_service: TYPES[1],
+    get_overhead_cost: TYPES[1],
+    get_labour_cost: TYPES[1],
+    get_direct_cost: TYPES[1],
+    get_client: TYPES[1],
+    get_tender: TYPES[1],
+    get_tender_single: TYPES[2],
+    get_tender_line_items: TYPES[3],
+    get_rich_tender_line_items: TYPES[3],
+}
+
+
+GET_HANDLERS_WITH_CUSTOM_SORT_NO_PATH = [
+    get_job_title,
+    get_consumable,
+    get_service,
+    get_overhead_cost,
+    get_labour_cost,
+    get_direct_cost,
+    get_client,
+    get_tender,
+]
+
+GET_HANDLERS_WITH_CUSTOM_SORT_AND_PATH = [
+    get_tender_line_items,
+    get_rich_tender_line_items,
+]
+
+GET_HANDLERS_NO_PATH = GET_HANDLERS_WITH_CUSTOM_SORT_NO_PATH + [
+    get_department,
+    get_job_title_titles,
+    get_consumable_names,
+    get_service_slugs,
+    get_client_names,
     get_tender_titles,
 ]
 
@@ -391,7 +463,7 @@ def assert_sql_contains(sql_string, *phrases, in_order=False):
 class TestGetHandlersReturnCursorRows:
     """Property: every GET handler returns exactly what the cursor produced."""
 
-    @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
+    @pytest.mark.parametrize("handler", GET_HANDLERS)
     @given(
         rows=st.lists(
             st.dictionaries(
@@ -411,10 +483,15 @@ class TestGetHandlersReturnCursorRows:
     def test_all_cursor_rows_returned(self, mock_cursor, handler, rows):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
-            assert handler(Pagination()) == orig_rows
+        if GET_HANDLER_TYPES[handler] == TYPES[3]:
+            args = ("1", Pagination(), SortClauses())
+        elif GET_HANDLER_TYPES[handler] == TYPES[2]:
+            args = ("1",)
+        elif GET_HANDLER_TYPES[handler] == TYPES[1]:
+            args = (Pagination(), SortClauses())
         else:
-            assert handler() == orig_rows
+            args = tuple()
+        assert handler(*args) == orig_rows
 
     @pytest.mark.parametrize(
         "tender_id, row",

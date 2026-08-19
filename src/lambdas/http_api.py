@@ -1342,7 +1342,9 @@ def patch_tender(tender_id: str, body: Annotated[UpdateTender, Body()]) -> None:
 
 @app.get("/tender/line-items/<tender_id>")
 def get_tender_line_items(
-    tender_id: str, sort_clauses: Annotated[SortClauses, Query()]
+    tender_id: str,
+    pagination: Annotated[Pagination, Query()],
+    sort_clauses: Annotated[SortClauses, Query()],
 ) -> list:
     """GET method for tenders_services table"""
     max_per_page = 100
@@ -1408,7 +1410,9 @@ def get_tender_line_items(
 
 @app.get("/tender/line-items/rich/<tender_id>")
 def get_rich_tender_line_items(
-    tender_id: str, sort_clauses: Annotated[SortClauses, Query()]
+    tender_id: str,
+    pagination: Annotated[Pagination, Query()],
+    sort_clauses: Annotated[SortClauses, Query()],
 ) -> list:
     """Enriched GET method for tenders_services table"""
     max_per_page = 100
@@ -1557,7 +1561,7 @@ def get_rich_tender_line_items(
             ,ROUND({annual_total_gbp}, 2) AS annual_total_gbp
             ,ROUND({annual_profit_gbp}, 2) AS annual_profit_gbp
         FROM base
-        {{sort_clause_sql}}
+        {{sort_clause}}
         LIMIT {{per_page}}
         OFFSET {{offset}}
     """).format(
