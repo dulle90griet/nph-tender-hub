@@ -493,46 +493,47 @@ class TestGetHandlersReturnCursorRows:
             args = tuple()
         assert handler(*args) == orig_rows
 
-    @pytest.mark.parametrize(
-        "tender_id, row",
-        [
-            (
-                1,
-                {
-                    "id": 1,
-                    "tender_title": "Example Title",
-                    "client_id": 22,
-                    "client": "Example Client Name",
-                    "projected_sales_value_gbp": 20500,
-                    "date_created": datetime(2026, 3, 2),
-                },
-            ),
-            (
-                999,
-                {
-                    "id": 999,
-                    "tender_title": "Another Tender",
-                    "client_id": 301,
-                    "projected_sales_value_gbp": 43099,
-                    "date_created": datetime(2024, 12, 18),
-                },
-            ),
-            (
-                27,
-                {
-                    "id": 27,
-                    "tender_title": "Grimsby Services Health Drive",
-                    "client_id": 47,
-                    "projected_sales_value_gbp": 5000,
-                    "date_created": datetime(2025, 6, 30),
-                },
-            ),
-        ],
-    )
-    def test_tender_single_returns_cursor_row(self, mock_cursor, tender_id, row):
-        mock_cursor.fetchall.return_value = row
-        orig_row = deepcopy(row)
-        assert get_tender_single(tender_id) == orig_row
+    # DEPRECATED -- TO DELETE
+    # @pytest.mark.parametrize(
+    #     "tender_id, row",
+    #     [
+    #         (
+    #             1,
+    #             {
+    #                 "id": 1,
+    #                 "tender_title": "Example Title",
+    #                 "client_id": 22,
+    #                 "client": "Example Client Name",
+    #                 "projected_sales_value_gbp": 20500,
+    #                 "date_created": datetime(2026, 3, 2),
+    #             },
+    #         ),
+    #         (
+    #             999,
+    #             {
+    #                 "id": 999,
+    #                 "tender_title": "Another Tender",
+    #                 "client_id": 301,
+    #                 "projected_sales_value_gbp": 43099,
+    #                 "date_created": datetime(2024, 12, 18),
+    #             },
+    #         ),
+    #         (
+    #             27,
+    #             {
+    #                 "id": 27,
+    #                 "tender_title": "Grimsby Services Health Drive",
+    #                 "client_id": 47,
+    #                 "projected_sales_value_gbp": 5000,
+    #                 "date_created": datetime(2025, 6, 30),
+    #             },
+    #         ),
+    #     ],
+    # )
+    # def test_tender_single_returns_cursor_row(self, mock_cursor, tender_id, row):
+    #     mock_cursor.fetchall.return_value = row
+    #     orig_row = deepcopy(row)
+    #     assert get_tender_single(tender_id) == orig_row
 
     @pytest.mark.parametrize(
         "handler, rows",
