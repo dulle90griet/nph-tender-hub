@@ -567,8 +567,8 @@ class TestGetHandlersReturnCursorRows:
         """Each handler handles schema-limit values without error."""
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
-            assert handler(Pagination()) == orig_rows
+        if GET_HANDLER_TYPES[handler] == TYPES[1]:
+            assert handler(Pagination(), SortClauses()) == orig_rows
         else:
             assert handler() == orig_rows
 
@@ -620,7 +620,7 @@ class TestGetHandlersReturnCursorRows:
         ]
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
-        assert get_tender_line_items(1) == orig_rows
+        assert get_tender_line_items("1", Pagination(), SortClauses()) == orig_rows
 
     # DEPRECATED -- TO DELETE
     # @pytest.mark.parametrize("tender_id", ["1", "42"])
@@ -673,7 +673,7 @@ class TestGetHandlersReturnCursorRows:
         ]
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
-        assert get_rich_tender_line_items(1) == orig_rows
+        assert get_rich_tender_line_items(1, Pagination(), SortClauses()) == orig_rows
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -740,10 +740,7 @@ class TestPaginationClamping:
             "page": str(page),
             "per_page": str(per_page),
         }
-        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
-            handler(Pagination(page=page, per_page=per_page))
-        else:
-            handler()
+        handler(Pagination(page=page, per_page=per_page), SortClauses())
         sql = mock_cursor.execute.call_args[0][0].as_string()
         expected_offset = expected_limit * (expected_page - 1)
         assert_sql_contains(sql, f"LIMIT {expected_limit}", f"OFFSET {expected_offset}")
@@ -762,8 +759,8 @@ class TestHandlersCallExecuteOnce:
         GET_HANDLERS_NO_PATH_NO_QUERY + GET_HANDLERS_NO_PATH_WITH_QUERY,
     )
     def test_get_handlers_call_execute_once(self, mock_cursor, handler):
-        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
-            handler(Pagination())
+        if GET_HANDLER_TYPES[handler] == TYPES[1]:
+            handler(Pagination(), SortClauses())
         else:
             handler()
         assert mock_cursor.execute.call_count == 1
@@ -775,14 +772,14 @@ class TestHandlersCallExecuteOnce:
 
     @pytest.mark.parametrize("tender_id", ["1", "42"])
     def test_get_tender_line_items_calls_execute_once(self, mock_cursor, tender_id):
-        get_tender_line_items(tender_id)
+        get_tender_line_items(tender_id, Pagination(), SortClauses())
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize("tender_id", ["5", "999"])
     def test_get_rich_tender_line_items_calls_execute_once(
         self, mock_cursor, tender_id
     ):
-        get_rich_tender_line_items(tender_id)
+        get_rich_tender_line_items(tender_id, Pagination(), SortClauses())
         assert mock_cursor.execute.call_count == 1
 
     # ── POST handlers ─────────────────────────────────────────
@@ -1024,14 +1021,14 @@ class TestGetHandlersCustomSorting:
     @pytest.mark.parametrize(
         "handler, sort_string, expected_sort_sql",
         [
-            (get_tender_line_items, "-tender_id", '"tender_id" DESC'),
+            (get_tender_line_items, "-service_id", '"service_id" DESC'),
             (get_rich_tender_line_items, "service_category", '"service_category" ASC'),
         ],
     )
     def test_pathed_custom_sortable_get_handlers_SQL_reflects_single_level_params(
         self, mock_cursor, handler, sort_string, expected_sort_sql
     ):
-        handler(1, SortClauses(sort=sort_string))
+        handler(1, Pagination(), SortClauses(sort=sort_string))
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
@@ -1089,20 +1086,20 @@ class TestGetHandlersCustomSorting:
         [
             (
                 get_tender_line_items,
-                "tender_id,-service_name",
-                '"tender_id" ASC, "service_name" DESC',
+                "service_id,-total_number_pa",
+                '"service_id" ASC, "total_number_pa" DESC',
             ),
             (
                 get_rich_tender_line_items,
-                "-annual_sales_gbp,tender_title,-total_number_pa",
-                '"annual_sales_gbp" DESC, "tender_title" ASC, "total_number_pa" DESC',
+                "-annual_sales_gbp,profit_margin_gbp,-total_number_pa",
+                '"annual_sales_gbp" DESC, "profit_margin_gbp" ASC, "total_number_pa" DESC',
             ),
         ],
     )
     def test_pathed_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
         self, mock_cursor, handler, sort_string, expected_sort_sql
     ):
-        handler("1", SortClauses(sort=sort_string))
+        handler("1", Pagination(), SortClauses(sort=sort_string))
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
@@ -1136,7 +1133,7 @@ class TestGetHandlersCustomSorting:
         self, mock_cursor, handler, sort_string
     ):
         with pytest.raises(ValueError):
-            handler("1", SortClauses(sort=sort_string))
+            handler("1", Pagination(), SortClauses(sort=sort_string))
 
 
 # ══════════════════════════════════════════════════════════════════
