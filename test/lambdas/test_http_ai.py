@@ -1050,12 +1050,15 @@ class TestGetHandlersCustomSorting:
         "handler, sort_string",
         [
             (get_tender_line_items, "invalid_column"),
-            (get_tender_line_items, "enemy_count,-serviece_ctageory,faketable.fakecolumn"),
+            (
+                get_tender_line_items,
+                "enemy_count,-serviece_ctageory,faketable.fakecolumn",
+            ),
             (get_rich_tender_line_items, "invalid_column"),
             (get_rich_tender_line_items, "title,faketable.fakecolumn,-jt.id"),
         ],
     )
-    def test_pathless_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
+    def test_pathed_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
         self, mock_cursor, handler, sort_string
     ):
         with pytest.raises(ValueError):
