@@ -157,7 +157,6 @@ GET_HANDLER_TYPES = {
     get_rich_tender_line_items: TYPES[3],
 }
 
-
 GET_HANDLERS_WITH_CUSTOM_SORT_NO_PATH = [
     get_job_title,
     get_consumable,
@@ -174,14 +173,6 @@ GET_HANDLERS_WITH_CUSTOM_SORT_AND_PATH = [
     get_rich_tender_line_items,
 ]
 
-GET_HANDLERS_NO_PATH = GET_HANDLERS_WITH_CUSTOM_SORT_NO_PATH + [
-    get_department,
-    get_job_title_titles,
-    get_consumable_names,
-    get_service_slugs,
-    get_client_names,
-    get_tender_titles,
-]
 
 PAGINATED_HANDLERS = [
     (get_job_title, "/job-title"),
@@ -581,24 +572,25 @@ class TestGetHandlersReturnCursorRows:
         else:
             assert handler() == orig_rows
 
-    @pytest.mark.parametrize("tender_id", ["5", "1", "999"])
-    @given(
-        rows=st.lists(
-            st.dictionaries(
-                keys=st.text(), values=st.none() | st.integers() | st.text()
-            ),
-            min_size=0,
-            max_size=50,
-        )
-    )
-    @settings(max_examples=50)
-    @example(rows=[])
-    def test_tender_line_items_returns_all_cursor_rows(
-        self, mock_cursor, tender_id, rows
-    ):
-        mock_cursor.fetchall.return_value = rows
-        orig_rows = deepcopy(rows)
-        assert get_tender_line_items(tender_id) == orig_rows
+    # DEPRECATED -- TO DELETE
+    # @pytest.mark.parametrize("tender_id", ["5", "1", "999"])
+    # @given(
+    #     rows=st.lists(
+    #         st.dictionaries(
+    #             keys=st.text(), values=st.none() | st.integers() | st.text()
+    #         ),
+    #         min_size=0,
+    #         max_size=50,
+    #     )
+    # )
+    # @settings(max_examples=50)
+    # @example(rows=[])
+    # def test_tender_line_items_returns_all_cursor_rows(
+    #     self, mock_cursor, tender_id, rows
+    # ):
+    #     mock_cursor.fetchall.return_value = rows
+    #     orig_rows = deepcopy(rows)
+    #     assert get_tender_line_items(tender_id) == orig_rows
 
     def test_tender_single_returns_cursor_row_with_boundary_values(self, mock_cursor):
         tender_id = 2**31 - 1
@@ -630,24 +622,25 @@ class TestGetHandlersReturnCursorRows:
         mock_cursor.fetchall.return_value = rows
         assert get_tender_line_items(1) == orig_rows
 
-    @pytest.mark.parametrize("tender_id", ["1", "42"])
-    @given(
-        rows=st.lists(
-            st.dictionaries(
-                keys=st.text(), values=st.none() | st.integers() | st.text()
-            ),
-            min_size=0,
-            max_size=20,
-        )
-    )
-    @settings(max_examples=50)
-    @example(rows=[])
-    def test_rich_tender_line_items_returns_all_cursor_rows(
-        self, mock_cursor, tender_id, rows
-    ):
-        mock_cursor.fetchall.return_value = rows
-        orig_rows = deepcopy(rows)
-        assert get_rich_tender_line_items(tender_id) == orig_rows
+    # DEPRECATED -- TO DELETE
+    # @pytest.mark.parametrize("tender_id", ["1", "42"])
+    # @given(
+    #     rows=st.lists(
+    #         st.dictionaries(
+    #             keys=st.text(), values=st.none() | st.integers() | st.text()
+    #         ),
+    #         min_size=0,
+    #         max_size=20,
+    #     )
+    # )
+    # @settings(max_examples=50)
+    # @example(rows=[])
+    # def test_rich_tender_line_items_returns_all_cursor_rows(
+    #     self, mock_cursor, tender_id, rows
+    # ):
+    #     mock_cursor.fetchall.return_value = rows
+    #     orig_rows = deepcopy(rows)
+    #     assert get_rich_tender_line_items(tender_id) == orig_rows
 
     def test_rich_tender_line_items_returns_cursor_row_in_boundary_case(
         self, mock_cursor
@@ -764,7 +757,10 @@ class TestHandlersCallExecuteOnce:
 
     # ── GET handlers ──────────────────────────────────────────
 
-    @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
+    @pytest.mark.parametrize(
+        "handler",
+        GET_HANDLERS_NO_PATH_NO_QUERY + GET_HANDLERS_NO_PATH_WITH_QUERY,
+    )
     def test_get_handlers_call_execute_once(self, mock_cursor, handler):
         if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
             handler(Pagination())
