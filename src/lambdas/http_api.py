@@ -1432,12 +1432,8 @@ def get_tender_line_items(
 ) -> list:
     """GET method for tenders_services table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     sort_clause_sql = ""
@@ -1501,12 +1497,8 @@ def get_rich_tender_line_items(
 ) -> list:
     """Enriched GET method for tenders_services table"""
     max_per_page = 100
-
-    page = app.current_event.query_string_parameters.get("page", 1)
-    page = max(int(page), 1)
-    per_page = app.current_event.query_string_parameters.get("per_page", 10)
-    per_page = min(max(int(per_page), 1), max_per_page)
-
+    page = max(int(pagination.page), 1)
+    per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     overhead_recovery_on_labour_cost_gbp = """
