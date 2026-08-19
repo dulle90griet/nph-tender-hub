@@ -731,6 +731,18 @@ class TestPaginationClamping:
             (get_tender, 10, 10, 10, 10),
             (get_tender, 3, 250, 3, 100),
             (get_tender, -700, 10000, 1, 100),
+            # get_tender_line_items
+            (get_tender_line_items, -3, 10, 1, 10),
+            (get_tender_line_items, 3, -3, 3, 1),
+            (get_tender_line_items, 4, 10, 4, 10),
+            (get_tender_line_items, 3, 99999, 3, 100),
+            (get_tender_line_items, -9, 999, 1, 100),
+            # get_rich_tender_line_items
+            (get_rich_tender_line_items, -99, 50, 1, 50),
+            (get_rich_tender_line_items, 2, -99, 2, 1),
+            (get_rich_tender_line_items, 3, 50, 3, 50),
+            (get_rich_tender_line_items, 2, 101, 2, 100),
+            (get_rich_tender_line_items, -2, 100000, 1, 100),
         ],
     )
     def test_pagination_clamped(
@@ -740,7 +752,10 @@ class TestPaginationClamping:
             "page": str(page),
             "per_page": str(per_page),
         }
-        handler(Pagination(page=page, per_page=per_page), SortClauses())
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler("1", Pagination(page=page, per_page=per_page), SortClauses())
+        else:
+            handler(Pagination(page=page, per_page=per_page), SortClauses())
         sql = mock_cursor.execute.call_args[0][0].as_string()
         expected_offset = expected_limit * (expected_page - 1)
         assert_sql_contains(sql, f"LIMIT {expected_limit}", f"OFFSET {expected_offset}")
