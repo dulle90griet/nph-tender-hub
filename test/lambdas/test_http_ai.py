@@ -1767,7 +1767,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
 # ══════════════════════════════════════════════════════════════════
 # Handlers handle invalid query parameters gracefully
 # ══════════════════════════════════════════════════════════════════
-class TestInvalidQueryParameters:
+class TestAPIResolverWithInvalidQueryParameters:
     @pytest.mark.disable_autouse
     @pytest.mark.parametrize(
         "bad_params, bad_field",
@@ -2009,7 +2009,7 @@ PATCH_ENDPOINTS = [
 ]
 
 
-class TestInvalidBody:
+class TestAPIResolverWithInvalidBody:
     @pytest.mark.disable_autouse
     @pytest.mark.parametrize(
         "method, path, body, expected_loc",
