@@ -1093,7 +1093,7 @@ class TestGetHandlersCustomSorting:
                 '"overhead_recovery_on_labour_percentage" ASC',
             ),
             (get_overhead_cost, "-cost_type", '"cost_type" DESC'),
-            (get_labour_cost, "lc.required_time_mins", '"lc"."required_time_mins" ASC'),
+            (get_labour_cost, "required_time_mins", '"required_time_mins" ASC'),
             (get_direct_cost, "cost_gbp", '"cost_gbp" ASC'),
             (get_client, "-client_name", '"client_name" DESC'),
             (get_tender, "date_created", '"date_created" ASC'),
@@ -1157,8 +1157,8 @@ class TestGetHandlersCustomSorting:
             ),
             (
                 get_tender,
-                "-t.projected_sales_value_gbp,client",
-                '"t"."projected_sales_value_gbp" DESC, "client" ASC',
+                "-projected_sales_value_gbp,client",
+                '"projected_sales_value_gbp" DESC, "client" ASC',
             ),
         ],
     )
@@ -1198,6 +1198,20 @@ class TestGetHandlersCustomSorting:
         [
             (get_job_title, "invalid_column"),
             (get_job_title, "title,faketable.fakecolumn,-jt.id"),
+            (get_consumable, "invalid_column"),
+            (get_consumable, "-faketable.fakecolumn,consumable_name,jrilto"),
+            (get_service, "invalid_column"),
+            (get_service, "pillar,comments,faketable.fakecolumn"),
+            (get_overhead_cost, "invalid_column"),
+            (get_overhead_cost, "lightbulbs_included,faketable.fakecolumn,-cost_type"),
+            (get_labour_cost, "invalid_column"),
+            (get_labour_cost, "faketable.fakecolumn,-servizio,required_time_mins"),
+            (get_direct_cost, "invalid_column"),
+            (get_direct_cost, "-lines_per_page,faketable.fakecolumn,cost_gbp"),
+            (get_client, "invalid_column"),
+            (get_client, "client_name,-sprezzatura,-faketable.fakecolumn"),
+            (get_tender, "invalid_column"),
+            (get_tender, "-faketable.fakecolumn,projected_sales_value_gbp,client"),
         ],
     )
     def test_pathless_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
@@ -1212,7 +1226,7 @@ class TestGetHandlersCustomSorting:
             (get_tender_line_items, "invalid_column"),
             (
                 get_tender_line_items,
-                "enemy_count,-serviece_ctageory,faketable.fakecolumn",
+                "enemy_count,-service_category,faketable.fakecolumn",
             ),
             (get_rich_tender_line_items, "invalid_column"),
             (get_rich_tender_line_items, "title,faketable.fakecolumn,-jt.id"),
