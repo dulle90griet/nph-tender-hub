@@ -31,40 +31,40 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
+# --- DEPRECATED: TO DELETE ---------------------------------------
+# def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
+#     """
+#     Build a single- or multi-level ORDER BY clause,
+#     using the supplied fields and arguments.
 
-def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
-    """
-    Build a single- or multi-level ORDER BY clause,
-    using the supplied fields and arguments.
+#     Args:
+#         *sort_pairs: One or more tuples of (column_name, sort_order)
+#             sort criteria. column_name may contain only a column alias
+#             or a two-part qualified reference (table.column). sort_order
+#             must be "ASC" or "DESC" (case-insensitive). The pairs are
+#             applied in the order supplied, creating a multi-level sort.
+#     """
 
-    Args:
-        *sort_pairs: One or more tuples of (column_name, sort_order)
-            sort criteria. column_name may contain only a column alias
-            or a two-part qualified reference (table.column). sort_order
-            must be "ASC" or "DESC" (case-insensitive). The pairs are
-            applied in the order supplied, creating a multi-level sort.
-    """
+#     sort_parts = []
+#     for sort_column, sort_order in sort_pairs:
+#         column_parts = sort_column.split(".")
+#         if len(column_parts) == 1:
+#             sort_column = Identifier(sort_column)
+#         elif len(column_parts) == 2:
+#             sort_column = Identifier(*column_parts)
+#         elif len(column_parts) > 2:
+#             raise ValueError(
+#                 f"Qualified reference of more than two parts: {sort_column}"
+#             )
 
-    sort_parts = []
-    for sort_column, sort_order in sort_pairs:
-        column_parts = sort_column.split(".")
-        if len(column_parts) == 1:
-            sort_column = Identifier(sort_column)
-        elif len(column_parts) == 2:
-            sort_column = Identifier(*column_parts)
-        elif len(column_parts) > 2:
-            raise ValueError(
-                f"Qualified reference of more than two parts: {sort_column}"
-            )
+#         if sort_order.upper() not in ("ASC", "DESC"):
+#             raise ValueError(f"Invalid order: {sort_order}")
 
-        if sort_order.upper() not in ("ASC", "DESC"):
-            raise ValueError(f"Invalid order: {sort_order}")
+#         sort_part = sort_column + SQL(f" {sort_order.upper()}")
+#         sort_parts.append(sort_part)
 
-        sort_part = sort_column + SQL(f" {sort_order.upper()}")
-        sort_parts.append(sort_part)
-
-    sort_clause = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
-    return sort_clause
+#     sort_clause = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
+#     return sort_clause
 
 
 def filter_by_whitelist(
@@ -164,12 +164,40 @@ class SortClauses(BaseModel):
     # sort: dict = None
 
     @field_validator("clauses")
-    def validate_no_duplaces(cls, value: list[SortClause]) -> list[SortClause]:
+    @classmethod
+    def validate_no_duplicates(cls, value: list[SortClause]) -> list[SortClause]:
         """Confirm the provided list features each column at most once."""
         columns = [c.column for c in value]
         if len(columns) != len(set(columns)):
             raise ValueError("Duplicate sort column provided")
         return value
+
+    def build_sort_clause(self) -> Composable:
+        """
+        Build a single- or multi-level ORDER BY clause
+        using the contents of the SortClause object's `clauses` list.
+        """
+        if not self.clauses:
+            return SQL("")
+
+        sort_parts = []
+        for c in self.clauses:
+            column_parts = c.column.split(".")
+            if len(column_parts) <= 2:
+                sort_column = Identifier(*column_parts)
+            else:
+                raise ValueError(
+                    f"Qualified reference of more than two parts: {c.column}"
+                )
+
+            if c.direction.upper() not in ("ASC", "DESC"):
+                raise ValueError(f"Invalid order: {c.direction}")
+
+            sort_part = sort_column + SQL(f" {c.direction.upper()}")
+            sort_parts.append(sort_part)
+
+        sort_clause = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
+        return sort_clause
 
     # -- DEPRECATED: TO DELETE ----------------------------------------------
     # @field_validator("sort", mode="before")
