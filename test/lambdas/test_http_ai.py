@@ -19,7 +19,6 @@ from polyfactory.factories.pydantic_factory import ModelFactory
 from src.lambdas.http_api import (
     logger,
     app,
-    build_sort_clause,
     parse_sort_strings,
     filter_by_whitelist,
     Pagination,
@@ -770,26 +769,6 @@ class TestHandlersCallExecuteOnce:
                 sort=SORT_TO_TEST[handler],
             )
         assert mock_cursor.execute.call_count == 1
-
-    # DEPRECATED -- TO DELETE
-    # @pytest.mark.parametrize("tender_id", [1, 10, 999, 102345])
-    # def test_tender_single_calls_execute_once(self, mock_cursor, tender_id):
-    #     get_tender_single(tender_id)
-    #     assert mock_cursor.execute.call_count == 1
-
-    # DEPRECATED -- TO DELETE
-    # @pytest.mark.parametrize("tender_id", ["1", "42"])
-    # def test_get_tender_line_items_calls_execute_once(self, mock_cursor, tender_id):
-    #     get_tender_line_items(tender_id, Pagination(), SortClauses())
-    #     assert mock_cursor.execute.call_count == 1
-
-    # DEPRECATED -- TO DELETE
-    # @pytest.mark.parametrize("tender_id", ["5", "999"])
-    # def test_get_rich_tender_line_items_calls_execute_once(
-    #     self, mock_cursor, tender_id
-    # ):
-    #     get_rich_tender_line_items(tender_id, Pagination(), SortClauses())
-    #     assert mock_cursor.execute.call_count == 1
 
     # ── POST handlers ─────────────────────────────────────────
 

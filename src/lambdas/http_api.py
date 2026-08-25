@@ -31,41 +31,6 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger("logger")
 logger.setLevel(logging.INFO)
 
-# --- DEPRECATED: TO DELETE ---------------------------------------
-# def build_sort_clause(*sort_pairs: tuple[str]) -> Composable:
-#     """
-#     Build a single- or multi-level ORDER BY clause,
-#     using the supplied fields and arguments.
-
-#     Args:
-#         *sort_pairs: One or more tuples of (column_name, sort_order)
-#             sort criteria. column_name may contain only a column alias
-#             or a two-part qualified reference (table.column). sort_order
-#             must be "ASC" or "DESC" (case-insensitive). The pairs are
-#             applied in the order supplied, creating a multi-level sort.
-#     """
-
-#     sort_parts = []
-#     for sort_column, sort_order in sort_pairs:
-#         column_parts = sort_column.split(".")
-#         if len(column_parts) == 1:
-#             sort_column = Identifier(sort_column)
-#         elif len(column_parts) == 2:
-#             sort_column = Identifier(*column_parts)
-#         elif len(column_parts) > 2:
-#             raise ValueError(
-#                 f"Qualified reference of more than two parts: {sort_column}"
-#             )
-
-#         if sort_order.upper() not in ("ASC", "DESC"):
-#             raise ValueError(f"Invalid order: {sort_order}")
-
-#         sort_part = sort_column + SQL(f" {sort_order.upper()}")
-#         sort_parts.append(sort_part)
-
-#     sort_clause = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
-#     return sort_clause
-
 
 def filter_by_whitelist(
     list_to_filter: list, whitelist: list, mode: str = "strict"
@@ -224,33 +189,6 @@ class SortClauses(BaseModel):
 
         sort_clause = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
         return sort_clause
-
-    # -- DEPRECATED: TO DELETE ----------------------------------------------
-    # @field_validator("sort", mode="before")
-    # @classmethod
-    # def parse_sort_clauses(cls, value: str | List[str]) -> dict:
-    #     """
-    #     Parse a string sort list in the format "col1,-col2,col3"
-    #     (where "-" is descending) into a dict of sort columns and sort orders.
-    #     """
-    #     logger.info("Prevalidating new SortClauses input with value %s", value)
-
-    #     sort_clause_dict = {}  # dicts retain insertion order since Python 3.7
-    #     sort_clauses_split = value.split(",")
-    #     for sort_clause in sort_clauses_split:
-    #         if sort_clause:
-    #             if sort_clause[0] == "-" and len(sort_clause) >= 2:
-    #                 order = "DESC"
-    #                 column = sort_clause[1:]
-    #             elif len(sort_clause) >= 1:
-    #                 order = "ASC"
-    #                 column = sort_clause
-    #             else:
-    #                 continue
-    #             if column in sort_clause_dict:
-    #                 raise ValueError("Duplicate sort column provided.")
-    #             sort_clause_dict[column] = order
-    #     return sort_clause_dict
 
 
 def parse_sort_strings(sort_strings: list[str]) -> list[SortClause]:
