@@ -4,7 +4,7 @@ from datetime import datetime
 import json
 import logging
 
-from typing import Optional, TypeVar, ClassVar, Type, TypeAlias
+from typing import Optional, TypeVar, ClassVar, Type, TypeAlias, Literal
 from typing_extensions import Annotated
 from pydantic import (
     RootModel,
@@ -154,32 +154,68 @@ class Pagination(BaseModel):
     per_page: Optional[int] = 10
 
 
-class SortClauses(BaseModel):
-    sort: dict = None
+class SortClause(BaseModel):
+    column: str
+    direction: Literal["ASC", "DESC"] = "ASC"
 
-    @field_validator("sort", mode="before")
-    @classmethod
-    def parse_sort_clauses(cls, value: str) -> dict:
-        """
-        Parse a string sort list in the format "col1,-col2,col3"
-        (where "-" is descending) into a dict of sort columns and sort orders.
-        """
-        sort_clause_dict = {}  # dicts retain insertion order since Python 3.7
-        sort_clauses_split = value.split(",")
-        for sort_clause in sort_clauses_split:
-            if sort_clause:
-                if sort_clause[0] == "-" and len(sort_clause) >= 2:
-                    order = "DESC"
-                    column = sort_clause[1:]
-                elif len(sort_clause) >= 1:
-                    order = "ASC"
-                    column = sort_clause
-                else:
-                    continue
-                if column in sort_clause_dict:
-                    raise ValueError("Duplicate sort column provided.")
-                sort_clause_dict[column] = order
-        return sort_clause_dict
+
+class SortClauses(BaseModel):
+    clauses: list[SortClause] = Field(default_factory=list)
+    # sort: dict = None
+
+    @field_validator("clauses")
+    def validate_no_duplaces(cls, value: list[SortClause]) -> list[SortClause]:
+        """Confirm the provided list features each column at most once."""
+        columns = [c.column for c in value]
+        if len(columns) != len(set(columns)):
+            raise ValueError("Duplicate sort column provided")
+        return value
+
+    # -- DEPRECATED: TO DELETE ----------------------------------------------
+    # @field_validator("sort", mode="before")
+    # @classmethod
+    # def parse_sort_clauses(cls, value: str | List[str]) -> dict:
+    #     """
+    #     Parse a string sort list in the format "col1,-col2,col3"
+    #     (where "-" is descending) into a dict of sort columns and sort orders.
+    #     """
+    #     logger.info("Prevalidating new SortClauses input with value %s", value)
+
+    #     sort_clause_dict = {}  # dicts retain insertion order since Python 3.7
+    #     sort_clauses_split = value.split(",")
+    #     for sort_clause in sort_clauses_split:
+    #         if sort_clause:
+    #             if sort_clause[0] == "-" and len(sort_clause) >= 2:
+    #                 order = "DESC"
+    #                 column = sort_clause[1:]
+    #             elif len(sort_clause) >= 1:
+    #                 order = "ASC"
+    #                 column = sort_clause
+    #             else:
+    #                 continue
+    #             if column in sort_clause_dict:
+    #                 raise ValueError("Duplicate sort column provided.")
+    #             sort_clause_dict[column] = order
+    #     return sort_clause_dict
+
+
+def parse_sort_strings(sort_strings: str) -> list[SortClause]:
+    """
+    Parse a list of sort strings in the format "col1,-col2,col3"
+    (where "-" is descending) into a list of SortClause objects.
+    """
+    if not sort_strings:
+        return []
+
+    clauses = []
+    for sort_string in sort_strings:
+        if not sort_string:
+            continue
+        if sort_string[0] == "-" and len(sort_string) >= 2:
+            clauses.append(SortClause(column=sort_string[1:], direction="DESC"))
+        else:
+            clauses.append(SortClause(column=sort_string, direction="ASC"))
+    return clauses
 
 
 # class Department(BaseModel):
