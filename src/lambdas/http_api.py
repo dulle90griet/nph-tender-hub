@@ -506,16 +506,17 @@ def get_department() -> None:
 @app.get("/job-title")
 def get_job_title(
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """GET method for job_title table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
 
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = [
             "jt.id",
             "department",
@@ -528,10 +529,12 @@ def get_job_title(
             "default_annual_sick_days",
         ]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(
             ("department", "ASC"),
@@ -642,26 +645,29 @@ def patch_job_title(job_title_id: str, body: Annotated[UpdateJobTitle, Body()]) 
 @app.get("/consumable")
 def get_consumable(
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """GET method for consumable table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
 
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = [
             "id",
             "consumable_name",
             "default_unit_cost_gbp",
         ]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(("consumable_name", "ASC"))
 
@@ -754,16 +760,17 @@ def patch_consumable(
 @app.get("/service")
 def get_service(
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """GET method for service table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
 
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = [
             "id",
             "pillar",
@@ -779,10 +786,12 @@ def get_service(
             "comments",
         ]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(
             ("pillar", "ASC"),
@@ -890,16 +899,17 @@ def patch_service(service_id: str, body: Annotated[UpdateService, Body()]) -> No
 @app.get("/overhead-cost")
 def get_overhead_cost(
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """GET method for overhead_cost table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
 
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = [
             "id",
             "cost_type",
@@ -907,10 +917,12 @@ def get_overhead_cost(
             "budgeted_spend_gbp",
         ]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(
             ("cost_type", "ASC"),
@@ -987,7 +999,7 @@ def patch_overhead_cost(
 @app.get("/labour-cost")
 def get_labour_cost(
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """GET method for labour_cost table"""
     max_per_page = 100
@@ -995,8 +1007,13 @@ def get_labour_cost(
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
+    logger.info("Received sort list: %s", sort)
+
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
+    logger.info("Generated SortClauses object: %s", sort_clauses)
+
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = [
             "service_id",
             "service",
@@ -1005,15 +1022,23 @@ def get_labour_cost(
             "required_time_mins",
         ]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
+        )
+        logger.info(
+            "Whitelisted sort columns: "
+            + "; ".join(["%s"] * len(sort_columns_whitelisted)),
+            *sort_columns_whitelisted,
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(
             ("service", "ASC"),
             ("title_engaged", "ASC"),
         )
+        logger.info("Generated sort clause SQL: %s", sort_clause_sql)
 
     get_labour_cost_sql = SQL("""
         SELECT
@@ -1099,16 +1124,17 @@ def patch_labour_cost(
 @app.get("/direct-cost")
 def get_direct_cost(
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """GET method for direct_cost table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
 
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = [
             "service_id",
             "service",
@@ -1117,10 +1143,12 @@ def get_direct_cost(
             "cost_gbp",
         ]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(
             ("service", "ASC"),
@@ -1211,22 +1239,25 @@ def patch_direct_cost(
 @app.get("/client")
 def get_client(
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """GET method for client table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
 
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = ["id", "client_name"]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(("client_name", "ASC"))
 
@@ -1318,16 +1349,17 @@ def patch_client(client_id: str, body: Annotated[UpdateClient, Body()]) -> None:
 @app.get("/tender")
 def get_tender(
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """GET method for tender table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
 
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = [
             "id",
             "tender_title",
@@ -1337,10 +1369,12 @@ def get_tender(
             "date_created",
         ]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(("t.date_created", "DESC"))
 
@@ -1464,16 +1498,17 @@ def patch_tender(tender_id: str, body: Annotated[UpdateTender, Body()]) -> None:
 def get_tender_line_items(
     tender_id: str,
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """GET method for tenders_services table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
 
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = [
             "service_id",
             "service",
@@ -1481,10 +1516,12 @@ def get_tender_line_items(
             "unit_price_override_gbp",
         ]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(
             ("s.service_name", "ASC"),
@@ -1529,13 +1566,14 @@ def get_tender_line_items(
 def get_rich_tender_line_items(
     tender_id: str,
     pagination: Annotated[Pagination, Query()],
-    sort_clauses: Annotated[SortClauses, Query()],
+    sort: Annotated[list[str], Query()],
 ) -> list:
     """Enriched GET method for tenders_services table"""
     max_per_page = 100
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+    sort_clauses = SortClauses(clauses=parse_sort_strings(sort))
 
     overhead_recovery_on_labour_cost_gbp = """
         base.labour_cost_gbp * base.overhead_recovery_on_labour_percentage / 100
@@ -1568,7 +1606,7 @@ def get_rich_tender_line_items(
     """
 
     sort_clause_sql = ""
-    if sort_clauses.sort:
+    if sort_clauses.clauses:
         valid_sort_columns = [
             "service_category",
             "service_id",
@@ -1592,10 +1630,12 @@ def get_rich_tender_line_items(
             "annual_profit_gbp",
         ]
         sort_columns_whitelisted = filter_by_whitelist(
-            list(sort_clauses.sort.keys()), valid_sort_columns, mode="strict"
+            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = build_sort_clause(*list(sort_clauses.sort.items()))
+            sort_clause_sql = build_sort_clause(
+                *[(c.column, c.direction) for c in sort_clauses.clauses]
+            )
     else:
         sort_clause_sql = build_sort_clause(
             ("base.service_category", "ASC"),
