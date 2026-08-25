@@ -163,6 +163,32 @@ class SortClauses(BaseModel):
     clauses: list[SortClause] = Field(default_factory=list)
     # sort: dict = None
 
+    def __init__(self, *sort_strings, **kwargs):
+        """
+        Initialize SortClauses from either SortClause objects
+        or sort strings.
+
+        Supports multiple invocation styles:
+        - From existing SortClause objects:
+            SortClauses(clauses=[...])
+        - From individual sort strings:
+            SortClauses("-service_id", "title_engaged")
+        - From a list of sort strings:
+            SortClauses(["-service_id", "title_engaged"])
+
+        Raises:
+            ValueError: If duplicate columns are detected in the
+                sort clauses.
+        """
+        if len(sort_strings) == 1 and isinstance(sort_strings[0], list):
+            clauses = parse_sort_strings(list(sort_strings[0]))
+            super().__init__(clauses=clauses)
+        elif sort_strings:
+            clauses = parse_sort_strings(list(sort_strings))
+            super().__init__(clauses=clauses)
+        else:
+            super().__init__(**kwargs)
+
     @field_validator("clauses")
     @classmethod
     def validate_no_duplicates(cls, value: list[SortClause]) -> list[SortClause]:
