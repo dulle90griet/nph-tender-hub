@@ -20,10 +20,11 @@ from src.lambdas.http_api import (
     logger,
     app,
     build_sort_clause,
-    # parse_sort_strings,
+    parse_sort_strings,
     filter_by_whitelist,
     Pagination,
-    # SortClauses,
+    SortClause,
+    SortClauses,
     CustomJSONEncoder,
     # Department,
     JobTitle,
@@ -811,8 +812,46 @@ class TestHandlersCallExecuteOnce:
 
 
 # ══════════════════════════════════════════════════════════════════
-# Sort-clause helper function
+# Sort-clause helper functions
 # ══════════════════════════════════════════════════════════════════
+class TestParseSortStrings:
+    def test_single_sort_string_parsed_to_single_correct_sortclause(self):
+        assert parse_sort_strings(["test_column"]) == [
+            SortClause(column="test_column", direction="ASC")
+        ]
+        assert parse_sort_strings(["-another_column_name"]) == [
+            SortClause(column="another_column_name", direction="DESC")
+        ]
+
+    def test_n_sort_strings_parsed_to_n_correct_sortclauses(self):
+        assert parse_sort_strings(
+            ["first_column", "-second_column", "third_column"]
+        ) == [
+            SortClause(column="first_column", direction="ASC"),
+            SortClause(column="second_column", direction="DESC"),
+            SortClause(column="third_column", direction="ASC"),
+        ]
+        assert parse_sort_strings(["-A", "B", "-C"]) == [
+            SortClause(column="A", direction="DESC"),
+            SortClause(column="B", direction="ASC"),
+            SortClause(column="C", direction="DESC"),
+        ]
+
+    def test_empty_sort_strings_excluded_from_returned_list(self):
+        assert parse_sort_strings([]) == []
+        assert parse_sort_strings(["", "B"]) == [
+            SortClause(column="B", direction="ASC")
+        ]
+        assert parse_sort_strings(["A", "", "-C"]) == [
+            SortClause(column="A", direction="ASC"),
+            SortClause(column="C", direction="DESC"),
+        ]
+        assert parse_sort_strings(["-A", "B", ""]) == [
+            SortClause(column="A", direction="DESC"),
+            SortClause(column="B", direction="ASC"),
+        ]
+
+
 class TestSortClauseHelper:
     def test_build_sort_clause_forms_valid_single_order_SQL(self):
         assert (
