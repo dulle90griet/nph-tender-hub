@@ -39,12 +39,12 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: "auto"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6.2.2
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           aws-access-key-id:
             ${{ secrets.AWS_ACCESS_KEY_ID }}
