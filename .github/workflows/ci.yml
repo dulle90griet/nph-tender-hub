@@ -30,13 +30,13 @@ jobs:
       short_sha_merge: ${{ steps.manifest-and-shas.outputs.short_sha_merge }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Ensure unshallow fetch to allow for merge-base checks
           fetch-depth: 0 
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: "auto"
 
@@ -50,7 +50,7 @@ jobs:
 
       - name: Configure AWS credentials
         id: configure-aws
-        uses: aws-actions/configure-aws-credentials@v6.0.0
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           aws-access-key-id:
             ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -122,7 +122,7 @@ jobs:
           echo "short_sha_merge=$SHORT_SHA_MERGE" >> $GITHUB_OUTPUT
       
       - name: Upload manifest artefact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: base-manifest-${{ github.run_id }}
           path: manifest.json
@@ -247,10 +247,10 @@ jobs:
       upload_artefacts_outcome: ${{ steps.upload-code-artefacts.outcome }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: "auto"
 
@@ -265,7 +265,7 @@ jobs:
       
       - name: Configure AWS credentials
         id: configure-aws
-        uses: aws-actions/configure-aws-credentials@v6.0.0
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           aws-access-key-id:
             ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -340,13 +340,13 @@ jobs:
           needs.python-test-and-deploy.result != 'cancelled' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Ensure unshallow fetch to allow for merge-base checks
           fetch-depth: 0 
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           enable-cache: "auto"
 
@@ -357,7 +357,7 @@ jobs:
 
       - name: Configure AWS credentials
         id: configure-aws
-        uses: aws-actions/configure-aws-credentials@v6.0.0
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           aws-access-key-id:
             ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -373,7 +373,7 @@ jobs:
 
       - name: Download manifest artifact
         id: download-manifest
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: base-manifest-${{ github.run_id }}
 
@@ -788,7 +788,7 @@ jobs:
     steps:
       - name: Configure AWS credentials
         id: configure-aws
-        uses: aws-actions/configure-aws-credentials@v6.0.0
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           aws-access-key-id:
             ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -845,10 +845,10 @@ jobs:
         ! contains(needs.*.result, 'cancelled') }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6.0.0
+        uses: aws-actions/configure-aws-credentials@v6.2.3
         with:
           aws-access-key-id:
             ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -859,7 +859,7 @@ jobs:
 
       - name: Download manifest artifact
         id: download-manifest
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: base-manifest-${{ github.run_id }}
 

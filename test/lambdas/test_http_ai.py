@@ -19,8 +19,11 @@ from polyfactory.factories.pydantic_factory import ModelFactory
 from src.lambdas.http_api import (
     logger,
     app,
-    build_sort_clause,
+    parse_sort_strings,
+    filter_by_whitelist,
     Pagination,
+    SortClause,
+    SortClauses,
     CustomJSONEncoder,
     # Department,
     JobTitle,
@@ -92,22 +95,85 @@ settings.load_profile("this_module")
 
 
 # ── Constants ─────────────────────────────────────────────────────
-GET_HANDLERS_NO_PATH = [
+GET_HANDLERS_NO_PATH_NO_QUERY = [
     get_department,
-    get_job_title,
     get_job_title_titles,
-    get_consumable,
     get_consumable_names,
-    get_service,
     get_service_slugs,
+    get_client_names,
+    get_tender_titles,
+]
+
+GET_HANDLERS_NO_PATH_WITH_QUERY = [
+    get_job_title,
+    get_consumable,
+    get_service,
     get_overhead_cost,
     get_labour_cost,
     get_direct_cost,
     get_client,
-    get_client_names,
     get_tender,
-    get_tender_titles,
 ]
+
+GET_HANDLERS_WITH_PATH_NO_QUERY = [
+    get_tender_single,
+]
+
+GET_HANDLERS_WITH_PATH_WITH_QUERY = [
+    get_tender_line_items,
+    get_rich_tender_line_items,
+]
+
+GET_HANDLERS = (
+    GET_HANDLERS_NO_PATH_NO_QUERY
+    + GET_HANDLERS_NO_PATH_WITH_QUERY
+    + GET_HANDLERS_WITH_PATH_NO_QUERY
+    + GET_HANDLERS_WITH_PATH_WITH_QUERY
+)
+
+TYPES = [
+    "no path, no query",
+    "no path, with query",
+    "with path, no query",
+    "with path, with query",
+]
+
+GET_HANDLER_TYPES = {
+    get_department: TYPES[0],
+    get_job_title_titles: TYPES[0],
+    get_consumable_names: TYPES[0],
+    get_service_slugs: TYPES[0],
+    get_client_names: TYPES[0],
+    get_tender_titles: TYPES[0],
+    get_job_title: TYPES[1],
+    get_consumable: TYPES[1],
+    get_service: TYPES[1],
+    get_overhead_cost: TYPES[1],
+    get_labour_cost: TYPES[1],
+    get_direct_cost: TYPES[1],
+    get_client: TYPES[1],
+    get_tender: TYPES[1],
+    get_tender_single: TYPES[2],
+    get_tender_line_items: TYPES[3],
+    get_rich_tender_line_items: TYPES[3],
+}
+
+GET_HANDLERS_WITH_CUSTOM_SORT_NO_PATH = [
+    get_job_title,
+    get_consumable,
+    get_service,
+    get_overhead_cost,
+    get_labour_cost,
+    get_direct_cost,
+    get_client,
+    get_tender,
+]
+
+GET_HANDLERS_WITH_CUSTOM_SORT_AND_PATH = [
+    get_tender_line_items,
+    get_rich_tender_line_items,
+]
+
 
 PAGINATED_HANDLERS = [
     (get_job_title, "/job-title"),
@@ -389,7 +455,7 @@ def assert_sql_contains(sql_string, *phrases, in_order=False):
 class TestGetHandlersReturnCursorRows:
     """Property: every GET handler returns exactly what the cursor produced."""
 
-    @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
+    @pytest.mark.parametrize("handler", GET_HANDLERS)
     @given(
         rows=st.lists(
             st.dictionaries(
@@ -409,51 +475,15 @@ class TestGetHandlersReturnCursorRows:
     def test_all_cursor_rows_returned(self, mock_cursor, handler, rows):
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
-            assert handler(Pagination()) == orig_rows
+        if GET_HANDLER_TYPES[handler] == TYPES[3]:
+            args = ("1", Pagination(), [])
+        elif GET_HANDLER_TYPES[handler] == TYPES[2]:
+            args = ("1",)
+        elif GET_HANDLER_TYPES[handler] == TYPES[1]:
+            args = (Pagination(), [])
         else:
-            assert handler() == orig_rows
-
-    @pytest.mark.parametrize(
-        "tender_id, row",
-        [
-            (
-                1,
-                {
-                    "id": 1,
-                    "tender_title": "Example Title",
-                    "client_id": 22,
-                    "client": "Example Client Name",
-                    "projected_sales_value_gbp": 20500,
-                    "date_created": datetime(2026, 3, 2),
-                },
-            ),
-            (
-                999,
-                {
-                    "id": 999,
-                    "tender_title": "Another Tender",
-                    "client_id": 301,
-                    "projected_sales_value_gbp": 43099,
-                    "date_created": datetime(2024, 12, 18),
-                },
-            ),
-            (
-                27,
-                {
-                    "id": 27,
-                    "tender_title": "Grimsby Services Health Drive",
-                    "client_id": 47,
-                    "projected_sales_value_gbp": 5000,
-                    "date_created": datetime(2025, 6, 30),
-                },
-            ),
-        ],
-    )
-    def test_tender_single_returns_cursor_row(self, mock_cursor, tender_id, row):
-        mock_cursor.fetchall.return_value = row
-        orig_row = deepcopy(row)
-        assert get_tender_single(tender_id) == orig_row
+            args = tuple()
+        assert handler(*args) == orig_rows
 
     @pytest.mark.parametrize(
         "handler, rows",
@@ -496,29 +526,10 @@ class TestGetHandlersReturnCursorRows:
         """Each handler handles schema-limit values without error."""
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
-        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
-            assert handler(Pagination()) == orig_rows
+        if GET_HANDLER_TYPES[handler] == TYPES[1]:
+            assert handler(Pagination(), []) == orig_rows
         else:
             assert handler() == orig_rows
-
-    @pytest.mark.parametrize("tender_id", ["5", "1", "999"])
-    @given(
-        rows=st.lists(
-            st.dictionaries(
-                keys=st.text(), values=st.none() | st.integers() | st.text()
-            ),
-            min_size=0,
-            max_size=50,
-        )
-    )
-    @settings(max_examples=50)
-    @example(rows=[])
-    def test_tender_line_items_returns_all_cursor_rows(
-        self, mock_cursor, tender_id, rows
-    ):
-        mock_cursor.fetchall.return_value = rows
-        orig_rows = deepcopy(rows)
-        assert get_tender_line_items(tender_id) == orig_rows
 
     def test_tender_single_returns_cursor_row_with_boundary_values(self, mock_cursor):
         tender_id = 2**31 - 1
@@ -548,26 +559,7 @@ class TestGetHandlersReturnCursorRows:
         ]
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
-        assert get_tender_line_items(1) == orig_rows
-
-    @pytest.mark.parametrize("tender_id", ["1", "42"])
-    @given(
-        rows=st.lists(
-            st.dictionaries(
-                keys=st.text(), values=st.none() | st.integers() | st.text()
-            ),
-            min_size=0,
-            max_size=20,
-        )
-    )
-    @settings(max_examples=50)
-    @example(rows=[])
-    def test_rich_tender_line_items_returns_all_cursor_rows(
-        self, mock_cursor, tender_id, rows
-    ):
-        mock_cursor.fetchall.return_value = rows
-        orig_rows = deepcopy(rows)
-        assert get_rich_tender_line_items(tender_id) == orig_rows
+        assert get_tender_line_items("1", Pagination(), []) == orig_rows
 
     def test_rich_tender_line_items_returns_cursor_row_in_boundary_case(
         self, mock_cursor
@@ -600,7 +592,7 @@ class TestGetHandlersReturnCursorRows:
         ]
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
-        assert get_rich_tender_line_items(1) == orig_rows
+        assert get_rich_tender_line_items(1, Pagination(), []) == orig_rows
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -658,6 +650,18 @@ class TestPaginationClamping:
             (get_tender, 10, 10, 10, 10),
             (get_tender, 3, 250, 3, 100),
             (get_tender, -700, 10000, 1, 100),
+            # get_tender_line_items
+            (get_tender_line_items, -3, 10, 1, 10),
+            (get_tender_line_items, 3, -3, 3, 1),
+            (get_tender_line_items, 4, 10, 4, 10),
+            (get_tender_line_items, 3, 99999, 3, 100),
+            (get_tender_line_items, -9, 999, 1, 100),
+            # get_rich_tender_line_items
+            (get_rich_tender_line_items, -99, 50, 1, 50),
+            (get_rich_tender_line_items, 2, -99, 2, 1),
+            (get_rich_tender_line_items, 3, 50, 3, 50),
+            (get_rich_tender_line_items, 2, 101, 2, 100),
+            (get_rich_tender_line_items, -2, 100000, 1, 100),
         ],
     )
     def test_pagination_clamped(
@@ -667,10 +671,10 @@ class TestPaginationClamping:
             "page": str(page),
             "per_page": str(per_page),
         }
-        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
-            handler(Pagination(page=page, per_page=per_page))
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler("1", Pagination(page=page, per_page=per_page), [])
         else:
-            handler()
+            handler(Pagination(page=page, per_page=per_page), [])
         sql = mock_cursor.execute.call_args[0][0].as_string()
         expected_offset = expected_limit * (expected_page - 1)
         assert_sql_contains(sql, f"LIMIT {expected_limit}", f"OFFSET {expected_offset}")
@@ -679,34 +683,91 @@ class TestPaginationClamping:
 # ══════════════════════════════════════════════════════════════════
 # Handlers call cursor.execute the expected number of times
 # ══════════════════════════════════════════════════════════════════
+SORT_TO_TEST = {
+    get_job_title: ["department"],
+    get_consumable: ["-default_unit_cost_gbp"],
+    get_service: ["xero_code"],
+    get_overhead_cost: ["-budgeted_spend_gbp"],
+    get_labour_cost: ["title_engaged_id"],
+    get_direct_cost: ["-cost_gbp"],
+    get_client: ["-client_name"],
+    get_tender: ["-date_created"],
+    get_tender_line_items: ["total_number_pa"],
+    get_rich_tender_line_items: ["-annual_labour_gbp"],
+}
+
+
 class TestHandlersCallExecuteOnce:
     """Every handler must call cursor.execute exactly once."""
 
     # ── GET handlers ──────────────────────────────────────────
 
-    @pytest.mark.parametrize("handler", GET_HANDLERS_NO_PATH)
-    def test_get_handlers_call_execute_once(self, mock_cursor, handler):
-        if handler in [handler_info[0] for handler_info in PAGINATED_HANDLERS]:
-            handler(Pagination())
+    @pytest.mark.parametrize(
+        "handler",
+        GET_HANDLERS_NO_PATH_NO_QUERY + GET_HANDLERS_NO_PATH_WITH_QUERY,
+    )
+    def test_pathless_get_handlers_call_execute_once_with_empty_query(
+        self, mock_cursor, handler
+    ):
+        if GET_HANDLER_TYPES[handler] == "no path, with query":
+            handler(Pagination(), [])
         else:
             handler()
         assert mock_cursor.execute.call_count == 1
 
-    @pytest.mark.parametrize("tender_id", [1, 10, 999, 102345])
-    def test_tender_single_calls_execute_once(self, mock_cursor, tender_id):
-        get_tender_single(tender_id)
-        assert mock_cursor.execute.call_count == 1
-
-    @pytest.mark.parametrize("tender_id", ["1", "42"])
-    def test_get_tender_line_items_calls_execute_once(self, mock_cursor, tender_id):
-        get_tender_line_items(tender_id)
-        assert mock_cursor.execute.call_count == 1
-
-    @pytest.mark.parametrize("tender_id", ["5", "999"])
-    def test_get_rich_tender_line_items_calls_execute_once(
-        self, mock_cursor, tender_id
+    @pytest.mark.parametrize("id", ["1", "4", "999"])
+    @pytest.mark.parametrize(
+        "handler",
+        GET_HANDLERS_WITH_PATH_NO_QUERY + GET_HANDLERS_WITH_PATH_WITH_QUERY,
+    )
+    def test_pathed_get_handlers_call_execute_once_with_empty_query(
+        self, mock_cursor, handler, id
     ):
-        get_rich_tender_line_items(tender_id)
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler(id, Pagination(), [])
+        else:
+            handler(id)
+        assert mock_cursor.execute.call_count == 1
+
+    @pytest.mark.parametrize(
+        "handler", GET_HANDLERS_NO_PATH_WITH_QUERY + GET_HANDLERS_WITH_PATH_WITH_QUERY
+    )
+    def test_get_handlers_call_execute_once_with_pagination(self, mock_cursor, handler):
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler("1", Pagination(page="2", per_page="75"), [])
+        else:
+            handler(Pagination(page="2", per_page="75"), [])
+        assert mock_cursor.execute.call_count == 1
+
+    @pytest.mark.parametrize(
+        "handler", GET_HANDLERS_NO_PATH_WITH_QUERY + GET_HANDLERS_WITH_PATH_WITH_QUERY
+    )
+    def test_get_handlers_call_execute_once_with_custom_sort(
+        self, mock_cursor, handler
+    ):
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler("1", Pagination(), SORT_TO_TEST[handler])
+        else:
+            handler(Pagination(), SORT_TO_TEST[handler])
+        assert mock_cursor.execute.call_count == 1
+
+    @pytest.mark.parametrize(
+        "handler", GET_HANDLERS_NO_PATH_WITH_QUERY + GET_HANDLERS_WITH_PATH_WITH_QUERY
+    )
+    def test_get_handlers_call_execute_once_with_pagination_and_sort(
+        self, mock_cursor, handler
+    ):
+        if GET_HANDLER_TYPES[handler] == "with path, with query":
+            handler(
+                "1",
+                Pagination(page="2", per_page="75"),
+                sort=SORT_TO_TEST[handler],
+            )
+        else:
+            handler(
+                Pagination(page="2", per_page="75"),
+                sort=SORT_TO_TEST[handler],
+            )
         assert mock_cursor.execute.call_count == 1
 
     # ── POST handlers ─────────────────────────────────────────
@@ -730,45 +791,103 @@ class TestHandlersCallExecuteOnce:
 
 
 # ══════════════════════════════════════════════════════════════════
-# Sort-clause helper function
+# Sort-clause helper functions
 # ══════════════════════════════════════════════════════════════════
-class TestSortClauseHelper:
-    def test_build_sort_clause_forms_valid_single_order_SQL(self):
+class TestParseSortStrings:
+    def test_single_sort_string_parsed_to_single_correct_sortclause(self):
+        assert parse_sort_strings(["test_column"]) == [
+            SortClause(column="test_column", direction="ASC")
+        ]
+        assert parse_sort_strings(["-another_column_name"]) == [
+            SortClause(column="another_column_name", direction="DESC")
+        ]
+
+    def test_n_sort_strings_parsed_to_n_correct_sortclauses(self):
+        assert parse_sort_strings(
+            ["first_column", "-second_column", "third_column"]
+        ) == [
+            SortClause(column="first_column", direction="ASC"),
+            SortClause(column="second_column", direction="DESC"),
+            SortClause(column="third_column", direction="ASC"),
+        ]
+        assert parse_sort_strings(["-A", "B", "-C"]) == [
+            SortClause(column="A", direction="DESC"),
+            SortClause(column="B", direction="ASC"),
+            SortClause(column="C", direction="DESC"),
+        ]
+
+    def test_empty_sort_strings_excluded_from_returned_list(self):
+        assert parse_sort_strings([]) == []
+        assert parse_sort_strings(["", "B"]) == [
+            SortClause(column="B", direction="ASC")
+        ]
+        assert parse_sort_strings(["A", "", "-C"]) == [
+            SortClause(column="A", direction="ASC"),
+            SortClause(column="C", direction="DESC"),
+        ]
+        assert parse_sort_strings(["-A", "B", ""]) == [
+            SortClause(column="A", direction="DESC"),
+            SortClause(column="B", direction="ASC"),
+        ]
+
+
+class TestSortClauseSQLBuilder:
+    def test_build_sort_clause_forms_valid_single_level_SQL(self):
         assert (
-            build_sort_clause(("service_id", "ASC")).as_string()
+            SortClauses(clauses=[SortClause(column="service_id", direction="ASC")])
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "service_id" ASC'
         )
         assert (
-            build_sort_clause(("projected_sales_value_gbp", "DESC")).as_string()
+            SortClauses(
+                clauses=[
+                    SortClause(column="projected_sales_value_gbp", direction="DESC")
+                ]
+            )
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "projected_sales_value_gbp" DESC'
         )
 
-    def test_build_sort_clause_forms_valid_multiple_order_SQL(self):
+    def test_build_sort_clause_forms_valid_multi_level_SQL(self):
         assert (
-            build_sort_clause(
-                ("consumable_id", "DESC"),
-                ("cost_type", "ASC"),
-            ).as_string()
+            SortClauses(
+                clauses=[
+                    SortClause(column="consumable_id", direction="DESC"),
+                    SortClause(column="cost_type", direction="ASC"),
+                ]
+            )
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "consumable_id" DESC, "cost_type" ASC'
         )
 
         assert (
-            build_sort_clause(
-                ("service_id", "ASC"),
-                ("projected_sales_value_gbp", "DESC"),
-                ("date_created", "ASC"),
-            ).as_string()
+            SortClauses(
+                clauses=[
+                    SortClause(column="service_id", direction="ASC"),
+                    SortClause(column="projected_sales_value_gbp", direction="DESC"),
+                    SortClause(column="date_created", direction="ASC"),
+                ]
+            )
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "service_id" ASC, "projected_sales_value_gbp" DESC, "date_created" ASC'
         )
 
     def test_build_sort_clause_handles_table_column_qualified_references(self):
         assert (
-            build_sort_clause(("table.column", "DESC")).as_string()
+            SortClauses(clauses=[SortClause(column="table.column", direction="DESC")])
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "table"."column" DESC'
         )
 
         assert (
-            build_sort_clause(("adb.stage_name", "ASC")).as_string()
+            SortClauses(clauses=[SortClause(column="adb.stage_name", direction="ASC")])
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "adb"."stage_name" ASC'
         )
 
@@ -776,21 +895,333 @@ class TestSortClauseHelper:
         self,
     ):
         with pytest.raises(ValueError):
-            build_sort_clause(("x.y.z.n", "ASC"))
+            SortClauses(
+                clauses=[SortClause(column="x.y.z.n", direction="ASC")]
+            ).build_sort_clause()
 
         with pytest.raises(ValueError):
-            build_sort_clause(("valid_column", "ASC"), ("schema.table.column", "DESC"))
+            SortClauses(
+                clauses=[
+                    SortClause(column="valid_column", direction="ASC"),
+                    SortClause(column="schema.table.column", direction="DESC"),
+                ]
+            ).build_sort_clause()
 
     def test_build_sort_clause_raises_value_error_on_invalid_order(self):
         with pytest.raises(ValueError):
-            build_sort_clause(("created_at", "invalid"))
+            SortClauses(
+                clauses=[SortClause(column="created_at", direction="invalid")]
+            ).build_sort_clause()
 
         with pytest.raises(ValueError):
-            build_sort_clause("tender_title", "alphanumeric")
+            SortClauses(
+                clauses=[SortClause(column="tender_title", direction="alphanumeric")]
+            ).build_sort_clause()
 
 
 # ══════════════════════════════════════════════════════════════════
-# GET SQL reflects path params as expected
+# Custom-sortable GET handlers behave predictably and securely
+# ══════════════════════════════════════════════════════════════════
+class TestWhitelistHelper:
+    @pytest.mark.parametrize(
+        "value_to_test, whitelist",
+        [
+            (None, ["A", "B"]),
+            ([], ["A", "B"]),
+            (["A", "B"], None),
+            (["A", "B"], []),
+            (None, None),
+            (None, []),
+            ([], None),
+            ([], []),
+        ],
+    )
+    def test_whitelist_helper_returns_None_if_either_list_is_None(
+        self, value_to_test, whitelist
+    ):
+        assert filter_by_whitelist(value_to_test, whitelist) is None
+
+    @pytest.mark.parametrize(
+        "value_to_test, whitelist, expected",
+        [
+            (["valid_column"], ["valid_column"], ["valid_column"]),
+            (["A"], ["A", "B", "C"], ["A"]),
+            (["B"], ["A", "B", "C"], ["B"]),
+            (["C"], ["A", "B", "C"], ["C"]),
+        ],
+    )
+    def test_whitelist_helper_returns_list_for_single_valid_value(
+        self, value_to_test, whitelist, expected
+    ):
+        assert filter_by_whitelist(value_to_test, whitelist) == expected
+
+    @pytest.mark.parametrize(
+        "value_to_test, whitelist, expected",
+        [
+            ("valid_column", ["valid_column"], ["valid_column"]),
+            ("A", ["A", "B", "C"], ["A"]),
+            ("B", ["A", "B", "C"], ["B"]),
+            ("C", ["A", "B", "C"], ["C"]),
+        ],
+    )
+    def test_whitelist_helper_returns_list_for_single_valid_non_list_value(
+        self, value_to_test, whitelist, expected
+    ):
+        assert filter_by_whitelist(value_to_test, whitelist) == expected
+
+    @pytest.mark.parametrize(
+        "values_to_test, whitelist, expected",
+        [
+            (["A", "C", "F"], ["A", "B", "C", "D", "E", "F", "G"], ["A", "C", "F"]),
+            (
+                ["service_id", "total_number_pa"],
+                [
+                    "tender_id",
+                    "tender_title",
+                    "service_id",
+                    "service_name",
+                    "total_number_pa",
+                ],
+                ["service_id", "total_number_pa"],
+            ),
+        ],
+    )
+    def test_whitelist_helper_returns_all_valid_value_list_in_full(
+        self, values_to_test, whitelist, expected
+    ):
+        assert filter_by_whitelist(values_to_test, whitelist) == expected
+
+    @pytest.mark.parametrize(
+        "values_to_test, whitelist, expected",
+        [
+            (["A", "C", "H"], ["A", "B", "C", "D", "E", "F", "G"], ["A", "C"]),
+            (
+                ["service_id", "total_number_pa"],
+                [
+                    "tender_id",
+                    "tender_title",
+                    "service_name",
+                    "total_number_pa",
+                ],
+                ["total_number_pa"],
+            ),
+        ],
+    )
+    def test_whitelist_helper_in_lax_mode_returns_only_valid_values(
+        self, values_to_test, whitelist, expected
+    ):
+        assert filter_by_whitelist(values_to_test, whitelist, mode="lax") == expected
+
+    @pytest.mark.parametrize(
+        "values_to_test, whitelist",
+        [
+            (["B", "D", "F"], ["A", "C", "E"]),
+            (
+                ["service_id", "total_number_pa"],
+                ["consumable_name", "unit_cost_gbp"],
+            ),
+        ],
+    )
+    def test_whitelist_helper_in_lax_error_mode_raises_error_if_all_values_invalid(
+        self, values_to_test, whitelist
+    ):
+        with pytest.raises(ValueError):
+            filter_by_whitelist(values_to_test, whitelist, mode="lax")
+
+    @pytest.mark.parametrize(
+        "values_to_test, whitelist",
+        [
+            (["A", "D", "C"], ["A", "B", "C"]),
+            (
+                ["service_id", "total_number_pa"],
+                ["consumable_name", "total_number_pa"],
+            ),
+        ],
+    )
+    def test_whitelist_helper_in_strict_error_mode_raises_error_if_any_values_invalid(
+        self, values_to_test, whitelist
+    ):
+        with pytest.raises(ValueError):
+            filter_by_whitelist(values_to_test, whitelist, mode="strict")
+
+    def test_whitelist_helper_raises_error_if_invalid_mode_specified(self):
+        with pytest.raises(ValueError):
+            filter_by_whitelist(["a", "b", "c"], ["a", "b", "c"], mode="xyzklmabc")
+
+
+class TestGetHandlersCustomSorting:
+    @pytest.mark.parametrize(
+        "handler, sort_strings, expected_sort_sql",
+        [
+            (get_job_title, ["-jt.id"], '"jt"."id" DESC'),
+            (get_consumable, ["-consumable_name"], '"consumable_name" DESC'),
+            (
+                get_service,
+                ["overhead_recovery_on_labour_percentage"],
+                '"overhead_recovery_on_labour_percentage" ASC',
+            ),
+            (get_overhead_cost, ["-cost_type"], '"cost_type" DESC'),
+            (get_labour_cost, ["required_time_mins"], '"required_time_mins" ASC'),
+            (get_direct_cost, ["cost_gbp"], '"cost_gbp" ASC'),
+            (get_client, ["-client_name"], '"client_name" DESC'),
+            (get_tender, ["date_created"], '"date_created" ASC'),
+        ],
+    )
+    def test_pathless_custom_sortable_get_handlers_SQL_reflects_single_level_params(
+        self, mock_cursor, handler, sort_strings, expected_sort_sql
+    ):
+        handler(Pagination(), sort_strings)
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
+        assert f"ORDER BY {expected_sort_sql}" in executed_sql
+        assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
+
+    @pytest.mark.parametrize(
+        "handler, sort_strings, expected_sort_sql",
+        [
+            (get_tender_line_items, ["-service_id"], '"service_id" DESC'),
+            (
+                get_rich_tender_line_items,
+                ["service_category"],
+                '"service_category" ASC',
+            ),
+        ],
+    )
+    def test_pathed_custom_sortable_get_handlers_SQL_reflects_single_level_params(
+        self, mock_cursor, handler, sort_strings, expected_sort_sql
+    ):
+        handler(1, Pagination(), sort_strings)
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
+        assert f"ORDER BY {expected_sort_sql}" in executed_sql
+        assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
+
+    @pytest.mark.parametrize(
+        "handler, sort_strings, expected_sort_sql",
+        [
+            (
+                get_job_title,
+                ["title", "-hourly_rate_gbp"],
+                '"title" ASC, "hourly_rate_gbp" DESC',
+            ),
+            (
+                get_consumable,
+                ["-default_unit_cost_gbp", "consumable_name"],
+                '"default_unit_cost_gbp" DESC, "consumable_name" ASC',
+            ),
+            (
+                get_service,
+                ["-comments", "xero_code", "-required_profit_margin_percentage"],
+                '"comments" DESC, "xero_code" ASC, "required_profit_margin_percentage" DESC',
+            ),
+            (
+                get_overhead_cost,
+                ["-cost_description", "-budgeted_spend_gbp"],
+                '"cost_description" DESC, "budgeted_spend_gbp" DESC',
+            ),
+            (
+                get_labour_cost,
+                ["-service", "title_engaged", "required_time_mins"],
+                '"service" DESC, "title_engaged" ASC, "required_time_mins" ASC',
+            ),
+            (
+                get_direct_cost,
+                ["service", "-consumable"],
+                '"service" ASC, "consumable" DESC',
+            ),
+            (
+                get_tender,
+                ["-projected_sales_value_gbp", "client"],
+                '"projected_sales_value_gbp" DESC, "client" ASC',
+            ),
+        ],
+    )
+    def test_pathless_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
+        self, mock_cursor, handler, sort_strings, expected_sort_sql
+    ):
+        handler(Pagination(), sort_strings)
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
+        assert f"ORDER BY {expected_sort_sql}" in executed_sql
+        assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
+
+    @pytest.mark.parametrize(
+        "handler, sort_strings, expected_sort_sql",
+        [
+            (
+                get_tender_line_items,
+                ["service_id", "-total_number_pa"],
+                '"service_id" ASC, "total_number_pa" DESC',
+            ),
+            (
+                get_rich_tender_line_items,
+                ["-annual_sales_gbp", "profit_margin_gbp", "-total_number_pa"],
+                '"annual_sales_gbp" DESC, "profit_margin_gbp" ASC, "total_number_pa" DESC',
+            ),
+        ],
+    )
+    def test_pathed_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
+        self, mock_cursor, handler, sort_strings, expected_sort_sql
+    ):
+        handler("1", Pagination(), sort_strings)
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
+        assert f"ORDER BY {expected_sort_sql}" in executed_sql
+        assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
+
+    @pytest.mark.parametrize(
+        "handler, sort_strings",
+        [
+            (get_job_title, ["invalid_column"]),
+            (get_job_title, ["title", "faketable.fakecolumn", "-jt.id"]),
+            (get_consumable, ["invalid_column"]),
+            (get_consumable, ["-faketable.fakecolumn", "consumable_name", "jrilto"]),
+            (get_service, ["invalid_column"]),
+            (get_service, ["pillar", "comments", "faketable.fakecolumn"]),
+            (get_overhead_cost, ["invalid_column"]),
+            (
+                get_overhead_cost,
+                ["lightbulbs_included", "faketable.fakecolumn", "-cost_type"],
+            ),
+            (get_labour_cost, ["invalid_column"]),
+            (
+                get_labour_cost,
+                ["faketable.fakecolumn", "-servizio", "required_time_mins"],
+            ),
+            (get_direct_cost, ["invalid_column"]),
+            (get_direct_cost, ["-lines_per_page", "faketable.fakecolumn,cost_gbp"]),
+            (get_client, ["invalid_column"]),
+            (get_client, ["client_name", "-sprezzatura", "-faketable.fakecolumn"]),
+            (get_tender, ["invalid_column"]),
+            (
+                get_tender,
+                ["-faketable.fakecolumn", "projected_sales_value_gbp", "client"],
+            ),
+        ],
+    )
+    def test_pathless_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
+        self, mock_cursor, handler, sort_strings
+    ):
+        with pytest.raises(ValueError):
+            handler(Pagination(), sort_strings)
+
+    @pytest.mark.parametrize(
+        "handler, sort_strings",
+        [
+            (get_tender_line_items, ["invalid_column"]),
+            (
+                get_tender_line_items,
+                ["enemy_count", "-service_category", "faketable.fakecolumn"],
+            ),
+            (get_rich_tender_line_items, ["invalid_column"]),
+            (get_rich_tender_line_items, ["title", "faketable.fakecolumn", "-jt.id"]),
+        ],
+    )
+    def test_pathed_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
+        self, mock_cursor, handler, sort_strings
+    ):
+        with pytest.raises(ValueError):
+            handler("1", Pagination(), sort_strings)
+
+
+# ══════════════════════════════════════════════════════════════════
+# GET SQL reflects ID path param as expected
 # ══════════════════════════════════════════════════════════════════
 class TestGetHandlersSQLReflectsParams:
     # ── GET /tender/single ──────────────────────────────────
@@ -1491,7 +1922,7 @@ class TestPatchHandlersSQLAndParamsReflectBody:
 # ══════════════════════════════════════════════════════════════════
 # Handlers handle invalid query parameters gracefully
 # ══════════════════════════════════════════════════════════════════
-class TestInvalidQueryParameters:
+class TestAPIResolverWithInvalidQueryParameters:
     @pytest.mark.disable_autouse
     @pytest.mark.parametrize(
         "bad_params, bad_field",
@@ -1733,7 +2164,7 @@ PATCH_ENDPOINTS = [
 ]
 
 
-class TestInvalidBody:
+class TestAPIResolverWithInvalidBody:
     @pytest.mark.disable_autouse
     @pytest.mark.parametrize(
         "method, path, body, expected_loc",

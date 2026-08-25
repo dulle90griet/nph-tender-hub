@@ -1,0 +1,21 @@
+/* Force github.com/poirazis's SuperTable to display column headers
+as wrapping, multi-line text, rather than truncated single-line text.
+
+Insert into an Embed component between <style> tags. */
+
+/* Force all headers to the same fixed height */
+.super-column .super-column-header.svelte-tvai4x {
+  height: 80px !important;
+  min-height: 80px !important;
+  max-height: 80px !important;
+}
+
+/* Make text wrap inside that fixed height */
+.super-column .super-column-header .innerText.svelte-tvai4x.sortable {
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  word-wrap: break-word !important;
+  /* Optional: adjust line-height to fit more lines */
+  /* line-height: 1.2 !important; */
+}
