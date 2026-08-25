@@ -852,43 +852,63 @@ class TestParseSortStrings:
         ]
 
 
-class TestSortClauseHelper:
-    def test_build_sort_clause_forms_valid_single_order_SQL(self):
+class TestSortClauseSQLBuilder:
+    def test_build_sort_clause_forms_valid_single_level_SQL(self):
         assert (
-            build_sort_clause(("service_id", "ASC")).as_string()
+            SortClauses(clauses=[SortClause(column="service_id", direction="ASC")])
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "service_id" ASC'
         )
         assert (
-            build_sort_clause(("projected_sales_value_gbp", "DESC")).as_string()
+            SortClauses(
+                clauses=[
+                    SortClause(column="projected_sales_value_gbp", direction="DESC")
+                ]
+            )
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "projected_sales_value_gbp" DESC'
         )
 
-    def test_build_sort_clause_forms_valid_multiple_order_SQL(self):
+    def test_build_sort_clause_forms_valid_multi_level_SQL(self):
         assert (
-            build_sort_clause(
-                ("consumable_id", "DESC"),
-                ("cost_type", "ASC"),
-            ).as_string()
+            SortClauses(
+                clauses=[
+                    SortClause(column="consumable_id", direction="DESC"),
+                    SortClause(column="cost_type", direction="ASC"),
+                ]
+            )
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "consumable_id" DESC, "cost_type" ASC'
         )
 
         assert (
-            build_sort_clause(
-                ("service_id", "ASC"),
-                ("projected_sales_value_gbp", "DESC"),
-                ("date_created", "ASC"),
-            ).as_string()
+            SortClauses(
+                clauses=[
+                    SortClause(column="service_id", direction="ASC"),
+                    SortClause(column="projected_sales_value_gbp", direction="DESC"),
+                    SortClause(column="date_created", direction="ASC"),
+                ]
+            )
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "service_id" ASC, "projected_sales_value_gbp" DESC, "date_created" ASC'
         )
 
     def test_build_sort_clause_handles_table_column_qualified_references(self):
         assert (
-            build_sort_clause(("table.column", "DESC")).as_string()
+            SortClauses(clauses=[SortClause(column="table.column", direction="DESC")])
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "table"."column" DESC'
         )
 
         assert (
-            build_sort_clause(("adb.stage_name", "ASC")).as_string()
+            SortClauses(clauses=[SortClause(column="adb.stage_name", direction="ASC")])
+            .build_sort_clause()
+            .as_string()
             == 'ORDER BY "adb"."stage_name" ASC'
         )
 
@@ -896,17 +916,28 @@ class TestSortClauseHelper:
         self,
     ):
         with pytest.raises(ValueError):
-            build_sort_clause(("x.y.z.n", "ASC"))
+            SortClauses(
+                clauses=[SortClause(column="x.y.z.n", direction="ASC")]
+            ).build_sort_clause()
 
         with pytest.raises(ValueError):
-            build_sort_clause(("valid_column", "ASC"), ("schema.table.column", "DESC"))
+            SortClauses(
+                clauses=[
+                    SortClause(column="valid_column", direction="ASC"),
+                    SortClause(column="schema.table.column", direction="DESC"),
+                ]
+            ).build_sort_clause()
 
     def test_build_sort_clause_raises_value_error_on_invalid_order(self):
         with pytest.raises(ValueError):
-            build_sort_clause(("created_at", "invalid"))
+            SortClauses(
+                clauses=[SortClause(column="created_at", direction="invalid")]
+            ).build_sort_clause()
 
         with pytest.raises(ValueError):
-            build_sort_clause("tender_title", "alphanumeric")
+            SortClauses(
+                clauses=[SortClause(column="tender_title", direction="alphanumeric")]
+            ).build_sort_clause()
 
 
 # ══════════════════════════════════════════════════════════════════
