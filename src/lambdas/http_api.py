@@ -507,7 +507,7 @@ def get_department() -> None:
 @app.get("/job-title")
 def get_job_title(
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for job_title table"""
     max_per_page = 100
@@ -635,7 +635,7 @@ def patch_job_title(job_title_id: str, body: Annotated[UpdateJobTitle, Body()]) 
 @app.get("/consumable")
 def get_consumable(
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for consumable table"""
     max_per_page = 100
@@ -743,7 +743,7 @@ def patch_consumable(
 @app.get("/service")
 def get_service(
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for service table"""
     max_per_page = 100
@@ -870,7 +870,7 @@ def patch_service(service_id: str, body: Annotated[UpdateService, Body()]) -> No
 @app.get("/overhead-cost")
 def get_overhead_cost(
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for overhead_cost table"""
     max_per_page = 100
@@ -959,7 +959,7 @@ def patch_overhead_cost(
 @app.get("/labour-cost")
 def get_labour_cost(
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for labour_cost table"""
     max_per_page = 100
@@ -1063,7 +1063,7 @@ def patch_labour_cost(
 @app.get("/direct-cost")
 def get_direct_cost(
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for direct_cost table"""
     max_per_page = 100
@@ -1167,7 +1167,7 @@ def patch_direct_cost(
 @app.get("/client")
 def get_client(
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for client table"""
     max_per_page = 100
@@ -1269,7 +1269,7 @@ def patch_client(client_id: str, body: Annotated[UpdateClient, Body()]) -> None:
 @app.get("/tender")
 def get_tender(
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for tender table"""
     max_per_page = 100
@@ -1410,7 +1410,7 @@ def patch_tender(tender_id: str, body: Annotated[UpdateTender, Body()]) -> None:
 def get_tender_line_items(
     tender_id: str,
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for tenders_services table"""
     max_per_page = 100
@@ -1468,7 +1468,7 @@ def get_tender_line_items(
 def get_rich_tender_line_items(
     tender_id: str,
     pagination: Annotated[Pagination, Query()],
-    sort: Annotated[list[str], Query()],
+    sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """Enriched GET method for tenders_services table"""
     max_per_page = 100
