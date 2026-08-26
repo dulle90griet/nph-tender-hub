@@ -126,7 +126,7 @@ class SortClause(BaseModel):
 
 class SortClauses(BaseModel):
     clauses: list[SortClause] = Field(default_factory=list)
-    # sort: dict = None
+    whitelist: list[str] = None
 
     def __init__(self, *sort_strings, **kwargs):
         """
@@ -141,18 +141,18 @@ class SortClauses(BaseModel):
         - From a list of sort strings:
             SortClauses(["-service_id", "title_engaged"])
 
+        The keyword argument `whitelist` is compatible with all styles.
+
         Raises:
             ValueError: If duplicate columns are detected in the
                 sort clauses.
         """
+
         if len(sort_strings) == 1 and isinstance(sort_strings[0], list):
-            clauses = parse_sort_strings(list(sort_strings[0]))
-            super().__init__(clauses=clauses)
+            kwargs["clauses"] = parse_sort_strings(list(sort_strings[0]))
         elif sort_strings:
-            clauses = parse_sort_strings(list(sort_strings))
-            super().__init__(clauses=clauses)
-        else:
-            super().__init__(**kwargs)
+            kwargs["clauses"] = parse_sort_strings(list(sort_strings))
+        super().__init__(**kwargs)
 
     @field_validator("clauses")
     @classmethod
@@ -163,13 +163,23 @@ class SortClauses(BaseModel):
             raise ValueError("Duplicate sort column provided")
         return value
 
-    def to_sql(self) -> Composable:
+    def to_sql(self) -> Composable | Literal[""]:
         """
         Build a single- or multi-level ORDER BY clause
         using the contents of the SortClause object's `clauses` list.
+
+        Returns "" if `clauses` is empty or contains columns
+        not present in the provided whitelist.
         """
         if not self.clauses:
-            return SQL("")
+            return ""
+
+        # Proceed only if all provided sort columns are whitelisted
+        if self.whitelist:
+            if not filter_by_whitelist(
+                [c.column for c in self.clauses], self.whitelist, mode="strict"
+            ):
+                return ""
 
         sort_parts = []
         for c in self.clauses:
@@ -187,8 +197,8 @@ class SortClauses(BaseModel):
             sort_part = sort_column + SQL(f" {c.direction.upper()}")
             sort_parts.append(sort_part)
 
-        sort_clause = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
-        return sort_clause
+        sort_sql = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
+        return sort_sql
 
 
 def parse_sort_strings(sort_strings: list[str]) -> list[SortClause]:
