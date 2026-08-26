@@ -147,7 +147,6 @@ class SortClauses(BaseModel):
             ValueError: If duplicate columns are detected in the
                 sort clauses.
         """
-
         if len(sort_strings) == 1 and isinstance(sort_strings[0], list):
             kwargs["clauses"] = parse_sort_strings(list(sort_strings[0]))
         elif sort_strings:
