@@ -4,4 +4,4 @@
 const conditions = JSON.parse($("State.sortConditions"));
 const index = $("[SortParams Repeater].[Row index]");
 conditions[index].direction = conditions[index].direction.toUpperCase() === "desc" ? "ASC" : "DESC";
-return conditions;
+return JSON.stringify(conditions);
