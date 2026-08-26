@@ -163,7 +163,7 @@ class SortClauses(BaseModel):
             raise ValueError("Duplicate sort column provided")
         return value
 
-    def build_sort_clause(self) -> Composable:
+    def to_sql(self) -> Composable:
         """
         Build a single- or multi-level ORDER BY clause
         using the contents of the SortClause object's `clauses` list.
@@ -480,7 +480,7 @@ class DatabaseCursor:
 @app.get("/department")
 def get_department() -> None:
     """GET method for department table"""
-    sort_clause = SortClauses("name").build_sort_clause()
+    sort_clause = SortClauses("name").to_sql()
 
     get_department_sql = SQL("""
         SELECT *
@@ -524,9 +524,9 @@ def get_job_title(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses("department", "jt.title").build_sort_clause()
+        sort_clause_sql = SortClauses("department", "jt.title").to_sql()
 
     get_job_title_sql = SQL("""
         SELECT
@@ -562,7 +562,7 @@ def get_job_title(
 @app.get("/job-title/titles")
 def get_job_title_titles() -> list:
     """Method to GET all titles in the job_title table"""
-    sort_clause = SortClauses("title").build_sort_clause()
+    sort_clause = SortClauses("title").to_sql()
     get_titles_sql = SQL("""
         SELECT
             id
@@ -652,9 +652,9 @@ def get_consumable(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses("consumable_name").build_sort_clause()
+        sort_clause_sql = SortClauses("consumable_name").to_sql()
 
     get_sql = SQL("""
         SELECT *
@@ -677,7 +677,7 @@ def get_consumable_names() -> list:
     Method to GET all consumable names in the consumable table
     Used for populating consumable-selection dropdown lists
     """
-    sort_clause = SortClauses("consumable_name").build_sort_clause()
+    sort_clause = SortClauses("consumable_name").to_sql()
     get_consumable_names_sql = SQL("""
         SELECT
             id AS consumable_id
@@ -774,11 +774,9 @@ def get_service(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses(
-            "pillar", "category", "service_name"
-        ).build_sort_clause()
+        sort_clause_sql = SortClauses("pillar", "category", "service_name").to_sql()
 
     get_sql = SQL("""
         SELECT *
@@ -799,7 +797,7 @@ def get_service(
 @app.get("/service/slugs")
 def get_service_slugs() -> list:
     """Method to GET all service slugs in the service table"""
-    sort_clause = SortClauses("category", "service_name").build_sort_clause()
+    sort_clause = SortClauses("category", "service_name").to_sql()
     get_service_slugs_sql = SQL("""
         SELECT
             id AS service_id
@@ -901,11 +899,9 @@ def get_overhead_cost(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses(
-            "cost_type", "cost_description"
-        ).build_sort_clause()
+        sort_clause_sql = SortClauses("cost_type", "cost_description").to_sql()
 
     get_overhead_cost_sql = SQL("""
         SELECT *
@@ -999,9 +995,9 @@ def get_labour_cost(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses("service", "title_engaged").build_sort_clause()
+        sort_clause_sql = SortClauses("service", "title_engaged").to_sql()
         logger.info("Generated sort clause SQL: %s", sort_clause_sql)
 
     get_labour_cost_sql = SQL("""
@@ -1110,9 +1106,9 @@ def get_direct_cost(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses("service", "consumable").build_sort_clause()
+        sort_clause_sql = SortClauses("service", "consumable").to_sql()
 
     get_direct_cost_sql = SQL("""
         SELECT
@@ -1214,9 +1210,9 @@ def get_client(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses("client_name").build_sort_clause()
+        sort_clause_sql = SortClauses("client_name").to_sql()
 
     get_client_sql = SQL("""
         SELECT *
@@ -1239,7 +1235,7 @@ def get_client_names() -> list:
     Method to GET all client names in the client table
     Used for populating client-selection dropdown lists
     """
-    sort_clause = SortClauses("client_name").build_sort_clause()
+    sort_clause = SortClauses("client_name").to_sql()
     get_client_names_sql = SQL("""
         SELECT
             id AS client_id
@@ -1329,9 +1325,9 @@ def get_tender(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses("-t.date_created").build_sort_clause()
+        sort_clause_sql = SortClauses("-t.date_created").to_sql()
 
     get_tender_sql = SQL("""
         SELECT
@@ -1388,7 +1384,7 @@ def get_tender_titles() -> list:
     Method to GET all tender titles in the tender table
     Used for populating tender-selection dropdown lists
     """
-    sort_clause = SortClauses("tender_title").build_sort_clause()
+    sort_clause = SortClauses("tender_title").to_sql()
     get_tender_titles_sql = SQL("""
         SELECT
             id AS tender_id
@@ -1474,9 +1470,9 @@ def get_tender_line_items(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses("s.service_name").build_sort_clause()
+        sort_clause_sql = SortClauses("s.service_name").to_sql()
 
     get_line_items_sql = SQL("""
         WITH filtered_tender_line_items AS (
@@ -1584,11 +1580,9 @@ def get_rich_tender_line_items(
             [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
         )
         if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
+            sort_clause_sql = sort_clauses.to_sql()
     else:
-        sort_clause_sql = SortClauses(
-            "base.service_category", "base.service"
-        ).build_sort_clause()
+        sort_clause_sql = SortClauses("base.service_category", "base.service").to_sql()
 
     get_rich_line_items_sql = SQL(f"""
         WITH
