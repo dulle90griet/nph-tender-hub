@@ -126,7 +126,7 @@ class SortClause(BaseModel):
 
 class SortClauses(BaseModel):
     clauses: list[SortClause] = Field(default_factory=list)
-    # sort: dict = None
+    whitelist: list[str] = None
 
     def __init__(self, *sort_strings, **kwargs):
         """
@@ -141,18 +141,17 @@ class SortClauses(BaseModel):
         - From a list of sort strings:
             SortClauses(["-service_id", "title_engaged"])
 
+        The keyword argument `whitelist` is compatible with all styles.
+
         Raises:
             ValueError: If duplicate columns are detected in the
                 sort clauses.
         """
         if len(sort_strings) == 1 and isinstance(sort_strings[0], list):
-            clauses = parse_sort_strings(list(sort_strings[0]))
-            super().__init__(clauses=clauses)
+            kwargs["clauses"] = parse_sort_strings(list(sort_strings[0]))
         elif sort_strings:
-            clauses = parse_sort_strings(list(sort_strings))
-            super().__init__(clauses=clauses)
-        else:
-            super().__init__(**kwargs)
+            kwargs["clauses"] = parse_sort_strings(list(sort_strings))
+        super().__init__(**kwargs)
 
     @field_validator("clauses")
     @classmethod
@@ -163,13 +162,23 @@ class SortClauses(BaseModel):
             raise ValueError("Duplicate sort column provided")
         return value
 
-    def build_sort_clause(self) -> Composable:
+    def to_sql(self) -> Composable | Literal[""]:
         """
         Build a single- or multi-level ORDER BY clause
         using the contents of the SortClause object's `clauses` list.
+
+        Returns "" if `clauses` is empty or contains columns
+        not present in the provided whitelist.
         """
         if not self.clauses:
-            return SQL("")
+            return ""
+
+        # Proceed only if all provided sort columns are whitelisted
+        if self.whitelist:
+            if not filter_by_whitelist(
+                [c.column for c in self.clauses], self.whitelist, mode="strict"
+            ):
+                return ""
 
         sort_parts = []
         for c in self.clauses:
@@ -187,8 +196,8 @@ class SortClauses(BaseModel):
             sort_part = sort_column + SQL(f" {c.direction.upper()}")
             sort_parts.append(sort_part)
 
-        sort_clause = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
-        return sort_clause
+        sort_sql = SQL("ORDER BY ") + SQL(", ").join(sort_parts)
+        return sort_sql
 
 
 def parse_sort_strings(sort_strings: list[str]) -> list[SortClause]:
@@ -480,13 +489,13 @@ class DatabaseCursor:
 @app.get("/department")
 def get_department() -> None:
     """GET method for department table"""
-    sort_clause = SortClauses("name").build_sort_clause()
+    sort_clause_sql = SortClauses("name").to_sql()
 
     get_department_sql = SQL("""
         SELECT *
         FROM department
         {sort_clause}
-    """).format(sort_clause=sort_clause)
+    """).format(sort_clause=sort_clause_sql)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_department_sql)
@@ -505,7 +514,6 @@ def get_job_title(
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
-    sort_clauses = SortClauses(sort)
 
     valid_sort_columns = [
         "jt.id",
@@ -518,15 +526,10 @@ def get_job_title(
         "default_annual_training_days",
         "default_annual_sick_days",
     ]
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses("department", "jt.title").build_sort_clause()
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("department", "jt.title").to_sql()
 
     get_job_title_sql = SQL("""
         SELECT
@@ -562,7 +565,7 @@ def get_job_title(
 @app.get("/job-title/titles")
 def get_job_title_titles() -> list:
     """Method to GET all titles in the job_title table"""
-    sort_clause = SortClauses("title").build_sort_clause()
+    sort_clause = SortClauses("title").to_sql()
     get_titles_sql = SQL("""
         SELECT
             id
@@ -646,15 +649,10 @@ def get_consumable(
         "consumable_name",
         "default_unit_cost_gbp",
     ]
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses("consumable_name").build_sort_clause()
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("consumable_name").to_sql()
 
     get_sql = SQL("""
         SELECT *
@@ -677,7 +675,7 @@ def get_consumable_names() -> list:
     Method to GET all consumable names in the consumable table
     Used for populating consumable-selection dropdown lists
     """
-    sort_clause = SortClauses("consumable_name").build_sort_clause()
+    sort_clause = SortClauses("consumable_name").to_sql()
     get_consumable_names_sql = SQL("""
         SELECT
             id AS consumable_id
@@ -752,7 +750,6 @@ def get_service(
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
-    sort_clauses = SortClauses(sort)
 
     valid_sort_columns = [
         "id",
@@ -768,17 +765,10 @@ def get_service(
         "new_day_rate_gbp",
         "comments",
     ]
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses(
-            "pillar", "category", "service_name"
-        ).build_sort_clause()
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("pillar", "category", "service_name").to_sql()
 
     get_sql = SQL("""
         SELECT *
@@ -799,14 +789,14 @@ def get_service(
 @app.get("/service/slugs")
 def get_service_slugs() -> list:
     """Method to GET all service slugs in the service table"""
-    sort_clause = SortClauses("category", "service_name").build_sort_clause()
+    sort_clause_sql = SortClauses("category", "service_name").to_sql()
     get_service_slugs_sql = SQL("""
         SELECT
             id AS service_id
             ,category || ': ' || service_name AS service_slug
         FROM service
         {sort_clause}
-    """).format(sort_clause=sort_clause)
+    """).format(sort_clause=sort_clause_sql)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_service_slugs_sql)
@@ -887,7 +877,6 @@ def get_overhead_cost(
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
-    sort_clauses = SortClauses(sort)
 
     valid_sort_columns = [
         "id",
@@ -895,17 +884,10 @@ def get_overhead_cost(
         "cost_description",
         "budgeted_spend_gbp",
     ]
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses(
-            "cost_type", "cost_description"
-        ).build_sort_clause()
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("cost_type", "cost_description").to_sql()
 
     get_overhead_cost_sql = SQL("""
         SELECT *
@@ -984,7 +966,6 @@ def get_labour_cost(
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
-    sort_clauses = SortClauses(sort)
 
     valid_sort_columns = [
         "service_id",
@@ -993,16 +974,10 @@ def get_labour_cost(
         "title_engaged",
         "required_time_mins",
     ]
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses("service", "title_engaged").build_sort_clause()
-        logger.info("Generated sort clause SQL: %s", sort_clause_sql)
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("service", "title_engaged").to_sql()
 
     get_labour_cost_sql = SQL("""
         SELECT
@@ -1095,7 +1070,6 @@ def get_direct_cost(
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
-    sort_clauses = SortClauses(sort)
 
     valid_sort_columns = [
         "service_id",
@@ -1104,15 +1078,10 @@ def get_direct_cost(
         "consumable",
         "cost_gbp",
     ]
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses("service", "consumable").build_sort_clause()
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("service", "consumable").to_sql()
 
     get_direct_cost_sql = SQL("""
         SELECT
@@ -1205,18 +1174,12 @@ def get_client(
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
-    sort_clauses = SortClauses(sort)
 
     valid_sort_columns = ["id", "client_name"]
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses("client_name").build_sort_clause()
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("client_name").to_sql()
 
     get_client_sql = SQL("""
         SELECT *
@@ -1239,7 +1202,7 @@ def get_client_names() -> list:
     Method to GET all client names in the client table
     Used for populating client-selection dropdown lists
     """
-    sort_clause = SortClauses("client_name").build_sort_clause()
+    sort_clause = SortClauses("client_name").to_sql()
     get_client_names_sql = SQL("""
         SELECT
             id AS client_id
@@ -1313,25 +1276,19 @@ def get_tender(
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
-    sort_clauses = SortClauses(sort)
 
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        valid_sort_columns = [
-            "id",
-            "tender_title",
-            "client_id",
-            "client",
-            "projected_sales_value_gbp",
-            "date_created",
-        ]
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses("-t.date_created").build_sort_clause()
+    valid_sort_columns = [
+        "id",
+        "tender_title",
+        "client_id",
+        "client",
+        "projected_sales_value_gbp",
+        "date_created",
+    ]
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("-t.date_created").to_sql()
 
     get_tender_sql = SQL("""
         SELECT
@@ -1388,14 +1345,14 @@ def get_tender_titles() -> list:
     Method to GET all tender titles in the tender table
     Used for populating tender-selection dropdown lists
     """
-    sort_clause = SortClauses("tender_title").build_sort_clause()
+    sort_clause_sql = SortClauses("tender_title").to_sql()
     get_tender_titles_sql = SQL("""
         SELECT
             id AS tender_id
             ,tender_title
         FROM tender
         {sort_clause}
-    """).format(sort_clause=sort_clause)
+    """).format(sort_clause=sort_clause_sql)
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_tender_titles_sql)
@@ -1460,23 +1417,17 @@ def get_tender_line_items(
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
-    sort_clauses = SortClauses(sort)
 
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        valid_sort_columns = [
-            "service_id",
-            "service",
-            "total_number_pa",
-            "unit_price_override_gbp",
-        ]
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses("s.service_name").build_sort_clause()
+    valid_sort_columns = [
+        "service_id",
+        "service",
+        "total_number_pa",
+        "unit_price_override_gbp",
+    ]
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("s.service_name").to_sql()
 
     get_line_items_sql = SQL("""
         WITH filtered_tender_line_items AS (
@@ -1524,7 +1475,6 @@ def get_rich_tender_line_items(
     page = max(int(pagination.page), 1)
     per_page = min(max(int(pagination.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
-    sort_clauses = SortClauses(sort)
 
     overhead_recovery_on_labour_cost_gbp = """
         base.labour_cost_gbp * base.overhead_recovery_on_labour_percentage / 100
@@ -1556,39 +1506,32 @@ def get_rich_tender_line_items(
         ({annual_sales_gbp}) - ({annual_total_gbp})
     """
 
-    sort_clause_sql = ""
-    if sort_clauses.clauses:
-        valid_sort_columns = [
-            "service_category",
-            "service_id",
-            "service",
-            "total_number_pa",
-            "unit_labour_cost_gbp",
-            "overhead_recovery_on_labour_percentage",
-            "overhead_recovery_on_labour_cost_gbp",
-            "unit_direct_cost_gbp",
-            "fully_absorbed_cost_gbp",
-            "required_profit_margin_percentage",
-            "profit_margin_gbp",
-            "recommended_unit_price_gbp",
-            "our_current_unit_price_gbp",
-            "tender_override_unit_price_gbp",
-            "annual_sales_gbp",
-            "annual_labour_gbp",
-            "annual_direct_gbp",
-            "annual_overhead_gbp",
-            "annual_total_gbp",
-            "annual_profit_gbp",
-        ]
-        sort_columns_whitelisted = filter_by_whitelist(
-            [c.column for c in sort_clauses.clauses], valid_sort_columns, mode="strict"
-        )
-        if sort_columns_whitelisted:
-            sort_clause_sql = sort_clauses.build_sort_clause()
-    else:
-        sort_clause_sql = SortClauses(
-            "base.service_category", "base.service"
-        ).build_sort_clause()
+    valid_sort_columns = [
+        "service_category",
+        "service_id",
+        "service",
+        "total_number_pa",
+        "unit_labour_cost_gbp",
+        "overhead_recovery_on_labour_percentage",
+        "overhead_recovery_on_labour_cost_gbp",
+        "unit_direct_cost_gbp",
+        "fully_absorbed_cost_gbp",
+        "required_profit_margin_percentage",
+        "profit_margin_gbp",
+        "recommended_unit_price_gbp",
+        "our_current_unit_price_gbp",
+        "tender_override_unit_price_gbp",
+        "annual_sales_gbp",
+        "annual_labour_gbp",
+        "annual_direct_gbp",
+        "annual_overhead_gbp",
+        "annual_total_gbp",
+        "annual_profit_gbp",
+    ]
+    sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
+    sort_clause_sql = sort_clauses.to_sql()
+    if not sort_clause_sql:
+        sort_clause_sql = SortClauses("base.service_category", "base.service").to_sql()
 
     get_rich_line_items_sql = SQL(f"""
         WITH

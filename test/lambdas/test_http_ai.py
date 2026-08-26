@@ -832,10 +832,10 @@ class TestParseSortStrings:
 
 
 class TestSortClauseSQLBuilder:
-    def test_build_sort_clause_forms_valid_single_level_SQL(self):
+    def test_sort_clause_builder_forms_valid_single_level_SQL(self):
         assert (
             SortClauses(clauses=[SortClause(column="service_id", direction="ASC")])
-            .build_sort_clause()
+            .to_sql()
             .as_string()
             == 'ORDER BY "service_id" ASC'
         )
@@ -845,12 +845,12 @@ class TestSortClauseSQLBuilder:
                     SortClause(column="projected_sales_value_gbp", direction="DESC")
                 ]
             )
-            .build_sort_clause()
+            .to_sql()
             .as_string()
             == 'ORDER BY "projected_sales_value_gbp" DESC'
         )
 
-    def test_build_sort_clause_forms_valid_multi_level_SQL(self):
+    def test_sort_clause_builder_forms_valid_multi_level_SQL(self):
         assert (
             SortClauses(
                 clauses=[
@@ -858,7 +858,7 @@ class TestSortClauseSQLBuilder:
                     SortClause(column="cost_type", direction="ASC"),
                 ]
             )
-            .build_sort_clause()
+            .to_sql()
             .as_string()
             == 'ORDER BY "consumable_id" DESC, "cost_type" ASC'
         )
@@ -871,33 +871,33 @@ class TestSortClauseSQLBuilder:
                     SortClause(column="date_created", direction="ASC"),
                 ]
             )
-            .build_sort_clause()
+            .to_sql()
             .as_string()
             == 'ORDER BY "service_id" ASC, "projected_sales_value_gbp" DESC, "date_created" ASC'
         )
 
-    def test_build_sort_clause_handles_table_column_qualified_references(self):
+    def test_sort_clause_builder_handles_table_column_qualified_references(self):
         assert (
             SortClauses(clauses=[SortClause(column="table.column", direction="DESC")])
-            .build_sort_clause()
+            .to_sql()
             .as_string()
             == 'ORDER BY "table"."column" DESC'
         )
 
         assert (
             SortClauses(clauses=[SortClause(column="adb.stage_name", direction="ASC")])
-            .build_sort_clause()
+            .to_sql()
             .as_string()
             == 'ORDER BY "adb"."stage_name" ASC'
         )
 
-    def test_build_sort_clause_raises_value_error_on_three_or_more_reference_parts(
+    def test_sort_clause_builder_raises_value_error_on_three_or_more_reference_parts(
         self,
     ):
         with pytest.raises(ValueError):
             SortClauses(
                 clauses=[SortClause(column="x.y.z.n", direction="ASC")]
-            ).build_sort_clause()
+            ).to_sql()
 
         with pytest.raises(ValueError):
             SortClauses(
@@ -905,18 +905,18 @@ class TestSortClauseSQLBuilder:
                     SortClause(column="valid_column", direction="ASC"),
                     SortClause(column="schema.table.column", direction="DESC"),
                 ]
-            ).build_sort_clause()
+            ).to_sql()
 
-    def test_build_sort_clause_raises_value_error_on_invalid_order(self):
+    def test_sort_clause_builder_raises_value_error_on_invalid_order(self):
         with pytest.raises(ValueError):
             SortClauses(
                 clauses=[SortClause(column="created_at", direction="invalid")]
-            ).build_sort_clause()
+            ).to_sql()
 
         with pytest.raises(ValueError):
             SortClauses(
                 clauses=[SortClause(column="tender_title", direction="alphanumeric")]
-            ).build_sort_clause()
+            ).to_sql()
 
 
 # ══════════════════════════════════════════════════════════════════
