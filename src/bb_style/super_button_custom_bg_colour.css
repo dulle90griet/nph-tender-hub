@@ -1,0 +1,10 @@
+/* Change the background colour of github.com/poirazis's SuperButton.
+
+The first long selector identifies a specific button by its wrapper class,
+discoverable with Developer Tools.
+
+Insert into an Embed component between <style> tags. */
+
+.c6099bcaf1369452da6f293ac09c9a1c6-dom .spectrum-Button.super-button.cta {
+    background-color: #37b9c2 !important;
+}
