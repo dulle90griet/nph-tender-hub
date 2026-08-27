@@ -1,5 +1,5 @@
-// On-click code for the ASC / DESC toggle button pair in the sort config interface
-// Used in 'Update State' -> 'Set value' -> 'sortConditions'
+// On-click code for the ASC / DESC toggle button pair in the sort config interface.
+// Used in 'Update State' -> 'Set value' -> 'sortConditions'.
 
 const conditions = JSON.parse($("State.sortConditions"));
 const index = $("[SortParams Repeater].[Row index]");
