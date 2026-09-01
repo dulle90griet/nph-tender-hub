@@ -114,7 +114,7 @@ def OptionalDecimal(max_digits: int, decimal_places: int) -> TypeAlias:
     ]
 
 
-class Pagination(BaseModel):
+class URIQueries(BaseModel):
     page: Optional[int] = 1
     per_page: Optional[int] = 10
 
@@ -506,7 +506,7 @@ def get_department() -> None:
 
 @app.get("/job-title")
 def get_job_title(
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for job_title table"""
@@ -634,7 +634,7 @@ def patch_job_title(job_title_id: str, body: Annotated[UpdateJobTitle, Body()]) 
 
 @app.get("/consumable")
 def get_consumable(
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for consumable table"""
@@ -742,7 +742,7 @@ def patch_consumable(
 
 @app.get("/service")
 def get_service(
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for service table"""
@@ -869,7 +869,7 @@ def patch_service(service_id: str, body: Annotated[UpdateService, Body()]) -> No
 
 @app.get("/overhead-cost")
 def get_overhead_cost(
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for overhead_cost table"""
@@ -958,7 +958,7 @@ def patch_overhead_cost(
 
 @app.get("/labour-cost")
 def get_labour_cost(
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for labour_cost table"""
@@ -1062,7 +1062,7 @@ def patch_labour_cost(
 
 @app.get("/direct-cost")
 def get_direct_cost(
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for direct_cost table"""
@@ -1166,7 +1166,7 @@ def patch_direct_cost(
 
 @app.get("/client")
 def get_client(
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for client table"""
@@ -1268,7 +1268,7 @@ def patch_client(client_id: str, body: Annotated[UpdateClient, Body()]) -> None:
 
 @app.get("/tender")
 def get_tender(
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for tender table"""
@@ -1409,7 +1409,7 @@ def patch_tender(tender_id: str, body: Annotated[UpdateTender, Body()]) -> None:
 @app.get("/tender/line-items/<tender_id>")
 def get_tender_line_items(
     tender_id: str,
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for tenders_services table"""
@@ -1467,7 +1467,7 @@ def get_tender_line_items(
 @app.get("/tender/line-items/rich/<tender_id>")
 def get_rich_tender_line_items(
     tender_id: str,
-    pagination: Annotated[Pagination, Query()],
+    pagination: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """Enriched GET method for tenders_services table"""

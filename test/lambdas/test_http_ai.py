@@ -21,8 +21,8 @@ from src.lambdas.http_api import (
     app,
     parse_sort_strings,
     filter_by_whitelist,
-    Pagination,
     build_search_sql,
+    URIQueries,
     SortClause,
     SortClauses,
     CustomJSONEncoder,
@@ -477,11 +477,11 @@ class TestGetHandlersReturnCursorRows:
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
         if GET_HANDLER_TYPES[handler] == TYPES[3]:
-            args = ("1", Pagination(), [])
+            args = ("1", URIQueries(), [])
         elif GET_HANDLER_TYPES[handler] == TYPES[2]:
             args = ("1",)
         elif GET_HANDLER_TYPES[handler] == TYPES[1]:
-            args = (Pagination(), [])
+            args = (URIQueries(), [])
         else:
             args = tuple()
         assert handler(*args) == orig_rows
@@ -528,7 +528,7 @@ class TestGetHandlersReturnCursorRows:
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
         if GET_HANDLER_TYPES[handler] == TYPES[1]:
-            assert handler(Pagination(), []) == orig_rows
+            assert handler(URIQueries(), []) == orig_rows
         else:
             assert handler() == orig_rows
 
@@ -560,7 +560,7 @@ class TestGetHandlersReturnCursorRows:
         ]
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
-        assert get_tender_line_items("1", Pagination(), []) == orig_rows
+        assert get_tender_line_items("1", URIQueries(), []) == orig_rows
 
     def test_rich_tender_line_items_returns_cursor_row_in_boundary_case(
         self, mock_cursor
@@ -593,7 +593,7 @@ class TestGetHandlersReturnCursorRows:
         ]
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
-        assert get_rich_tender_line_items(1, Pagination(), []) == orig_rows
+        assert get_rich_tender_line_items(1, URIQueries(), []) == orig_rows
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -673,9 +673,9 @@ class TestPaginationClamping:
             "per_page": str(per_page),
         }
         if GET_HANDLER_TYPES[handler] == "with path, with query":
-            handler("1", Pagination(page=page, per_page=per_page), [])
+            handler("1", URIQueries(page=page, per_page=per_page), [])
         else:
-            handler(Pagination(page=page, per_page=per_page), [])
+            handler(URIQueries(page=page, per_page=per_page), [])
         sql = mock_cursor.execute.call_args[0][0].as_string()
         expected_offset = expected_limit * (expected_page - 1)
         assert_sql_contains(sql, f"LIMIT {expected_limit}", f"OFFSET {expected_offset}")
@@ -711,7 +711,7 @@ class TestHandlersCallExecuteOnce:
         self, mock_cursor, handler
     ):
         if GET_HANDLER_TYPES[handler] == "no path, with query":
-            handler(Pagination(), [])
+            handler(URIQueries(), [])
         else:
             handler()
         assert mock_cursor.execute.call_count == 1
@@ -725,7 +725,7 @@ class TestHandlersCallExecuteOnce:
         self, mock_cursor, handler, id
     ):
         if GET_HANDLER_TYPES[handler] == "with path, with query":
-            handler(id, Pagination(), [])
+            handler(id, URIQueries(), [])
         else:
             handler(id)
         assert mock_cursor.execute.call_count == 1
@@ -735,9 +735,9 @@ class TestHandlersCallExecuteOnce:
     )
     def test_get_handlers_call_execute_once_with_pagination(self, mock_cursor, handler):
         if GET_HANDLER_TYPES[handler] == "with path, with query":
-            handler("1", Pagination(page="2", per_page="75"), [])
+            handler("1", URIQueries(page="2", per_page="75"), [])
         else:
-            handler(Pagination(page="2", per_page="75"), [])
+            handler(URIQueries(page="2", per_page="75"), [])
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize(
@@ -747,9 +747,9 @@ class TestHandlersCallExecuteOnce:
         self, mock_cursor, handler
     ):
         if GET_HANDLER_TYPES[handler] == "with path, with query":
-            handler("1", Pagination(), SORT_TO_TEST[handler])
+            handler("1", URIQueries(), SORT_TO_TEST[handler])
         else:
-            handler(Pagination(), SORT_TO_TEST[handler])
+            handler(URIQueries(), SORT_TO_TEST[handler])
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize(
@@ -761,12 +761,12 @@ class TestHandlersCallExecuteOnce:
         if GET_HANDLER_TYPES[handler] == "with path, with query":
             handler(
                 "1",
-                Pagination(page="2", per_page="75"),
+                URIQueries(page="2", per_page="75"),
                 sort=SORT_TO_TEST[handler],
             )
         else:
             handler(
-                Pagination(page="2", per_page="75"),
+                URIQueries(page="2", per_page="75"),
                 sort=SORT_TO_TEST[handler],
             )
         assert mock_cursor.execute.call_count == 1
@@ -1071,7 +1071,7 @@ class TestGetHandlersCustomSorting:
     def test_pathless_custom_sortable_get_handlers_SQL_reflects_single_level_params(
         self, mock_cursor, handler, sort_strings, expected_sort_sql
     ):
-        handler(Pagination(), sort_strings)
+        handler(URIQueries(), sort_strings)
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
@@ -1090,7 +1090,7 @@ class TestGetHandlersCustomSorting:
     def test_pathed_custom_sortable_get_handlers_SQL_reflects_single_level_params(
         self, mock_cursor, handler, sort_strings, expected_sort_sql
     ):
-        handler(1, Pagination(), sort_strings)
+        handler(1, URIQueries(), sort_strings)
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
@@ -1138,7 +1138,7 @@ class TestGetHandlersCustomSorting:
     def test_pathless_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
         self, mock_cursor, handler, sort_strings, expected_sort_sql
     ):
-        handler(Pagination(), sort_strings)
+        handler(URIQueries(), sort_strings)
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
@@ -1161,7 +1161,7 @@ class TestGetHandlersCustomSorting:
     def test_pathed_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
         self, mock_cursor, handler, sort_strings, expected_sort_sql
     ):
-        handler("1", Pagination(), sort_strings)
+        handler("1", URIQueries(), sort_strings)
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
@@ -1200,7 +1200,7 @@ class TestGetHandlersCustomSorting:
         self, mock_cursor, handler, sort_strings
     ):
         with pytest.raises(ValueError):
-            handler(Pagination(), sort_strings)
+            handler(URIQueries(), sort_strings)
 
     @pytest.mark.parametrize(
         "handler, sort_strings",
@@ -1218,7 +1218,7 @@ class TestGetHandlersCustomSorting:
         self, mock_cursor, handler, sort_strings
     ):
         with pytest.raises(ValueError):
-            handler("1", Pagination(), sort_strings)
+            handler("1", URIQueries(), sort_strings)
 
 
 # ══════════════════════════════════════════════════════════════════
