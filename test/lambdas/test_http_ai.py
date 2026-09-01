@@ -22,6 +22,7 @@ from src.lambdas.http_api import (
     parse_sort_strings,
     filter_by_whitelist,
     Pagination,
+    build_search_sql,
     SortClause,
     SortClauses,
     CustomJSONEncoder,
@@ -1218,6 +1219,32 @@ class TestGetHandlersCustomSorting:
     ):
         with pytest.raises(ValueError):
             handler("1", Pagination(), sort_strings)
+
+
+# ══════════════════════════════════════════════════════════════════
+# Search-clause helper function
+# ══════════════════════════════════════════════════════════════════
+class TestSearchClauseSQLBuilder:
+    @pytest.mark.parametrize(
+        "search_column, search_string, expected_sql",
+        [
+            ("service_name", "rabies", "WHERE \"service_name\" ILIKE '%rabies%'"),
+            ("title_engaged", "nurse", "WHERE \"title_engaged\" ILIKE '%nurse%'"),
+        ]
+    )
+    def test_search_clause_builder_forms_expected_sql(
+        self,
+        search_column,
+        search_string,
+        expected_sql
+    ):
+        assert build_search_sql(search_column, search_string).as_string() == expected_sql
+
+    def test_pathless_filterable_get_handlers_raise_value_error_on_invalid_search_column(self):
+        pass
+
+    def test_pathed_filterable_get_handlers_raise_value_error_on_invalid_search_column(self):
+        pass
 
 
 # ══════════════════════════════════════════════════════════════════
