@@ -117,6 +117,16 @@ def OptionalDecimal(max_digits: int, decimal_places: int) -> TypeAlias:
 class URIQueries(BaseModel):
     page: Optional[int] = 1
     per_page: Optional[int] = 10
+    search_column: Annotated[Optional[str], Field(max_length=40)] = None
+    search_string: Annotated[Optional[str], Field(max_length=30)] = None
+
+
+def build_search_sql(
+    search_column: str, search_string: str, whitelist: list[str] = None
+) -> Composable:
+    return SQL("WHERE {} ILIKE {}").format(
+        Identifier(search_column), f"%{search_string}%"
+    )
 
 
 class SortClause(BaseModel):
