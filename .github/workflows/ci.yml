@@ -186,7 +186,7 @@ jobs:
             echo "Changes to Python code detected."
             
             # extract Python files under src/ directory from changed list
-            CHANGED_PYTHON="$(echo "$CHANGES" | grep '^src/.*.py' | xargs -L 1 basename)"
+            CHANGED_PYTHON="$(echo "$CHANGES" | grep '^src/.*.py' | xargs -r -L 1 basename)"
 
             if echo "$CHANGED_PYTHON" | grep -q "create_budibase_instance.py"; then
               LAMBDA_CREATE_INSTANCE_CHANGED=true
