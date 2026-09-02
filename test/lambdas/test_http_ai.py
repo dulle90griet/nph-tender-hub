@@ -1233,12 +1233,20 @@ class TestSearchClauseSQLBuilder:
         ]
     )
     def test_search_clause_builder_forms_expected_sql(
-        self,
-        search_column,
-        search_string,
-        expected_sql
+        self, search_column, search_string, expected_sql
     ):
         assert build_search_sql(search_column, search_string).as_string() == expected_sql
+
+    def test_pathless_filterable_get_handlers_SQL_reflects_search_query(
+        self, mock_cursor, handler, search_column, search_string, expected_sql
+    ):
+        handler(URIQueries(search_column=search_column, search_string=search_string))
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
+        assert expected_sql in executed_sql
+        assert len(re.findall("WHERE ", executed_sql, flags=re.IGNORECASE)) == 1
+
+    def test_pathed_filterable_get_handlers_SQL_reflects_search_query(self):
+        pass
 
     def test_pathless_filterable_get_handlers_raise_value_error_on_invalid_search_column(self):
         pass
