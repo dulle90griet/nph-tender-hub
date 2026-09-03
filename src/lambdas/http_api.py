@@ -516,14 +516,24 @@ def get_department() -> None:
 
 @app.get("/job-title")
 def get_job_title(
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for job_title table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+
+    valid_search_columns = [
+        "department",
+        "title",
+    ]
+    search_sql = build_search_sql(
+        queries.search_column,
+        queries.search_string,
+        valid_search_columns,
+    )
 
     valid_sort_columns = [
         "jt.id",
@@ -555,10 +565,16 @@ def get_job_title(
         FROM job_title jt
         LEFT OUTER JOIN department d
             ON jt.department_id = d.id
+        {search_clause}
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(sort_clause=sort_clause_sql, per_page=per_page, offset=offset)
+    """).format(
+        search_clause=search_sql,
+        sort_clause=sort_clause_sql,
+        per_page=per_page,
+        offset=offset,
+    )
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_job_title_sql)
@@ -644,15 +660,20 @@ def patch_job_title(job_title_id: str, body: Annotated[UpdateJobTitle, Body()]) 
 
 @app.get("/consumable")
 def get_consumable(
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for consumable table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
     sort_clauses = SortClauses(sort)
+
+    valid_search_columns = ["consumable_name"]
+    search_sql = build_search_sql(
+        queries.search_column, queries.search_string, valid_search_columns
+    )
 
     valid_sort_columns = [
         "id",
@@ -667,10 +688,16 @@ def get_consumable(
     get_sql = SQL("""
         SELECT *
         FROM consumable
+        {search_clause}
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(sort_clause=sort_clause_sql, per_page=per_page, offset=offset)
+    """).format(
+        search_clause=search_sql,
+        sort_clause=sort_clause_sql,
+        per_page=per_page,
+        offset=offset,
+    )
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_sql)
@@ -752,14 +779,24 @@ def patch_consumable(
 
 @app.get("/service")
 def get_service(
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for service table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+
+    valid_search_columns = [
+        "pillar",
+        "category",
+        "service_name",
+        "comments",
+    ]
+    search_sql = build_search_sql(
+        queries.search_column, queries.search_string, valid_search_columns
+    )
 
     valid_sort_columns = [
         "id",
@@ -783,10 +820,16 @@ def get_service(
     get_sql = SQL("""
         SELECT *
         FROM service
+        {search_clause}
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(sort_clause=sort_clause_sql, per_page=per_page, offset=offset)
+    """).format(
+        search_clause=search_sql,
+        sort_clause=sort_clause_sql,
+        per_page=per_page,
+        offset=offset,
+    )
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_sql)
@@ -879,14 +922,24 @@ def patch_service(service_id: str, body: Annotated[UpdateService, Body()]) -> No
 
 @app.get("/overhead-cost")
 def get_overhead_cost(
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for overhead_cost table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+
+    valid_search_columns = [
+        "cost_type",
+        "cost_description",
+    ]
+    search_sql = build_search_sql(
+        queries.search_column,
+        queries.search_string,
+        valid_search_columns,
+    )
 
     valid_sort_columns = [
         "id",
@@ -902,10 +955,16 @@ def get_overhead_cost(
     get_overhead_cost_sql = SQL("""
         SELECT *
         FROM overhead_cost
+        {search_clause}
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(sort_clause=sort_clause_sql, per_page=per_page, offset=offset)
+    """).format(
+        search_clause=search_sql,
+        sort_clause=sort_clause_sql,
+        per_page=per_page,
+        offset=offset,
+    )
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_overhead_cost_sql)
@@ -968,14 +1027,24 @@ def patch_overhead_cost(
 
 @app.get("/labour-cost")
 def get_labour_cost(
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for labour_cost table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+
+    valid_search_columns = [
+        "service",
+        "title_engaged",
+    ]
+    search_sql = build_search_sql(
+        queries.search_column,
+        queries.search_string,
+        valid_search_columns,
+    )
 
     valid_sort_columns = [
         "service_id",
@@ -1001,10 +1070,17 @@ def get_labour_cost(
             ON lc.service_id = s.id
         LEFT OUTER JOIN job_title jt
             ON lc.title_engaged_id = jt.id
+        {search_clause}
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(sort_clause=sort_clause_sql, per_page=per_page, offset=offset)
+    """).format(
+        search_clause=search_sql,
+        sort_clause=sort_clause_sql,
+        per_page=per_page,
+        offset=offset,
+    )
+
     with DatabaseCursor() as cursor:
         cursor.execute(get_labour_cost_sql)
         results = cursor.fetchall()
@@ -1072,14 +1148,24 @@ def patch_labour_cost(
 
 @app.get("/direct-cost")
 def get_direct_cost(
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for direct_cost table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+
+    valid_search_columns = [
+        "service",
+        "consumable",
+    ]
+    search_sql = build_search_sql(
+        queries.search_column,
+        queries.search_string,
+        valid_search_columns,
+    )
 
     valid_sort_columns = [
         "service_id",
@@ -1105,10 +1191,16 @@ def get_direct_cost(
             ON dc.service_id = s.id
         LEFT OUTER JOIN consumable c
             ON dc.consumable_id = c.id
+        {search_clause}
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(sort_clause=sort_clause_sql, per_page=per_page, offset=offset)
+    """).format(
+        search_clause=search_sql,
+        sort_clause=sort_clause_sql,
+        per_page=per_page,
+        offset=offset,
+    )
     with DatabaseCursor() as cursor:
         cursor.execute(get_direct_cost_sql)
         results = cursor.fetchall()
@@ -1176,14 +1268,21 @@ def patch_direct_cost(
 
 @app.get("/client")
 def get_client(
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for client table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+
+    valid_search_columns = ["client_name"]
+    search_sql = build_search_sql(
+        queries.search_column,
+        queries.search_string,
+        valid_search_columns,
+    )
 
     valid_sort_columns = ["id", "client_name"]
     sort_clauses = SortClauses(sort, whitelist=valid_sort_columns)
@@ -1194,10 +1293,16 @@ def get_client(
     get_client_sql = SQL("""
         SELECT *
         FROM client
+        {search_clause}
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(sort_clause=sort_clause_sql, per_page=per_page, offset=offset)
+    """).format(
+        search_clause=search_sql,
+        sort_clause=sort_clause_sql,
+        per_page=per_page,
+        offset=offset,
+    )
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_client_sql)
@@ -1278,14 +1383,24 @@ def patch_client(client_id: str, body: Annotated[UpdateClient, Body()]) -> None:
 
 @app.get("/tender")
 def get_tender(
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for tender table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+
+    valid_search_columns = [
+        "tender_title",
+        "client",
+    ]
+    search_sql = build_search_sql(
+        queries.search_column,
+        queries.search_string,
+        valid_search_columns,
+    )
 
     valid_sort_columns = [
         "id",
@@ -1311,10 +1426,16 @@ def get_tender(
         FROM tender t
         LEFT OUTER JOIN client c
             ON t.client_id = c.id
+        {search_clause}
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
-    """).format(sort_clause=sort_clause_sql, per_page=per_page, offset=offset)
+    """).format(
+        search_clause=search_sql,
+        sort_clause=sort_clause_sql,
+        per_page=per_page,
+        offset=offset,
+    )
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_tender_sql)

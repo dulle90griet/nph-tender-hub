@@ -1230,28 +1230,87 @@ class TestSearchClauseSQLBuilder:
         [
             ("service_name", "rabies", "WHERE \"service_name\" ILIKE '%rabies%'"),
             ("title_engaged", "nurse", "WHERE \"title_engaged\" ILIKE '%nurse%'"),
-        ]
+        ],
     )
     def test_search_clause_builder_forms_expected_sql(
         self, search_column, search_string, expected_sql
     ):
-        assert build_search_sql(search_column, search_string).as_string() == expected_sql
+        assert (
+            build_search_sql(search_column, search_string).as_string() == expected_sql
+        )
 
+    @pytest.mark.parametrize(
+        "handler, search_column, search_string, expected_sql",
+        [
+            (
+                get_job_title,
+                "department",
+                "Assess",
+                "WHERE \"department\" ILIKE '%Assess%'",
+            ),
+            (
+                get_consumable,
+                "consumable_name",
+                "100 pcs",
+                "WHERE \"consumable_name\" ILIKE '%100 pcs%'",
+            ),
+            (
+                get_service,
+                "service_name",
+                "rabies",
+                "WHERE \"service_name\" ILIKE '%rabies%'",
+            ),
+            (
+                get_overhead_cost,
+                "cost_description",
+                "fruit basket",
+                "WHERE \"cost_description\" ILIKE '%fruit basket%'",
+            ),
+            (
+                get_labour_cost,
+                "title_engaged",
+                "Senior",
+                "WHERE \"title_engaged\" ILIKE '%Senior%'",
+            ),
+            (
+                get_direct_cost,
+                "service",
+                "assessment",
+                "WHERE \"service\" ILIKE '%assessment%'",
+            ),
+            (
+                get_client,
+                "client_name",
+                "Withington",
+                "WHERE \"client_name\" ILIKE '%Withington%'",
+            ),
+            (
+                get_tender,
+                "tender_title",
+                "X-Structure",
+                "WHERE \"tender_title\" ILIKE '%X-Structure%'",
+            ),
+        ],
+    )
     def test_pathless_filterable_get_handlers_SQL_reflects_search_query(
         self, mock_cursor, handler, search_column, search_string, expected_sql
     ):
         handler(URIQueries(search_column=search_column, search_string=search_string))
-        executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string()
         assert expected_sql in executed_sql
         assert len(re.findall("WHERE ", executed_sql, flags=re.IGNORECASE)) == 1
 
     def test_pathed_filterable_get_handlers_SQL_reflects_search_query(self):
         pass
 
-    def test_pathless_filterable_get_handlers_raise_value_error_on_invalid_search_column(self):
+    def test_pathless_filterable_get_handlers_raise_value_error_on_invalid_search_column(
+        self,
+    ):
         pass
 
-    def test_pathed_filterable_get_handlers_raise_value_error_on_invalid_search_column(self):
+    def test_pathed_filterable_get_handlers_raise_value_error_on_invalid_search_column(
+        self,
+    ):
         pass
 
 
