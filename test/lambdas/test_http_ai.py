@@ -1300,8 +1300,30 @@ class TestSearchClauseSQLBuilder:
         assert expected_sql in executed_sql
         assert len(re.findall("WHERE ", executed_sql, flags=re.IGNORECASE)) == 1
 
-    def test_pathed_filterable_get_handlers_SQL_reflects_search_query(self):
-        pass
+    @pytest.mark.parametrize(
+        "handler, search_column, search_string, expected_sql",
+        [
+            (
+                get_tender_line_items,
+                "service",
+                "examination",
+                "WHERE \"service\" ILIKE '%examination%'",
+            ),
+            (
+                get_rich_tender_line_items,
+                "service_category",
+                "remote",
+                "WHERE \"service_category\" ILIKE '%remote%'",
+            ),
+        ],
+    )
+    def test_pathed_filterable_get_handlers_SQL_reflects_search_query(
+        self, mock_cursor, handler, search_column, search_string, expected_sql
+    ):
+        handler(1, URIQueries(search_column=search_column, search_string=search_string))
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string()
+        assert expected_sql in executed_sql
+        assert len(re.findall("WHERE ", executed_sql, flags=re.IGNORECASE)) == 2
 
     def test_pathless_filterable_get_handlers_raise_value_error_on_invalid_search_column(
         self,
