@@ -126,6 +126,10 @@ def build_search_sql(
 ) -> Composable:
     if not search_column or not search_string:
         return SQL("")
+
+    if whitelist and search_column not in whitelist:
+        raise ValueError("Provided search column is not whitelisted.")
+
     return SQL("WHERE {} ILIKE {}").format(
         Identifier(search_column), f"%{search_string}%"
     )
