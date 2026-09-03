@@ -1239,6 +1239,17 @@ class TestSearchClauseSQLBuilder:
             build_search_sql(search_column, search_string).as_string() == expected_sql
         )
 
+    def test_search_clause_builder_raises_value_error_on_non_whitelisted_column(self):
+        with pytest.raises(ValueError):
+            build_search_sql("unlisted_column", "value", ["listed_column"])
+
+        with pytest.raises(ValueError):
+            build_search_sql(
+                "annual_visit_count",
+                "N/A",
+                ["col_1", "col_2", "col_3", "col_4", "col_5"],
+            )
+
     @pytest.mark.parametrize(
         "handler, search_column, search_string, expected_sql",
         [
