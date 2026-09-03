@@ -124,6 +124,8 @@ class URIQueries(BaseModel):
 def build_search_sql(
     search_column: str, search_string: str, whitelist: list[str] = None
 ) -> Composable:
+    if not search_column or not search_string:
+        return SQL("")
     return SQL("WHERE {} ILIKE {}").format(
         Identifier(search_column), f"%{search_string}%"
     )
