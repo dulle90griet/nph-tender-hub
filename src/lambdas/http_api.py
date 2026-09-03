@@ -1540,14 +1540,23 @@ def patch_tender(tender_id: str, body: Annotated[UpdateTender, Body()]) -> None:
 @app.get("/tender/line-items/<tender_id>")
 def get_tender_line_items(
     tender_id: str,
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """GET method for tenders_services table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
+
+    valid_search_columns = [
+        "service",
+    ]
+    search_sql = build_search_sql(
+        queries.search_column,
+        queries.search_string,
+        valid_search_columns,
+    )
 
     valid_sort_columns = [
         "service_id",
@@ -1578,11 +1587,13 @@ def get_tender_line_items(
             ON ft.tender_id = t.id
         LEFT OUTER JOIN service s
             ON ft.service_id = s.id
+        {search_clause}
         {sort_clause}
         LIMIT {per_page}
         OFFSET {offset}
     """).format(
         tender_id=tender_id,
+        search_clause=search_sql,
         sort_clause=sort_clause_sql,
         per_page=per_page,
         offset=offset,
@@ -1598,13 +1609,13 @@ def get_tender_line_items(
 @app.get("/tender/line-items/rich/<tender_id>")
 def get_rich_tender_line_items(
     tender_id: str,
-    pagination: Annotated[URIQueries, Query()],
+    queries: Annotated[URIQueries, Query()],
     sort: Annotated[list[str], Query()] = "",
 ) -> list:
     """Enriched GET method for tenders_services table"""
     max_per_page = 100
-    page = max(int(pagination.page), 1)
-    per_page = min(max(int(pagination.per_page), 1), max_per_page)
+    page = max(int(queries.page), 1)
+    per_page = min(max(int(queries.per_page), 1), max_per_page)
     offset = per_page * (page - 1)
 
     overhead_recovery_on_labour_cost_gbp = """
@@ -1636,6 +1647,16 @@ def get_rich_tender_line_items(
     annual_profit_gbp = f"""
         ({annual_sales_gbp}) - ({annual_total_gbp})
     """
+
+    valid_search_columns = [
+        "service_category",
+        "service",
+    ]
+    search_sql = build_search_sql(
+        queries.search_column,
+        queries.search_string,
+        valid_search_columns,
+    )
 
     valid_sort_columns = [
         "service_category",
@@ -1737,11 +1758,13 @@ def get_rich_tender_line_items(
             ,ROUND({annual_total_gbp}, 2) AS annual_total_gbp
             ,ROUND({annual_profit_gbp}, 2) AS annual_profit_gbp
         FROM base
+        {{search_clause}}
         {{sort_clause}}
         LIMIT {{per_page}}
         OFFSET {{offset}}
     """).format(
         tender_id=tender_id,
+        search_clause=search_sql,
         sort_clause=sort_clause_sql,
         per_page=per_page,
         offset=offset,
