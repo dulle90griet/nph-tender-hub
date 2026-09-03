@@ -2081,7 +2081,7 @@ class TestAPIResolverWithInvalidQueryParameters:
         assert "detail" in response["body"]
         assert json.loads(response["body"])["detail"][0]["loc"] == [
             "query",
-            "pagination",
+            "queries",
             bad_field,
         ]
 
