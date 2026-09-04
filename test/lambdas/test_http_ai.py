@@ -1166,60 +1166,6 @@ class TestGetHandlersCustomSorting:
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
 
-    @pytest.mark.parametrize(
-        "handler, sort_strings",
-        [
-            (get_job_title, ["invalid_column"]),
-            (get_job_title, ["title", "faketable.fakecolumn", "-jt.id"]),
-            (get_consumable, ["invalid_column"]),
-            (get_consumable, ["-faketable.fakecolumn", "consumable_name", "jrilto"]),
-            (get_service, ["invalid_column"]),
-            (get_service, ["pillar", "comments", "faketable.fakecolumn"]),
-            (get_overhead_cost, ["invalid_column"]),
-            (
-                get_overhead_cost,
-                ["lightbulbs_included", "faketable.fakecolumn", "-cost_type"],
-            ),
-            (get_labour_cost, ["invalid_column"]),
-            (
-                get_labour_cost,
-                ["faketable.fakecolumn", "-servizio", "required_time_mins"],
-            ),
-            (get_direct_cost, ["invalid_column"]),
-            (get_direct_cost, ["-lines_per_page", "faketable.fakecolumn,cost_gbp"]),
-            (get_client, ["invalid_column"]),
-            (get_client, ["client_name", "-sprezzatura", "-faketable.fakecolumn"]),
-            (get_tender, ["invalid_column"]),
-            (
-                get_tender,
-                ["-faketable.fakecolumn", "projected_sales_value_gbp", "client"],
-            ),
-        ],
-    )
-    def test_pathless_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
-        self, mock_cursor, handler, sort_strings
-    ):
-        with pytest.raises(ValueError):
-            handler(URIQueries(), sort_strings)
-
-    @pytest.mark.parametrize(
-        "handler, sort_strings",
-        [
-            (get_tender_line_items, ["invalid_column"]),
-            (
-                get_tender_line_items,
-                ["enemy_count", "-service_category", "faketable.fakecolumn"],
-            ),
-            (get_rich_tender_line_items, ["invalid_column"]),
-            (get_rich_tender_line_items, ["title", "faketable.fakecolumn", "-jt.id"]),
-        ],
-    )
-    def test_pathed_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
-        self, mock_cursor, handler, sort_strings
-    ):
-        with pytest.raises(ValueError):
-            handler("1", URIQueries(), sort_strings)
-
 
 # ══════════════════════════════════════════════════════════════════
 # Search-clause helper function
@@ -2095,6 +2041,60 @@ class TestAPIResolverWithInvalidQueryParameters:
             "queries",
             bad_field,
         ]
+
+    @pytest.mark.parametrize(
+        "handler, sort_strings",
+        [
+            (get_job_title, ["invalid_column"]),
+            (get_job_title, ["title", "faketable.fakecolumn", "-jt.id"]),
+            (get_consumable, ["invalid_column"]),
+            (get_consumable, ["-faketable.fakecolumn", "consumable_name", "jrilto"]),
+            (get_service, ["invalid_column"]),
+            (get_service, ["pillar", "comments", "faketable.fakecolumn"]),
+            (get_overhead_cost, ["invalid_column"]),
+            (
+                get_overhead_cost,
+                ["lightbulbs_included", "faketable.fakecolumn", "-cost_type"],
+            ),
+            (get_labour_cost, ["invalid_column"]),
+            (
+                get_labour_cost,
+                ["faketable.fakecolumn", "-servizio", "required_time_mins"],
+            ),
+            (get_direct_cost, ["invalid_column"]),
+            (get_direct_cost, ["-lines_per_page", "faketable.fakecolumn,cost_gbp"]),
+            (get_client, ["invalid_column"]),
+            (get_client, ["client_name", "-sprezzatura", "-faketable.fakecolumn"]),
+            (get_tender, ["invalid_column"]),
+            (
+                get_tender,
+                ["-faketable.fakecolumn", "projected_sales_value_gbp", "client"],
+            ),
+        ],
+    )
+    def test_pathless_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
+        self, mock_cursor, handler, sort_strings
+    ):
+        with pytest.raises(ValueError):
+            handler(URIQueries(), sort_strings)
+
+    @pytest.mark.parametrize(
+        "handler, sort_strings",
+        [
+            (get_tender_line_items, ["invalid_column"]),
+            (
+                get_tender_line_items,
+                ["enemy_count", "-service_category", "faketable.fakecolumn"],
+            ),
+            (get_rich_tender_line_items, ["invalid_column"]),
+            (get_rich_tender_line_items, ["title", "faketable.fakecolumn", "-jt.id"]),
+        ],
+    )
+    def test_pathed_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
+        self, mock_cursor, handler, sort_strings
+    ):
+        with pytest.raises(ValueError):
+            handler("1", URIQueries(), sort_strings)
 
 
 # ══════════════════════════════════════════════════════════════════
