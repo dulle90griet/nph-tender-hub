@@ -20,8 +20,14 @@ import psycopg_pool
 from psycopg.sql import Composable, SQL, Identifier, Placeholder
 from psycopg.rows import dict_row
 
-from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
+from http import HTTPStatus
+from aws_lambda_powertools.event_handler import (
+    APIGatewayHttpResolver,
+    Response,
+    content_types,
+)
 from aws_lambda_powertools.event_handler.openapi.params import Query, Body
+from aws_lambda_powertools.event_handler.exceptions import ServiceError
 from aws_lambda_powertools.utilities.typing.lambda_context import LambdaContext
 import boto3
 from botocore.exceptions import ClientError
@@ -396,6 +402,31 @@ app = APIGatewayHttpResolver(
     enable_validation=True,
     serializer=custom_serializer,
 )
+
+
+class InvalidParameterError(ServiceError):
+    """
+    Raised when the request includes a non-allowed value
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(status_code=HTTPStatus.UNPROCESSABLE_ENTITY, msg=message)
+        # self.loc = loc
+
+
+@app.exception_handler(InvalidParameterError)
+def handle_validation_error(exp: InvalidParameterError):
+    return Response(
+        status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+        content_type=content_types.APPLICATION_JSON,
+        body={
+            "statusCode": HTTPStatus.UNPROCESSABLE_ENTITY,
+            "detail": {
+                # "loc": exp.loc,
+                "message": exp.msg,
+            },
+        },
+    )
 
 
 class DatabaseManager:
