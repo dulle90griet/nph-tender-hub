@@ -65,7 +65,7 @@ def filter_by_whitelist(
         if set_to_check <= whitelist_set:
             return list_to_filter
         else:
-            raise ValueError(
+            raise InvalidParameterError(
                 "Invalid value encountered. For any values to be accepted, only whitelisted values must be provided."
             )
     elif mode == "lax":
@@ -134,7 +134,7 @@ def build_search_sql(
         return SQL("")
 
     if whitelist and search_column not in whitelist:
-        raise ValueError("Provided search column is not whitelisted.")
+        raise InvalidParameterError("Provided search column is not whitelisted.")
 
     return SQL("WHERE {} ILIKE {}").format(
         Identifier(search_column), f"%{search_string}%"
