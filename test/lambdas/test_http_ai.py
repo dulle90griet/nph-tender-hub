@@ -2042,59 +2042,68 @@ class TestAPIResolverWithInvalidQueryParameters:
             bad_field,
         ]
 
+    @pytest.mark.disable_autouse
     @pytest.mark.parametrize(
-        "handler, sort_strings",
+        "path, sort_strings",
         [
-            (get_job_title, ["invalid_column"]),
-            (get_job_title, ["title", "faketable.fakecolumn", "-jt.id"]),
-            (get_consumable, ["invalid_column"]),
-            (get_consumable, ["-faketable.fakecolumn", "consumable_name", "jrilto"]),
-            (get_service, ["invalid_column"]),
-            (get_service, ["pillar", "comments", "faketable.fakecolumn"]),
-            (get_overhead_cost, ["invalid_column"]),
+            ("/job-title", ["invalid_column"]),
+            ("/job-title", ["title", "faketable.fakecolumn", "-jt.id"]),
+            ("/consumable", ["invalid_column"]),
+            ("/consumable", ["-faketable.fakecolumn", "consumable_name", "jrilto"]),
+            ("/service", ["invalid_column"]),
+            ("/service", ["pillar", "comments", "faketable.fakecolumn"]),
+            ("/overhead-cost", ["invalid_column"]),
             (
-                get_overhead_cost,
+                "/overhead-cost",
                 ["lightbulbs_included", "faketable.fakecolumn", "-cost_type"],
             ),
-            (get_labour_cost, ["invalid_column"]),
+            ("/labour-cost", ["invalid_column"]),
             (
-                get_labour_cost,
+                "/labour-cost",
                 ["faketable.fakecolumn", "-servizio", "required_time_mins"],
             ),
-            (get_direct_cost, ["invalid_column"]),
-            (get_direct_cost, ["-lines_per_page", "faketable.fakecolumn,cost_gbp"]),
-            (get_client, ["invalid_column"]),
-            (get_client, ["client_name", "-sprezzatura", "-faketable.fakecolumn"]),
-            (get_tender, ["invalid_column"]),
+            ("/direct-cost", ["invalid_column"]),
+            ("/direct-cost", ["-lines_per_page", "faketable.fakecolumn,cost_gbp"]),
+            ("/client", ["invalid_column"]),
+            ("/client", ["client_name", "-sprezzatura", "-faketable.fakecolumn"]),
+            ("/tender", ["invalid_column"]),
             (
-                get_tender,
+                "/tender",
                 ["-faketable.fakecolumn", "projected_sales_value_gbp", "client"],
             ),
-        ],
-    )
-    def test_pathless_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
-        self, mock_cursor, handler, sort_strings
-    ):
-        with pytest.raises(ValueError):
-            handler(URIQueries(), sort_strings)
-
-    @pytest.mark.parametrize(
-        "handler, sort_strings",
-        [
-            (get_tender_line_items, ["invalid_column"]),
+            ("/tender/line-items/1", ["invalid_column"]),
             (
-                get_tender_line_items,
+                "/tender/line-items/1",
                 ["enemy_count", "-service_category", "faketable.fakecolumn"],
             ),
-            (get_rich_tender_line_items, ["invalid_column"]),
-            (get_rich_tender_line_items, ["title", "faketable.fakecolumn", "-jt.id"]),
+            ("/tender/line-items/rich/1", ["invalid_column"]),
+            ("/tender/line-items/rich/1", ["title", "faketable.fakecolumn", "-jt.id"]),
         ],
     )
-    def test_pathed_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
-        self, mock_cursor, handler, sort_strings
+    def test_pathless_custom_sortable_get_handlers_return_422_on_invalid_sort_column(
+        self, mock_cursor, path, sort_strings
     ):
-        with pytest.raises(ValueError):
-            handler("1", URIQueries(), sort_strings)
+        test_event = {
+            "version": "2.0",
+            "routeKey": f"GET {path}",
+            "rawPath": path,
+            "rawQueryString": "sort=" + ",".join(sort_strings),
+            "queryStringParameters": {"sort": ",".join(sort_strings)},
+            "headers": {"Content-Type": "application/json"},
+            "requestContext": {
+                "http": {
+                    "method": "GET",
+                    "path": path,
+                },
+                "stage": "$default",
+            },
+            "body": None,
+            "isBase64Encoded": False,
+        }
+        test_context = MagicMock()
+        test_context.get_remaining_time_in_millis.return_value = 5000
+        response = app.resolve(test_event, test_context)
+        assert response["statusCode"] == 422
 
 
 # ══════════════════════════════════════════════════════════════════
