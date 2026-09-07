@@ -50,9 +50,10 @@ def filter_by_whitelist(
         list_to_filter: The list of values to be checked for inclusion
             in the whitelist. May also be a single non-list value.
         whitelist: The list of all accepted values.
-        error_mode: If None, no errors are raised. If "lax", a ValueError
-            is raised only if all values in list_to_filter are invalid.
-            In "strict" mode, a ValueError is raised if any value is invalid.
+        error_mode: If None, no errors are raised. If "lax", an
+            InvalidParameterError is raised only if all values in
+            list_to_filter are invalid. In "strict" mode, an
+            InvalidParameterError is raised if any value is invalid.
     """
     if not list_to_filter or not whitelist:
         return None
@@ -75,7 +76,9 @@ def filter_by_whitelist(
                 valid_items.append(item)
 
         if not valid_items:
-            raise ValueError("Expected at least one whitelisted value, got none.")
+            raise InvalidParameterError(
+                "Expected at least one whitelisted value, got none."
+            )
         return valid_items
     else:
         raise ValueError("Invalid mode name.")
@@ -208,12 +211,13 @@ class SortClauses(BaseModel):
             if len(column_parts) <= 2:
                 sort_column = Identifier(*column_parts)
             else:
-                raise ValueError(
+                raise InvalidParameterError(
                     f"Qualified reference of more than two parts: {c.column}"
                 )
 
-            if c.direction.upper() not in ("ASC", "DESC"):
-                raise ValueError(f"Invalid order: {c.direction}")
+            # # DEPRECATED -- CHECK PERFORMED BY PYDANTIC (SEE SORTCLAUSE MODEL)
+            # if c.direction.upper() not in ("ASC", "DESC"):
+            #     raise InvalidParameterError(f"Invalid order: {c.direction}")
 
             sort_part = sort_column + SQL(f" {c.direction.upper()}")
             sort_parts.append(sort_part)
