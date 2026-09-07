@@ -2081,7 +2081,7 @@ class TestAPIResolverWithInvalidQueryParameters:
             ("/tender/line-items/rich/1", ["title", "faketable.fakecolumn", "-jt.id"]),
         ],
     )
-    def test_pathless_custom_sortable_get_handlers_return_422_on_invalid_sort_column(
+    def test_custom_sortable_get_handlers_return_422_on_invalid_sort_column(
         self, mock_cursor, path, sort_strings
     ):
         test_event = {
@@ -2090,6 +2090,50 @@ class TestAPIResolverWithInvalidQueryParameters:
             "rawPath": path,
             "rawQueryString": "sort=" + ",".join(sort_strings),
             "queryStringParameters": {"sort": ",".join(sort_strings)},
+            "headers": {"Content-Type": "application/json"},
+            "requestContext": {
+                "http": {
+                    "method": "GET",
+                    "path": path,
+                },
+                "stage": "$default",
+            },
+            "body": None,
+            "isBase64Encoded": False,
+        }
+        test_context = MagicMock()
+        test_context.get_remaining_time_in_millis.return_value = 5000
+        response = app.resolve(test_event, test_context)
+        assert response["statusCode"] == 422
+
+    @pytest.mark.disable_autouse
+    @pytest.mark.parametrize(
+        "path, search_column",
+        [
+            ("/job-title", "hourly_rate_gbp"),
+            ("/consumable", "id"),
+            ("/service", "new_unit_price_gbp"),
+            ("/overhead-cost", "budgeted_spend_gbp"),
+            ("/labour-cost", "required_time_mins"),
+            ("/direct-cost", "consumable_id"),
+            ("/client", "id"),
+            ("/tender", "date_created"),
+            ("/tender/line-items/1", "total_number_pa"),
+            ("/tender/line-items/rich/1", "required_profit_margin_percentage"),
+        ],
+    )
+    def test_filterable_get_handlers_return_422_on_invalid_search_column(
+        self, mock_cursor, path, search_column
+    ):
+        test_event = {
+            "version": "2.0",
+            "routeKey": f"GET {path}",
+            "rawPath": path,
+            "rawQueryString": f"search_column={search_column}&search_string=abcxyz",
+            "queryStringParameters": {
+                "search_column": search_column,
+                "search_string": "abcxyz",
+            },
             "headers": {"Content-Type": "application/json"},
             "requestContext": {
                 "http": {
