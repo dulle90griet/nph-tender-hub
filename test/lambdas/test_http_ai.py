@@ -22,6 +22,7 @@ from src.lambdas.http_api import (
     parse_sort_strings,
     filter_by_whitelist,
     build_search_sql,
+    InvalidParameterError,
     URIQueries,
     SortClause,
     SortClauses,
@@ -895,12 +896,12 @@ class TestSortClauseSQLBuilder:
     def test_sort_clause_builder_raises_value_error_on_three_or_more_reference_parts(
         self,
     ):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             SortClauses(
                 clauses=[SortClause(column="x.y.z.n", direction="ASC")]
             ).to_sql()
 
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             SortClauses(
                 clauses=[
                     SortClause(column="valid_column", direction="ASC"),
@@ -1026,7 +1027,7 @@ class TestWhitelistHelper:
     def test_whitelist_helper_in_lax_error_mode_raises_error_if_all_values_invalid(
         self, values_to_test, whitelist
     ):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             filter_by_whitelist(values_to_test, whitelist, mode="lax")
 
     @pytest.mark.parametrize(
@@ -1042,7 +1043,7 @@ class TestWhitelistHelper:
     def test_whitelist_helper_in_strict_error_mode_raises_error_if_any_values_invalid(
         self, values_to_test, whitelist
     ):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             filter_by_whitelist(values_to_test, whitelist, mode="strict")
 
     def test_whitelist_helper_raises_error_if_invalid_mode_specified(self):
@@ -1186,10 +1187,10 @@ class TestSearchClauseSQLBuilder:
         )
 
     def test_search_clause_builder_raises_value_error_on_non_whitelisted_column(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             build_search_sql("unlisted_column", "value", ["listed_column"])
 
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             build_search_sql(
                 "annual_visit_count",
                 "N/A",
