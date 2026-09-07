@@ -21,7 +21,9 @@ from src.lambdas.http_api import (
     app,
     parse_sort_strings,
     filter_by_whitelist,
-    Pagination,
+    build_search_sql,
+    InvalidParameterError,
+    URIQueries,
     SortClause,
     SortClauses,
     CustomJSONEncoder,
@@ -476,11 +478,11 @@ class TestGetHandlersReturnCursorRows:
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
         if GET_HANDLER_TYPES[handler] == TYPES[3]:
-            args = ("1", Pagination(), [])
+            args = ("1", URIQueries(), [])
         elif GET_HANDLER_TYPES[handler] == TYPES[2]:
             args = ("1",)
         elif GET_HANDLER_TYPES[handler] == TYPES[1]:
-            args = (Pagination(), [])
+            args = (URIQueries(), [])
         else:
             args = tuple()
         assert handler(*args) == orig_rows
@@ -527,7 +529,7 @@ class TestGetHandlersReturnCursorRows:
         mock_cursor.fetchall.return_value = rows
         orig_rows = deepcopy(rows)
         if GET_HANDLER_TYPES[handler] == TYPES[1]:
-            assert handler(Pagination(), []) == orig_rows
+            assert handler(URIQueries(), []) == orig_rows
         else:
             assert handler() == orig_rows
 
@@ -559,7 +561,7 @@ class TestGetHandlersReturnCursorRows:
         ]
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
-        assert get_tender_line_items("1", Pagination(), []) == orig_rows
+        assert get_tender_line_items("1", URIQueries(), []) == orig_rows
 
     def test_rich_tender_line_items_returns_cursor_row_in_boundary_case(
         self, mock_cursor
@@ -592,7 +594,7 @@ class TestGetHandlersReturnCursorRows:
         ]
         orig_rows = deepcopy(rows)
         mock_cursor.fetchall.return_value = rows
-        assert get_rich_tender_line_items(1, Pagination(), []) == orig_rows
+        assert get_rich_tender_line_items(1, URIQueries(), []) == orig_rows
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -672,9 +674,9 @@ class TestPaginationClamping:
             "per_page": str(per_page),
         }
         if GET_HANDLER_TYPES[handler] == "with path, with query":
-            handler("1", Pagination(page=page, per_page=per_page), [])
+            handler("1", URIQueries(page=page, per_page=per_page), [])
         else:
-            handler(Pagination(page=page, per_page=per_page), [])
+            handler(URIQueries(page=page, per_page=per_page), [])
         sql = mock_cursor.execute.call_args[0][0].as_string()
         expected_offset = expected_limit * (expected_page - 1)
         assert_sql_contains(sql, f"LIMIT {expected_limit}", f"OFFSET {expected_offset}")
@@ -710,7 +712,7 @@ class TestHandlersCallExecuteOnce:
         self, mock_cursor, handler
     ):
         if GET_HANDLER_TYPES[handler] == "no path, with query":
-            handler(Pagination(), [])
+            handler(URIQueries(), [])
         else:
             handler()
         assert mock_cursor.execute.call_count == 1
@@ -724,7 +726,7 @@ class TestHandlersCallExecuteOnce:
         self, mock_cursor, handler, id
     ):
         if GET_HANDLER_TYPES[handler] == "with path, with query":
-            handler(id, Pagination(), [])
+            handler(id, URIQueries(), [])
         else:
             handler(id)
         assert mock_cursor.execute.call_count == 1
@@ -734,9 +736,9 @@ class TestHandlersCallExecuteOnce:
     )
     def test_get_handlers_call_execute_once_with_pagination(self, mock_cursor, handler):
         if GET_HANDLER_TYPES[handler] == "with path, with query":
-            handler("1", Pagination(page="2", per_page="75"), [])
+            handler("1", URIQueries(page="2", per_page="75"), [])
         else:
-            handler(Pagination(page="2", per_page="75"), [])
+            handler(URIQueries(page="2", per_page="75"), [])
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize(
@@ -746,9 +748,9 @@ class TestHandlersCallExecuteOnce:
         self, mock_cursor, handler
     ):
         if GET_HANDLER_TYPES[handler] == "with path, with query":
-            handler("1", Pagination(), SORT_TO_TEST[handler])
+            handler("1", URIQueries(), SORT_TO_TEST[handler])
         else:
-            handler(Pagination(), SORT_TO_TEST[handler])
+            handler(URIQueries(), SORT_TO_TEST[handler])
         assert mock_cursor.execute.call_count == 1
 
     @pytest.mark.parametrize(
@@ -760,12 +762,12 @@ class TestHandlersCallExecuteOnce:
         if GET_HANDLER_TYPES[handler] == "with path, with query":
             handler(
                 "1",
-                Pagination(page="2", per_page="75"),
+                URIQueries(page="2", per_page="75"),
                 sort=SORT_TO_TEST[handler],
             )
         else:
             handler(
-                Pagination(page="2", per_page="75"),
+                URIQueries(page="2", per_page="75"),
                 sort=SORT_TO_TEST[handler],
             )
         assert mock_cursor.execute.call_count == 1
@@ -894,12 +896,12 @@ class TestSortClauseSQLBuilder:
     def test_sort_clause_builder_raises_value_error_on_three_or_more_reference_parts(
         self,
     ):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             SortClauses(
                 clauses=[SortClause(column="x.y.z.n", direction="ASC")]
             ).to_sql()
 
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             SortClauses(
                 clauses=[
                     SortClause(column="valid_column", direction="ASC"),
@@ -1025,7 +1027,7 @@ class TestWhitelistHelper:
     def test_whitelist_helper_in_lax_error_mode_raises_error_if_all_values_invalid(
         self, values_to_test, whitelist
     ):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             filter_by_whitelist(values_to_test, whitelist, mode="lax")
 
     @pytest.mark.parametrize(
@@ -1041,7 +1043,7 @@ class TestWhitelistHelper:
     def test_whitelist_helper_in_strict_error_mode_raises_error_if_any_values_invalid(
         self, values_to_test, whitelist
     ):
-        with pytest.raises(ValueError):
+        with pytest.raises(InvalidParameterError):
             filter_by_whitelist(values_to_test, whitelist, mode="strict")
 
     def test_whitelist_helper_raises_error_if_invalid_mode_specified(self):
@@ -1070,7 +1072,7 @@ class TestGetHandlersCustomSorting:
     def test_pathless_custom_sortable_get_handlers_SQL_reflects_single_level_params(
         self, mock_cursor, handler, sort_strings, expected_sort_sql
     ):
-        handler(Pagination(), sort_strings)
+        handler(URIQueries(), sort_strings)
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
@@ -1089,7 +1091,7 @@ class TestGetHandlersCustomSorting:
     def test_pathed_custom_sortable_get_handlers_SQL_reflects_single_level_params(
         self, mock_cursor, handler, sort_strings, expected_sort_sql
     ):
-        handler(1, Pagination(), sort_strings)
+        handler(1, URIQueries(), sort_strings)
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
@@ -1137,7 +1139,7 @@ class TestGetHandlersCustomSorting:
     def test_pathless_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
         self, mock_cursor, handler, sort_strings, expected_sort_sql
     ):
-        handler(Pagination(), sort_strings)
+        handler(URIQueries(), sort_strings)
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
@@ -1160,64 +1162,136 @@ class TestGetHandlersCustomSorting:
     def test_pathed_custom_sortable_get_handlers_SQL_reflects_multi_level_params(
         self, mock_cursor, handler, sort_strings, expected_sort_sql
     ):
-        handler("1", Pagination(), sort_strings)
+        handler("1", URIQueries(), sort_strings)
         executed_sql = mock_cursor.execute.call_args[0][0].as_string(mock_cursor)
         assert f"ORDER BY {expected_sort_sql}" in executed_sql
         assert len(re.findall("ORDER BY ", executed_sql, flags=re.IGNORECASE)) == 1
 
+
+# ══════════════════════════════════════════════════════════════════
+# Search-clause helper function
+# ══════════════════════════════════════════════════════════════════
+class TestSearchClauseSQLBuilder:
     @pytest.mark.parametrize(
-        "handler, sort_strings",
+        "search_column, search_string, expected_sql",
         [
-            (get_job_title, ["invalid_column"]),
-            (get_job_title, ["title", "faketable.fakecolumn", "-jt.id"]),
-            (get_consumable, ["invalid_column"]),
-            (get_consumable, ["-faketable.fakecolumn", "consumable_name", "jrilto"]),
-            (get_service, ["invalid_column"]),
-            (get_service, ["pillar", "comments", "faketable.fakecolumn"]),
-            (get_overhead_cost, ["invalid_column"]),
-            (
-                get_overhead_cost,
-                ["lightbulbs_included", "faketable.fakecolumn", "-cost_type"],
-            ),
-            (get_labour_cost, ["invalid_column"]),
-            (
-                get_labour_cost,
-                ["faketable.fakecolumn", "-servizio", "required_time_mins"],
-            ),
-            (get_direct_cost, ["invalid_column"]),
-            (get_direct_cost, ["-lines_per_page", "faketable.fakecolumn,cost_gbp"]),
-            (get_client, ["invalid_column"]),
-            (get_client, ["client_name", "-sprezzatura", "-faketable.fakecolumn"]),
-            (get_tender, ["invalid_column"]),
-            (
-                get_tender,
-                ["-faketable.fakecolumn", "projected_sales_value_gbp", "client"],
-            ),
+            ("service_name", "rabies", "WHERE \"service_name\" ILIKE '%rabies%'"),
+            ("title_engaged", "nurse", "WHERE \"title_engaged\" ILIKE '%nurse%'"),
         ],
     )
-    def test_pathless_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
-        self, mock_cursor, handler, sort_strings
+    def test_search_clause_builder_forms_expected_sql(
+        self, search_column, search_string, expected_sql
     ):
-        with pytest.raises(ValueError):
-            handler(Pagination(), sort_strings)
+        assert (
+            build_search_sql(search_column, search_string).as_string() == expected_sql
+        )
+
+    def test_search_clause_builder_raises_value_error_on_non_whitelisted_column(self):
+        with pytest.raises(InvalidParameterError):
+            build_search_sql("unlisted_column", "value", ["listed_column"])
+
+        with pytest.raises(InvalidParameterError):
+            build_search_sql(
+                "annual_visit_count",
+                "N/A",
+                ["col_1", "col_2", "col_3", "col_4", "col_5"],
+            )
 
     @pytest.mark.parametrize(
-        "handler, sort_strings",
+        "handler, search_column, search_string, expected_sql",
         [
-            (get_tender_line_items, ["invalid_column"]),
             (
-                get_tender_line_items,
-                ["enemy_count", "-service_category", "faketable.fakecolumn"],
+                get_job_title,
+                "department",
+                "Assess",
+                "WHERE \"department\" ILIKE '%Assess%'",
             ),
-            (get_rich_tender_line_items, ["invalid_column"]),
-            (get_rich_tender_line_items, ["title", "faketable.fakecolumn", "-jt.id"]),
+            (
+                get_consumable,
+                "consumable_name",
+                "100 pcs",
+                "WHERE \"consumable_name\" ILIKE '%100 pcs%'",
+            ),
+            (
+                get_service,
+                "service_name",
+                "rabies",
+                "WHERE \"service_name\" ILIKE '%rabies%'",
+            ),
+            (
+                get_overhead_cost,
+                "cost_description",
+                "fruit basket",
+                "WHERE \"cost_description\" ILIKE '%fruit basket%'",
+            ),
+            (
+                get_labour_cost,
+                "title_engaged",
+                "Senior",
+                "WHERE \"title_engaged\" ILIKE '%Senior%'",
+            ),
+            (
+                get_direct_cost,
+                "service",
+                "assessment",
+                "WHERE \"service\" ILIKE '%assessment%'",
+            ),
+            (
+                get_client,
+                "client_name",
+                "Withington",
+                "WHERE \"client_name\" ILIKE '%Withington%'",
+            ),
+            (
+                get_tender,
+                "tender_title",
+                "X-Structure",
+                "WHERE \"tender_title\" ILIKE '%X-Structure%'",
+            ),
         ],
     )
-    def test_pathed_custom_sortable_get_handlers_raise_value_error_on_invalid_sort_column(
-        self, mock_cursor, handler, sort_strings
+    def test_pathless_filterable_get_handlers_SQL_reflects_search_query(
+        self, mock_cursor, handler, search_column, search_string, expected_sql
     ):
-        with pytest.raises(ValueError):
-            handler("1", Pagination(), sort_strings)
+        handler(URIQueries(search_column=search_column, search_string=search_string))
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string()
+        assert expected_sql in executed_sql
+        assert len(re.findall("WHERE ", executed_sql, flags=re.IGNORECASE)) == 1
+
+    @pytest.mark.parametrize(
+        "handler, search_column, search_string, expected_sql",
+        [
+            (
+                get_tender_line_items,
+                "service",
+                "examination",
+                "WHERE \"service\" ILIKE '%examination%'",
+            ),
+            (
+                get_rich_tender_line_items,
+                "service_category",
+                "remote",
+                "WHERE \"service_category\" ILIKE '%remote%'",
+            ),
+        ],
+    )
+    def test_pathed_filterable_get_handlers_SQL_reflects_search_query(
+        self, mock_cursor, handler, search_column, search_string, expected_sql
+    ):
+        handler(1, URIQueries(search_column=search_column, search_string=search_string))
+        executed_sql = mock_cursor.execute.call_args[0][0].as_string()
+        assert expected_sql in executed_sql
+        assert len(re.findall("WHERE ", executed_sql, flags=re.IGNORECASE)) == 2
+
+    def test_pathless_filterable_get_handlers_raise_value_error_on_invalid_search_column(
+        self,
+    ):
+        pass
+
+    def test_pathed_filterable_get_handlers_raise_value_error_on_invalid_search_column(
+        self,
+    ):
+        pass
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1965,9 +2039,116 @@ class TestAPIResolverWithInvalidQueryParameters:
         assert "detail" in response["body"]
         assert json.loads(response["body"])["detail"][0]["loc"] == [
             "query",
-            "pagination",
+            "queries",
             bad_field,
         ]
+
+    @pytest.mark.disable_autouse
+    @pytest.mark.parametrize(
+        "path, sort_strings",
+        [
+            ("/job-title", ["invalid_column"]),
+            ("/job-title", ["title", "faketable.fakecolumn", "-jt.id"]),
+            ("/consumable", ["invalid_column"]),
+            ("/consumable", ["-faketable.fakecolumn", "consumable_name", "jrilto"]),
+            ("/service", ["invalid_column"]),
+            ("/service", ["pillar", "comments", "faketable.fakecolumn"]),
+            ("/overhead-cost", ["invalid_column"]),
+            (
+                "/overhead-cost",
+                ["lightbulbs_included", "faketable.fakecolumn", "-cost_type"],
+            ),
+            ("/labour-cost", ["invalid_column"]),
+            (
+                "/labour-cost",
+                ["faketable.fakecolumn", "-servizio", "required_time_mins"],
+            ),
+            ("/direct-cost", ["invalid_column"]),
+            ("/direct-cost", ["-lines_per_page", "faketable.fakecolumn,cost_gbp"]),
+            ("/client", ["invalid_column"]),
+            ("/client", ["client_name", "-sprezzatura", "-faketable.fakecolumn"]),
+            ("/tender", ["invalid_column"]),
+            (
+                "/tender",
+                ["-faketable.fakecolumn", "projected_sales_value_gbp", "client"],
+            ),
+            ("/tender/line-items/1", ["invalid_column"]),
+            (
+                "/tender/line-items/1",
+                ["enemy_count", "-service_category", "faketable.fakecolumn"],
+            ),
+            ("/tender/line-items/rich/1", ["invalid_column"]),
+            ("/tender/line-items/rich/1", ["title", "faketable.fakecolumn", "-jt.id"]),
+        ],
+    )
+    def test_custom_sortable_get_handlers_return_422_on_invalid_sort_column(
+        self, mock_cursor, path, sort_strings
+    ):
+        test_event = {
+            "version": "2.0",
+            "routeKey": f"GET {path}",
+            "rawPath": path,
+            "rawQueryString": "sort=" + ",".join(sort_strings),
+            "queryStringParameters": {"sort": ",".join(sort_strings)},
+            "headers": {"Content-Type": "application/json"},
+            "requestContext": {
+                "http": {
+                    "method": "GET",
+                    "path": path,
+                },
+                "stage": "$default",
+            },
+            "body": None,
+            "isBase64Encoded": False,
+        }
+        test_context = MagicMock()
+        test_context.get_remaining_time_in_millis.return_value = 5000
+        response = app.resolve(test_event, test_context)
+        assert response["statusCode"] == 422
+
+    @pytest.mark.disable_autouse
+    @pytest.mark.parametrize(
+        "path, search_column",
+        [
+            ("/job-title", "hourly_rate_gbp"),
+            ("/consumable", "id"),
+            ("/service", "new_unit_price_gbp"),
+            ("/overhead-cost", "budgeted_spend_gbp"),
+            ("/labour-cost", "required_time_mins"),
+            ("/direct-cost", "consumable_id"),
+            ("/client", "id"),
+            ("/tender", "date_created"),
+            ("/tender/line-items/1", "total_number_pa"),
+            ("/tender/line-items/rich/1", "required_profit_margin_percentage"),
+        ],
+    )
+    def test_filterable_get_handlers_return_422_on_invalid_search_column(
+        self, mock_cursor, path, search_column
+    ):
+        test_event = {
+            "version": "2.0",
+            "routeKey": f"GET {path}",
+            "rawPath": path,
+            "rawQueryString": f"search_column={search_column}&search_string=abcxyz",
+            "queryStringParameters": {
+                "search_column": search_column,
+                "search_string": "abcxyz",
+            },
+            "headers": {"Content-Type": "application/json"},
+            "requestContext": {
+                "http": {
+                    "method": "GET",
+                    "path": path,
+                },
+                "stage": "$default",
+            },
+            "body": None,
+            "isBase64Encoded": False,
+        }
+        test_context = MagicMock()
+        test_context.get_remaining_time_in_millis.return_value = 5000
+        response = app.resolve(test_event, test_context)
+        assert response["statusCode"] == 422
 
 
 # ══════════════════════════════════════════════════════════════════
