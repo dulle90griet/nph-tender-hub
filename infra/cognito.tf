@@ -1,8 +1,9 @@
-# aws_cognito_user_pool
-#######################
-# deletion_protection = "ACTIVE"
-# user_pool_tier = "ESSENTIALS"
-# alias_attributes = "email"
+resource "aws_cognito_user_pool" "main" {
+  name = "${var.PREFIX}-${var.ENVIRONMENT}-user-pool"
+  deletion_protection = "ACTIVE"
+  user_pool_tier = "ESSENTIAL"
+  alias_attributes = "email"
+}
 
 # aws_cognito_user_pool_client
 ##############################
