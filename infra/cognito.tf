@@ -78,9 +78,3 @@ resource "aws_apigatewayv2_authorizer" "budibase_m2m_authorizer" {
     issuer   = "https://${aws_cognito_user_pool.main.endpoint}"
   }
 }
-
-# aws_apigatewayv2_route (existing)
-###################################
-# authorization_scopes = ? (I think none needed)
-# authorization_type = "JWT"
-# authorizer_id connects to aws_apigatewayv2_authorizer
