@@ -28,15 +28,18 @@ resource "aws_cognito_user_pool_client" "budibase_m2m_client" {
   prevent_user_existence_errors                 = "ENABLED"
 }
 
-# aws_apigatewayv2_authorizer
-#############################
-# api_id connects to aws_apigatewayv2_api
-# authorizer_type = "JWT"
-# identity_sources = ["$request.header.Authorization"]
-# jwt_configuation.audience = ? (leave blank?)
-# jwt_configuration.issuer = https://issuer-cognito-idp.<my-region>.amazonaws.com/<my-user-pood-id>
-# name = "nph-tender-hub-authorizer"
-# authorization_payload_format_version = "2.0"
+resource "aws_apigatewayv2_authorizer" "budibase_m2m_authorizer" {
+  name = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-authorizer"
+
+  api_id                            = aws_apigatewayv2_api.http_api.id
+  authorizer_type                   = "JWT"
+  identity_sources                  = ["$request.header.Authorization"]
+
+  jwt_configuration {
+    audience = [aws_cognito_user_pool_client.budibase_m2m_client.id]
+    issuer   = "https://${aws_cognito_user_pool.main.endpoint}"
+  }
+}
 
 # aws_apigatewayv2_route (existing)
 ###################################
