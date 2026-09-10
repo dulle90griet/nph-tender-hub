@@ -277,6 +277,36 @@ resource "aws_apigatewayv2_route" "http_api_patch_tender_line_items_route" {
 #   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 # }
 
+resource "aws_apigatewayv2_route" "http_api_get_route" {
+  for_each = toset([
+    "GET /department",
+    "GET /job-title",
+    "GET /job-title/titles",
+    "GET /consumable",
+    "GET /consumable/names",
+    "GET /service",
+    "GET /service/slugs",
+    "GET /overhead-cost",
+    "GET /labour-cost",
+    "GET /direct-cost",
+    "GET /client",
+    "GET /client/names",
+    "GET /tender",
+    "GET /tender/single/{tender_id}",
+    "GET /tender/titles",
+    "GET /tender/line-items/{tender_id}",
+    "GET /tender/line-items/rich/{tender_id}",
+  ])
+
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = each.key
+
+  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.budibase_m2m_authorizer.id
+}
+
 resource "aws_apigatewayv2_stage" "http_api_default_stage" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default"
