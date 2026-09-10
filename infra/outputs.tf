@@ -57,3 +57,9 @@ output "rds_connection_info_secret_name" {
   description = "The name of the secret storing values needed to connect to the platform's RDS instance"
   value       = aws_secretsmanager_secret.rds_connection_info.name
 }
+
+output "cognito_oauth2_secret" {
+  description = "The client secret to use when configuring API authentication in Budibase"
+  value       = aws_cognito_user_pool_client.budibase_m2m_client.client_secret
+  sensitive   = true
+}
