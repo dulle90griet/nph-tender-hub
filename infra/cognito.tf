@@ -49,6 +49,22 @@ resource "aws_cognito_user_pool_client" "budibase_m2m_client" {
   }
 }
 
+resource "aws_cognito_resource_server" "m2m_resource_server" {
+  name         = "${var.PREFIX}-${var.ENVIRONMENT}-m2m-resource-server"
+  user_pool_id = aws_cognito_user_pool.main.id
+  identifier   = "${var.PREFIX}-${var.ENVIRONMENT}-m2m-resource-server"
+
+  scope {
+    scope_name        = "read"
+    scope_description = "Read scope for ${var.PREFIX}-${var.ENVIRONMENT}-m2m-resource-server"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+    prevent_destroy       = true
+  }
+}
+
 resource "aws_apigatewayv2_authorizer" "budibase_m2m_authorizer" {
   name = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-authorizer"
 
