@@ -41,19 +41,19 @@ resource "aws_apigatewayv2_route" "http_api_patch_job_title_route" {
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 }
 
-resource "aws_apigatewayv2_route" "http_api_post_consumable_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /consumable"
+# resource "aws_apigatewayv2_route" "http_api_post_consumable_route" {
+#   api_id    = aws_apigatewayv2_api.http_api.id
+#   route_key = "POST /consumable"
 
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
+#   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+# }
 
-resource "aws_apigatewayv2_route" "http_api_patch_consumable_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /consumable/{consumable_id}"
+# resource "aws_apigatewayv2_route" "http_api_patch_consumable_route" {
+#   api_id    = aws_apigatewayv2_api.http_api.id
+#   route_key = "PATCH /consumable/{consumable_id}"
 
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
+#   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+# }
 
 resource "aws_apigatewayv2_route" "http_api_post_service_route" {
   api_id    = aws_apigatewayv2_api.http_api.id
@@ -161,6 +161,8 @@ resource "aws_apigatewayv2_route" "http_api_get_routes" {
     "GET /job-title/titles",
     "GET /consumable",
     "GET /consumable/names",
+    "POST /consumable",
+    "PATCH /consumable/{consumable_id}",
     "GET /service",
     "GET /service/slugs",
     "GET /overhead-cost",
