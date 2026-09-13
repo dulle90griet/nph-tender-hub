@@ -125,19 +125,19 @@ resource "aws_apigatewayv2_integration" "http_api_lambda_integration" {
 #   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 # }
 
-resource "aws_apigatewayv2_route" "http_api_post_tender_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /tender"
+# resource "aws_apigatewayv2_route" "http_api_post_tender_route" {
+#   api_id    = aws_apigatewayv2_api.http_api.id
+#   route_key = "POST /tender"
 
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
+#   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+# }
 
-resource "aws_apigatewayv2_route" "http_api_patch_tender_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /tender/{tender_id}"
+# resource "aws_apigatewayv2_route" "http_api_patch_tender_route" {
+#   api_id    = aws_apigatewayv2_api.http_api.id
+#   route_key = "PATCH /tender/{tender_id}"
 
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
+#   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+# }
 
 
 resource "aws_apigatewayv2_route" "http_api_post_tender_line_items_route" {
@@ -183,6 +183,8 @@ resource "aws_apigatewayv2_route" "http_api_get_routes" {
     "PATCH /client/{client_id}",
     "GET /client/names",
     "GET /tender",
+    "POST /tender",
+    "PATCH /tender/{tender_id}",
     "GET /tender/single/{tender_id}",
     "GET /tender/titles",
     "GET /tender/line-items/{tender_id}",
