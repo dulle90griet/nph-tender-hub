@@ -140,19 +140,19 @@ resource "aws_apigatewayv2_integration" "http_api_lambda_integration" {
 # }
 
 
-resource "aws_apigatewayv2_route" "http_api_post_tender_line_items_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /tender/line-items"
+# resource "aws_apigatewayv2_route" "http_api_post_tender_line_items_route" {
+#   api_id    = aws_apigatewayv2_api.http_api.id
+#   route_key = "POST /tender/line-items"
 
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
+#   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+# }
 
-resource "aws_apigatewayv2_route" "http_api_patch_tender_line_items_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /tender/line-items/{tender_id}/{service_id}"
+# resource "aws_apigatewayv2_route" "http_api_patch_tender_line_items_route" {
+#   api_id    = aws_apigatewayv2_api.http_api.id
+#   route_key = "PATCH /tender/line-items/{tender_id}/{service_id}"
 
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
+#   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+# }
 
 resource "aws_apigatewayv2_route" "http_api_get_routes" {
   for_each = toset([
@@ -189,6 +189,8 @@ resource "aws_apigatewayv2_route" "http_api_get_routes" {
     "GET /tender/titles",
     "GET /tender/line-items/{tender_id}",
     "GET /tender/line-items/rich/{tender_id}",
+    "POST /tender/line-items",
+    "PATCH /tender/line-items/{tender_id}/{service_id}",
   ])
 
   api_id    = aws_apigatewayv2_api.http_api.id
