@@ -1,14 +1,5 @@
 locals {
-  # Fetch shared data if we're in dev, stage or prod; if in shared, it will be empty
-  # But Terraform requires both sides of a conditional have the same structure
-  shared_data_defaults = {
-    user_pool_id       = ""
-    user_pool_endpoint = ""
-    user_pool_client   = ""
-    oauth_scopes       = []
-  }
-  shared_data_decoded = try(jsondecode(data.aws_s3_object.shared_data[0].body), {})
-  shared_data         = merge(local.shared_data_defaults, local.shared_data_decoded)
+  shared_data = try(jsondecode(data.aws_s3_object.shared_data[0].body), {})
 
   user_pool_id        = var.ENVIRONMENT == "shared" ? aws_cognito_user_pool.main[0].id : local.shared_data.user_pool_id
   user_pool_endpoint  = var.ENVIRONMENT == "shared" ? aws_cognito_user_pool.main[0].endpoint : local.shared_data.user_pool_endpoint
