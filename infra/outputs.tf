@@ -58,8 +58,26 @@ output "rds_connection_info_secret_name" {
   value       = aws_secretsmanager_secret.rds_connection_info.name
 }
 
+output "cognito_oauth2_client_id" {
+  description = "The ID of the Cognito user pool client"
+  value       = aws_cognito_user_pool_client.budibase_m2m_client.id
+}
+
+output "cognito_oauth2_service_url" {
+  description = "The service URL to use when configuration API authentication in Budibase"
+  value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.eu-west-2.amazoncognito.com/oauth2/token"
+}
+
 output "cognito_oauth2_secret" {
   description = "The client secret to use when configuring API authentication in Budibase"
   value       = aws_cognito_user_pool_client.budibase_m2m_client.client_secret
   sensitive   = true
+}
+
+output "cognito_oauth2_scopes" {
+  description = "Available scopes to use when configuring API authentication in Budibase"
+  value       = [
+    for scope in aws_cognito_resource_server.m2m_resource_server.scope :
+    "${aws_cognito_resource_server.m2m_resource_server.name}/${scope.scope_name}"
+  ]
 }
