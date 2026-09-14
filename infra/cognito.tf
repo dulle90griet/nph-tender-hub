@@ -1,5 +1,26 @@
+locals {
+  shared_data_defaults = {
+    user_pool_id       = ""
+    user_pool_endpoint = ""
+    user_pool_client   = ""
+    oauth_scopes       = []
+  }
+  shared_data_decoded = try(jsondecode(data.aws_s3_object.shared_data[0].body), {})
+  shared_data         = merge(local.shared_data_defaults, local.shared_data_decoded)
+
+  # shared_data_raw = var.ENVIRONMENT == "shared" ? {} : try(data.aws_s3_object.shared_data[0].body, {})
+  # shared_data     = jsondecode(local.shared_data_raw)
+
+  user_pool_id        = var.ENVIRONMENT == "shared" ? aws_cognito_user_pool.main[0].id : local.shared_data.user_pool_id
+  user_pool_endpoint  = var.ENVIRONMENT == "shared" ? aws_cognito_user_pool.main[0].endpoint : local.shared_data.user_pool_endpoint
+  user_pool_client_id = var.ENVIRONMENT == "shared" ? aws_cognito_user_pool_client.budibase_m2m_client[0].id : local.shared_data.user_pool_client_id
+  oauth_scopes        = var.ENVIRONMENT == "shared" ? aws_cognito_resource_server.m2m_resource_server[0].scope : local.shared_data.oauth_scopes
+}
+
 resource "aws_cognito_user_pool" "main" {
-  name                = "${var.PREFIX}-${var.ENVIRONMENT}-user-pool"
+  count = var.ENVIRONMENT == "shared" ? 1 : 0
+
+  name                = "${var.PREFIX}-shared-user-pool"
   deletion_protection = "ACTIVE"
   user_pool_tier      = "ESSENTIALS"
   alias_attributes    = ["email"]
@@ -10,16 +31,25 @@ resource "aws_cognito_user_pool" "main" {
   }
 }
 
-resource "aws_cognito_user_pool_domain" "main" {
-  domain       = "${var.PREFIX}-${var.ENVIRONMENT}-user-pool-domain"
-  user_pool_id = aws_cognito_user_pool.main.id
+data "aws_cognito_user_pool" "main" {
+  count = var.ENVIRONMENT == "shared" ? 0 : 1
+
+  user_pool_id = local.user_pool_id
 }
 
+resource "aws_cognito_user_pool_domain" "main" {
+  count = var.ENVIRONMENT == "shared" ? 1 : 0
+
+  domain       = "${var.PREFIX}-shared-user-pool-domain"
+  user_pool_id = aws_cognito_user_pool.main[0].id
+}
 
 resource "aws_cognito_user_pool_client" "budibase_m2m_client" {
+  count = var.ENVIRONMENT == "shared" ? 1 : 0
+
   name = "${var.PREFIX}-${var.ENVIRONMENT}-budibase-client"
 
-  user_pool_id                  = aws_cognito_user_pool.main.id
+  user_pool_id                  = aws_cognito_user_pool.main[0].id
   generate_secret               = true
   prevent_user_existence_errors = "ENABLED"
 
@@ -37,7 +67,7 @@ resource "aws_cognito_user_pool_client" "budibase_m2m_client" {
 
   explicit_auth_flows                  = ["ALLOW_REFRESH_TOKEN_AUTH"]
   allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_scopes                 = aws_cognito_resource_server.m2m_resource_server.scope_identifiers
+  allowed_oauth_scopes                 = aws_cognito_resource_server.m2m_resource_server[0].scope_identifiers
   allowed_oauth_flows                  = ["client_credentials"]
   supported_identity_providers         = ["COGNITO"]
 
@@ -49,14 +79,23 @@ resource "aws_cognito_user_pool_client" "budibase_m2m_client" {
   }
 }
 
+data "aws_cognito_user_pool_client" "budibase_m2m_client" {
+  count = var.ENVIRONMENT == "shared" ? 0 : 1
+
+  user_pool_id = local.user_pool_id
+  client_id    = local.user_pool_client_id
+}
+
 resource "aws_cognito_resource_server" "m2m_resource_server" {
-  name         = "${var.PREFIX}-${var.ENVIRONMENT}-m2m-resource-server"
-  user_pool_id = aws_cognito_user_pool.main.id
-  identifier   = "${var.PREFIX}-${var.ENVIRONMENT}-m2m-resource-server"
+  count = var.ENVIRONMENT == "shared" ? 1 : 0
+
+  name         = "${var.PREFIX}-shared-m2m-resource-server"
+  user_pool_id = aws_cognito_user_pool.main[0].id
+  identifier   = "${var.PREFIX}-shared-m2m-resource-server"
 
   scope {
     scope_name        = "read"
-    scope_description = "Read scope for ${var.PREFIX}-${var.ENVIRONMENT}-m2m-resource-server"
+    scope_description = "Read scope for ${var.PREFIX}-shared-m2m-resource-server"
   }
 
   lifecycle {
@@ -74,7 +113,7 @@ resource "aws_apigatewayv2_authorizer" "budibase_m2m_authorizer" {
 
 
   jwt_configuration {
-    audience = [aws_cognito_user_pool_client.budibase_m2m_client.id]
-    issuer   = "https://${aws_cognito_user_pool.main.endpoint}"
+    audience = [local.user_pool_client_id]
+    issuer   = "https://${local.user_pool_endpoint}"
   }
 }
