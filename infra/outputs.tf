@@ -81,11 +81,3 @@ output "cognito_oauth2_scopes" {
     "${var.PREFIX}-shared-m2m-resource-server/${scope.scope_name}"
   ]
 }
-
-# output "shared_data_raw" {
-#   value = data.aws_s3_object.shared_data[0].body
-# }
-
-# output "shared_data_decoded" {
-#   value = local.shared_data
-# }
