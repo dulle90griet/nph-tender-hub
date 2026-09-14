@@ -60,24 +60,32 @@ output "rds_connection_info_secret_name" {
 
 output "cognito_oauth2_client_id" {
   description = "The ID of the Cognito user pool client"
-  value       = aws_cognito_user_pool_client.budibase_m2m_client.id
+  value       = var.ENVIRONMENT == "shared" ? aws_cognito_user_pool_client.budibase_m2m_client[0].id : local.user_pool_client_id
 }
 
 output "cognito_oauth2_service_url" {
   description = "The service URL to use when configuration API authentication in Budibase"
-  value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.eu-west-2.amazoncognito.com/oauth2/token"
+  value       = "https://${var.PREFIX}-shared-user-pool-domain.auth.eu-west-2.amazoncognito.com/oauth2/token"
 }
 
 output "cognito_oauth2_secret" {
   description = "The client secret to use when configuring API authentication in Budibase"
-  value       = aws_cognito_user_pool_client.budibase_m2m_client.client_secret
+  value       = var.ENVIRONMENT == "shared" ? aws_cognito_user_pool_client.budibase_m2m_client[0].client_secret : "Only available in shared env"
   sensitive   = true
 }
 
 output "cognito_oauth2_scopes" {
   description = "Available scopes to use when configuring API authentication in Budibase"
-  value       = [
-    for scope in aws_cognito_resource_server.m2m_resource_server.scope :
-    "${aws_cognito_resource_server.m2m_resource_server.name}/${scope.scope_name}"
+  value = [
+    for scope in local.oauth_scopes :
+    "${var.PREFIX}-shared-m2m-resource-server/${scope.scope_name}"
   ]
 }
+
+# output "shared_data_raw" {
+#   value = data.aws_s3_object.shared_data[0].body
+# }
+
+# output "shared_data_decoded" {
+#   value = local.shared_data
+# }
