@@ -226,6 +226,7 @@ jobs:
           PREFIX             = "${{ vars.PREFIX }}"
           CLIENT             = "${{ vars.CLIENT }}"
           PROJECT            = "${{ vars.PROJECT }}"
+          SHARED_DATA_BUCKET = "${{ vars.SHARED_DATA_BUCKET }}"
           BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"   # Change this later to allow input selection
           EOF
           echo "global.auto.tfvars generated."

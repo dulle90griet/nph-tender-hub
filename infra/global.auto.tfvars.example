@@ -9,4 +9,6 @@ PREFIX    = "my-proj"
 CLIENT  = "My Client"
 PROJECT = "My Project"
 
+SHARED_DATA_BUCKET = "my-shared-data-bucket"
+
 BUDIBASE_IMAGE_URL = "xxxxxxxxxxxx.dkr.ecr.eu-west-2.amazonaws.com/my-proj/budibase"

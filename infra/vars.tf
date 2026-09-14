@@ -52,6 +52,11 @@ variable "CODE_BUCKET" {
   description = "The name of the S3 bucket containing code for Lambdas, etc."
 }
 
+variable "SHARED_DATA_BUCKET" {
+  type        = string
+  description = "The name of the S3 bucket used to share data between configurations"
+}
+
 variable "LAMBDA_CREATE_SERVICE_VERSION" {
   type        = string
   description = "The version of the create_budibase_service Lambda code to deploy"

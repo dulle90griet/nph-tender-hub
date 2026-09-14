@@ -70,6 +70,7 @@ jobs:
           PREFIX             = "${{ vars.PREFIX }}"
           CLIENT             = "${{ vars.CLIENT }}"
           PROJECT            = "${{ vars.PROJECT }}"
+          SHARED_DATA_BUCKET = "${{ vars.SHARED_DATA_BUCKET }}"
           BUDIBASE_IMAGE_URL = "${{ vars.BUDIBASE_IMAGE_URL }}"
           EOF
           echo "global.auto.tfvars generated."

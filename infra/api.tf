@@ -27,250 +27,52 @@ resource "aws_apigatewayv2_integration" "http_api_lambda_integration" {
   }
 }
 
-resource "aws_apigatewayv2_route" "http_api_get_department_route" {
+resource "aws_apigatewayv2_route" "http_api_get_routes" {
+  for_each = toset([
+    "GET /department",
+    "GET /job-title",
+    "GET /job-title/titles",
+    "POST /job-title",
+    "PATCH /job-title/{job_title_id}",
+    "GET /consumable",
+    "GET /consumable/names",
+    "POST /consumable",
+    "PATCH /consumable/{consumable_id}",
+    "GET /service",
+    "GET /service/slugs",
+    "POST /service",
+    "PATCH /service/{service_id}",
+    "GET /overhead-cost",
+    "POST /overhead-cost",
+    "PATCH /overhead-cost/{overhead_cost_id}",
+    "GET /labour-cost",
+    "POST /labour-cost",
+    "PATCH /labour-cost/{service_id}/{title_engaged_id}",
+    "GET /direct-cost",
+    "POST /direct-cost",
+    "PATCH /direct-cost/{service_id}/{consumable_id}",
+    "GET /client",
+    "POST /client",
+    "PATCH /client/{client_id}",
+    "GET /client/names",
+    "GET /tender",
+    "POST /tender",
+    "PATCH /tender/{tender_id}",
+    "GET /tender/single/{tender_id}",
+    "GET /tender/titles",
+    "GET /tender/line-items/{tender_id}",
+    "GET /tender/line-items/rich/{tender_id}",
+    "POST /tender/line-items",
+    "PATCH /tender/line-items/{tender_id}/{service_id}",
+  ])
+
   api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /department"
+  route_key = each.key
 
   target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
 
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_job_title_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /job-title"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_job_title_titles_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /job-title/titles"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_post_job_title_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /job-title"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_patch_job_title_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /job-title/{job_title_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_consumable_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /consumable"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_consumable_names_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /consumable/names"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_post_consumable_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /consumable"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_patch_consumable_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /consumable/{consumable_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_service_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /service"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_service_slug_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /service/slugs"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_post_service_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /service"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_patch_service_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /service/{service_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_overhead_cost_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /overhead-cost"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_post_overhead_cost_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /overhead-cost"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_patch_overhead_cost_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /overhead-cost/{overhead_cost_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_labour_cost_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /labour-cost"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_post_labour_cost_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /labour-cost"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_patch_labour_cost_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /labour-cost/{service_id}/{title_engaged_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_direct_cost_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /direct-cost"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_post_direct_cost_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /direct-cost"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_patch_direct_cost_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /direct-cost/{service_id}/{consumable_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_client_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /client"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_client_names_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /client/names"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_post_client_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /client"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_patch_client_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /client/{client_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_tender_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /tender"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_tender_single_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /tender/single/{tender_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_tender_titles_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /tender/titles"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_post_tender_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /tender"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_patch_tender_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /tender/{tender_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_tender_line_items_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /tender/line-items/{tender_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_post_tender_line_items_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /tender/line-items"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_patch_tender_line_items_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "PATCH /tender/line-items/{tender_id}/{service_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
-}
-
-resource "aws_apigatewayv2_route" "http_api_get_rich_tender_line_items_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /tender/line-items/rich/{tender_id}"
-
-  target = "integrations/${aws_apigatewayv2_integration.http_api_lambda_integration.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.budibase_m2m_authorizer.id
 }
 
 resource "aws_apigatewayv2_stage" "http_api_default_stage" {
