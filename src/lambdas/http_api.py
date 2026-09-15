@@ -139,8 +139,16 @@ def build_search_sql(
     if whitelist and search_column not in whitelist:
         raise InvalidParameterError("Provided search column is not whitelisted.")
 
+    column_parts = search_column.split(".")
+    if len(column_parts) <= 2:
+        search_column_identifier = Identifier(*column_parts)
+    else:
+        raise InvalidParameterError(
+            f"Qualified reference of more than two parts: {search_column}"
+        )
+
     return SQL("WHERE {} ILIKE {}").format(
-        Identifier(search_column), f"%{search_string}%"
+        search_column_identifier, f"%{search_string}%"
     )
 
 
@@ -1435,7 +1443,7 @@ def get_tender(
 
     valid_search_columns = [
         "tender_title",
-        "client",
+        "c.client_name",
     ]
     search_sql = build_search_sql(
         queries.search_column,
