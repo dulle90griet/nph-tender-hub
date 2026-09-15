@@ -538,7 +538,7 @@ class DatabaseCursor:
 
 
 @app.get("/department")
-def get_department() -> None:
+def get_department() -> list:
     """GET method for department table"""
     sort_clause_sql = SortClauses("name").to_sql()
 
@@ -1886,4 +1886,5 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
     if context.get_remaining_time_in_millis() < 100:
         db_manager.close_all()
 
+    logger.info(f"response: {response}")
     return response
