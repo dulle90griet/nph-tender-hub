@@ -1486,6 +1486,8 @@ def get_tender(
         offset=offset,
     )
 
+    logger.info(f"get_sql: {get_tender_sql.as_string()}")
+
     with DatabaseCursor() as cursor:
         cursor.execute(get_tender_sql)
         results = cursor.fetchall()
@@ -1886,7 +1888,21 @@ def patch_tender_line_item(
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
-    logger.info(f"event: {event}\ncontext: {context}")
+    loggable_event = {
+        "routeKey": event.get("routeKey"),
+        "rawPath": event.get("rawPath"),
+        "rawQueryString": event.get("rawQueryString"),
+        "queryStringParameters": event.get("queryStringParameters"),
+        "requestContext": {
+            "accountId": event["requestContext"].get("accountId"),
+            "apiId": event["requestContext"].get("apiId"),
+            "domainName": event["requestContext"].get("domainName"),
+            "requestId": event["requestContext"].get("requestId"),
+            "routeKey": event["requestContext"].get("routeKey"),
+            "stage": event["requestContext"].get("stage"),
+        }
+    }
+    logger.info(f"event: {loggable_event}\n\ncontext: {context}")
 
     response = app.resolve(event, context)
 
