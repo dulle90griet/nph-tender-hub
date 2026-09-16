@@ -1086,8 +1086,8 @@ def get_labour_cost(
     offset = per_page * (page - 1)
 
     valid_search_columns = [
-        "service",
-        "title_engaged",
+        "s.service_name",
+        "jt.title",
     ]
     search_sql = build_search_sql(
         queries.search_column,
