@@ -1207,8 +1207,8 @@ def get_direct_cost(
     offset = per_page * (page - 1)
 
     valid_search_columns = [
-        "service",
-        "consumable",
+        "s.service_name",
+        "c.consumable_name",
     ]
     search_sql = build_search_sql(
         queries.search_column,
