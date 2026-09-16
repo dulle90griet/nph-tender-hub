@@ -575,7 +575,7 @@ def get_job_title(
     offset = per_page * (page - 1)
 
     valid_search_columns = [
-        "department",
+        "d.name",
         "title",
     ]
     search_sql = build_search_sql(
