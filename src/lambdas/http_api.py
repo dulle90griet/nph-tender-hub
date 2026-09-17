@@ -1700,8 +1700,8 @@ def get_rich_tender_line_items(
     """
 
     valid_search_columns = [
-        "s.category",
-        "service",
+        "base.service_category",
+        "base.service",
     ]
     search_sql = build_search_sql(
         queries.search_column,
