@@ -1900,7 +1900,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "requestId": event["requestContext"].get("requestId"),
             "routeKey": event["requestContext"].get("routeKey"),
             "stage": event["requestContext"].get("stage"),
-        }
+        },
     }
     logger.info(f"event: {loggable_event}\n\ncontext: {context}")
 
