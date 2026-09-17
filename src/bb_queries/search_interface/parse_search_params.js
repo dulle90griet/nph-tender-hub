@@ -3,6 +3,11 @@
 //
 // Parses the State.searchParams JSON string to extract
 // either the searchColumn or the searchString.
+//
+// Note that in every case "State.searchParams" should be replaced
+// with the name of a state variable used only on the present screen.
+// Otherwise, persistence of app state between screens can cause
+// unexpected behaviours.
 
 // Used in the 'searchColumn' query binding
 
