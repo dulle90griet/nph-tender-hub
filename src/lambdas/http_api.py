@@ -1791,23 +1791,23 @@ def get_rich_tender_line_items(
             ,base.service_id
             ,base.service
             ,base.total_number_pa
-            ,ROUND(base.labour_cost_gbp, 2) AS unit_labour_cost_gbp
+            ,ROUND(base.labour_cost_gbp, 4) AS unit_labour_cost_gbp
             ,base.overhead_recovery_on_labour_percentage
-            ,ROUND({overhead_recovery_on_labour_cost_gbp}, 2)
+            ,ROUND({overhead_recovery_on_labour_cost_gbp}, 4)
                 AS overhead_recovery_on_labour_cost_gbp
-            ,ROUND(base.direct_cost_gbp, 2) AS unit_direct_cost_gbp
-            ,ROUND({fully_absorbed_cost_gbp}, 2) AS fully_absorbed_cost_gbp
+            ,ROUND(base.direct_cost_gbp, 4) AS unit_direct_cost_gbp
+            ,ROUND({fully_absorbed_cost_gbp}, 4) AS fully_absorbed_cost_gbp
             ,base.required_profit_margin_percentage
-            ,ROUND({profit_margin_gbp}, 2) AS profit_margin_gbp
-            ,ROUND({recommended_unit_price_gbp}, 2) AS recommended_unit_price_gbp
+            ,ROUND({profit_margin_gbp}, 4) AS profit_margin_gbp
+            ,ROUND({recommended_unit_price_gbp}, 4) AS recommended_unit_price_gbp
             ,base.our_current_unit_price_gbp
             ,base.tender_override_unit_price_gbp
-            ,ROUND({annual_sales_gbp}, 2) AS annual_sales_gbp
-            ,ROUND({annual_labour_gbp}, 2) AS annual_labour_gbp
-            ,ROUND({annual_direct_gbp}, 2) as annual_direct_gbp
-            ,ROUND({annual_overhead_gbp}, 2) as annual_overhead_gbp
-            ,ROUND({annual_total_gbp}, 2) AS annual_total_gbp
-            ,ROUND({annual_profit_gbp}, 2) AS annual_profit_gbp
+            ,ROUND({annual_sales_gbp}, 4) AS annual_sales_gbp
+            ,ROUND({annual_labour_gbp}, 4) AS annual_labour_gbp
+            ,ROUND({annual_direct_gbp}, 4) as annual_direct_gbp
+            ,ROUND({annual_overhead_gbp}, 4) as annual_overhead_gbp
+            ,ROUND({annual_total_gbp}, 4) AS annual_total_gbp
+            ,ROUND({annual_profit_gbp}, 4) AS annual_profit_gbp
         FROM base
         {{search_clause}}
         {{sort_clause}}
