@@ -139,8 +139,16 @@ def build_search_sql(
     if whitelist and search_column not in whitelist:
         raise InvalidParameterError("Provided search column is not whitelisted.")
 
+    column_parts = search_column.split(".")
+    if len(column_parts) <= 2:
+        search_column_identifier = Identifier(*column_parts)
+    else:
+        raise InvalidParameterError(
+            f"Qualified reference of more than two parts: {search_column}"
+        )
+
     return SQL("WHERE {} ILIKE {}").format(
-        Identifier(search_column), f"%{search_string}%"
+        search_column_identifier, f"%{search_string}%"
     )
 
 
@@ -567,7 +575,7 @@ def get_job_title(
     offset = per_page * (page - 1)
 
     valid_search_columns = [
-        "department",
+        "d.name",
         "title",
     ]
     search_sql = build_search_sql(
@@ -1078,8 +1086,8 @@ def get_labour_cost(
     offset = per_page * (page - 1)
 
     valid_search_columns = [
-        "service",
-        "title_engaged",
+        "s.service_name",
+        "jt.title",
     ]
     search_sql = build_search_sql(
         queries.search_column,
@@ -1199,8 +1207,8 @@ def get_direct_cost(
     offset = per_page * (page - 1)
 
     valid_search_columns = [
-        "service",
-        "consumable",
+        "s.service_name",
+        "c.consumable_name",
     ]
     search_sql = build_search_sql(
         queries.search_column,
@@ -1435,7 +1443,7 @@ def get_tender(
 
     valid_search_columns = [
         "tender_title",
-        "client",
+        "c.client_name",
     ]
     search_sql = build_search_sql(
         queries.search_column,
@@ -1477,6 +1485,8 @@ def get_tender(
         per_page=per_page,
         offset=offset,
     )
+
+    logger.info(f"get_sql: {get_tender_sql.as_string()}")
 
     with DatabaseCursor() as cursor:
         cursor.execute(get_tender_sql)
@@ -1690,8 +1700,8 @@ def get_rich_tender_line_items(
     """
 
     valid_search_columns = [
-        "service_category",
-        "service",
+        "base.service_category",
+        "base.service",
     ]
     search_sql = build_search_sql(
         queries.search_column,
@@ -1878,7 +1888,21 @@ def patch_tender_line_item(
 
 
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
-    logger.info(f"event: {event}\ncontext: {context}")
+    loggable_event = {
+        "routeKey": event.get("routeKey"),
+        "rawPath": event.get("rawPath"),
+        "rawQueryString": event.get("rawQueryString"),
+        "queryStringParameters": event.get("queryStringParameters"),
+        "requestContext": {
+            "accountId": event["requestContext"].get("accountId"),
+            "apiId": event["requestContext"].get("apiId"),
+            "domainName": event["requestContext"].get("domainName"),
+            "requestId": event["requestContext"].get("requestId"),
+            "routeKey": event["requestContext"].get("routeKey"),
+            "stage": event["requestContext"].get("stage"),
+        },
+    }
+    logger.info(f"event: {loggable_event}\n\ncontext: {context}")
 
     response = app.resolve(event, context)
 

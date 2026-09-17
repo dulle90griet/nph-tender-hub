@@ -1202,9 +1202,9 @@ class TestSearchClauseSQLBuilder:
         [
             (
                 get_job_title,
-                "department",
+                "d.name",
                 "Assess",
-                "WHERE \"department\" ILIKE '%Assess%'",
+                'WHERE "d"."name" ILIKE \'%Assess%\'',
             ),
             (
                 get_consumable,
@@ -1226,15 +1226,15 @@ class TestSearchClauseSQLBuilder:
             ),
             (
                 get_labour_cost,
-                "title_engaged",
+                "jt.title",
                 "Senior",
-                "WHERE \"title_engaged\" ILIKE '%Senior%'",
+                'WHERE "jt"."title" ILIKE \'%Senior%\'',
             ),
             (
                 get_direct_cost,
-                "service",
+                "s.service_name",
                 "assessment",
-                "WHERE \"service\" ILIKE '%assessment%'",
+                'WHERE "s"."service_name" ILIKE \'%assessment%\'',
             ),
             (
                 get_client,
@@ -1269,9 +1269,9 @@ class TestSearchClauseSQLBuilder:
             ),
             (
                 get_rich_tender_line_items,
-                "service_category",
+                "base.service_category",
                 "remote",
-                "WHERE \"service_category\" ILIKE '%remote%'",
+                'WHERE "base"."service_category" ILIKE \'%remote%\'',
             ),
         ],
     )
