@@ -263,7 +263,7 @@ class JobTitle(BaseModel):
     title: Annotated[str, Field(max_length=50)]
     default_ft_weekly_hours: Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
     default_lunch_break_hours: Annotated[Decimal, Field(max_digits=2, decimal_places=1)]
-    hourly_rate_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=2)]
+    hourly_rate_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=4)]
     default_annual_holiday_days: OptionalDecimal(3, 1) = None
     default_annual_training_days: OptionalDecimal(3, 1) = None
     default_annual_sick_days: OptionalDecimal(3, 1) = None
@@ -274,7 +274,7 @@ UpdateJobTitle = create_partial_model(JobTitle)
 
 class Consumable(BaseModel):
     consumable_name: Annotated[str, Field(max_length=100)]
-    default_unit_cost_gbp: OptionalDecimal(6, 2) = None
+    default_unit_cost_gbp: OptionalDecimal(6, 4) = None
 
 
 UpdateConsumable = create_partial_model(Consumable)
@@ -287,16 +287,16 @@ class Service(BaseModel):
     xero_code: Annotated[int, Field(ge=0, le=9999)]
     overhead_recovery_on_labour_percentage: int
     required_profit_margin_percentage: Annotated[
-        Decimal, Field(max_digits=4, decimal_places=2)
+        Decimal, Field(max_digits=4, decimal_places=4)
     ]
     acceptable_market_price_gbp: Annotated[
-        Decimal, Field(max_digits=8, decimal_places=2)
+        Decimal, Field(max_digits=8, decimal_places=4)
     ]
     our_current_unit_price_gbp: Annotated[
-        Decimal, Field(max_digits=8, decimal_places=2)
+        Decimal, Field(max_digits=8, decimal_places=4)
     ]
-    new_unit_price_gbp: OptionalDecimal(8, 2) = None
-    new_day_rate_gbp: OptionalDecimal(9, 2) = None
+    new_unit_price_gbp: OptionalDecimal(8, 4) = None
+    new_day_rate_gbp: OptionalDecimal(9, 4) = None
     comments: Optional[Annotated[str, Field(max_length=100)]] = None
 
 
@@ -351,7 +351,7 @@ class TenderLineItem(BaseModel):
     tender_id: int
     service_id: int
     total_number_pa: int
-    unit_price_override_gbp: OptionalDecimal(8, 2) = None
+    unit_price_override_gbp: OptionalDecimal(8, 4) = None
 
 
 UpdateTenderLineItem = create_partial_model(TenderLineItem)
