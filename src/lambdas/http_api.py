@@ -263,7 +263,7 @@ class JobTitle(BaseModel):
     title: Annotated[str, Field(max_length=50)]
     default_ft_weekly_hours: Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
     default_lunch_break_hours: Annotated[Decimal, Field(max_digits=2, decimal_places=1)]
-    hourly_rate_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=2)]
+    hourly_rate_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=4)]
     default_annual_holiday_days: OptionalDecimal(3, 1) = None
     default_annual_training_days: OptionalDecimal(3, 1) = None
     default_annual_sick_days: OptionalDecimal(3, 1) = None
@@ -274,7 +274,7 @@ UpdateJobTitle = create_partial_model(JobTitle)
 
 class Consumable(BaseModel):
     consumable_name: Annotated[str, Field(max_length=100)]
-    default_unit_cost_gbp: OptionalDecimal(6, 2) = None
+    default_unit_cost_gbp: OptionalDecimal(8, 4) = None
 
 
 UpdateConsumable = create_partial_model(Consumable)
@@ -290,13 +290,13 @@ class Service(BaseModel):
         Decimal, Field(max_digits=4, decimal_places=2)
     ]
     acceptable_market_price_gbp: Annotated[
-        Decimal, Field(max_digits=8, decimal_places=2)
+        Decimal, Field(max_digits=10, decimal_places=4)
     ]
     our_current_unit_price_gbp: Annotated[
-        Decimal, Field(max_digits=8, decimal_places=2)
+        Decimal, Field(max_digits=10, decimal_places=4)
     ]
-    new_unit_price_gbp: OptionalDecimal(8, 2) = None
-    new_day_rate_gbp: OptionalDecimal(9, 2) = None
+    new_unit_price_gbp: OptionalDecimal(10, 4) = None
+    new_day_rate_gbp: OptionalDecimal(10, 4) = None
     comments: Optional[Annotated[str, Field(max_length=100)]] = None
 
 
@@ -324,7 +324,7 @@ UpdateLabourCost = create_partial_model(LabourCost)
 class DirectCost(BaseModel):
     service_id: int
     consumable_id: int
-    cost_gbp: Annotated[Decimal, Field(max_digits=5, decimal_places=2)]
+    cost_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=4)]
 
 
 UpdateDirectCost = create_partial_model(DirectCost)
@@ -351,7 +351,7 @@ class TenderLineItem(BaseModel):
     tender_id: int
     service_id: int
     total_number_pa: int
-    unit_price_override_gbp: OptionalDecimal(8, 2) = None
+    unit_price_override_gbp: OptionalDecimal(10, 4) = None
 
 
 UpdateTenderLineItem = create_partial_model(TenderLineItem)
@@ -1791,23 +1791,23 @@ def get_rich_tender_line_items(
             ,base.service_id
             ,base.service
             ,base.total_number_pa
-            ,ROUND(base.labour_cost_gbp, 2) AS unit_labour_cost_gbp
+            ,ROUND(base.labour_cost_gbp, 4) AS unit_labour_cost_gbp
             ,base.overhead_recovery_on_labour_percentage
-            ,ROUND({overhead_recovery_on_labour_cost_gbp}, 2)
+            ,ROUND({overhead_recovery_on_labour_cost_gbp}, 4)
                 AS overhead_recovery_on_labour_cost_gbp
-            ,ROUND(base.direct_cost_gbp, 2) AS unit_direct_cost_gbp
-            ,ROUND({fully_absorbed_cost_gbp}, 2) AS fully_absorbed_cost_gbp
+            ,ROUND(base.direct_cost_gbp, 4) AS unit_direct_cost_gbp
+            ,ROUND({fully_absorbed_cost_gbp}, 4) AS fully_absorbed_cost_gbp
             ,base.required_profit_margin_percentage
-            ,ROUND({profit_margin_gbp}, 2) AS profit_margin_gbp
-            ,ROUND({recommended_unit_price_gbp}, 2) AS recommended_unit_price_gbp
+            ,ROUND({profit_margin_gbp}, 4) AS profit_margin_gbp
+            ,ROUND({recommended_unit_price_gbp}, 4) AS recommended_unit_price_gbp
             ,base.our_current_unit_price_gbp
             ,base.tender_override_unit_price_gbp
-            ,ROUND({annual_sales_gbp}, 2) AS annual_sales_gbp
-            ,ROUND({annual_labour_gbp}, 2) AS annual_labour_gbp
-            ,ROUND({annual_direct_gbp}, 2) as annual_direct_gbp
-            ,ROUND({annual_overhead_gbp}, 2) as annual_overhead_gbp
-            ,ROUND({annual_total_gbp}, 2) AS annual_total_gbp
-            ,ROUND({annual_profit_gbp}, 2) AS annual_profit_gbp
+            ,ROUND({annual_sales_gbp}, 4) AS annual_sales_gbp
+            ,ROUND({annual_labour_gbp}, 4) AS annual_labour_gbp
+            ,ROUND({annual_direct_gbp}, 4) as annual_direct_gbp
+            ,ROUND({annual_overhead_gbp}, 4) as annual_overhead_gbp
+            ,ROUND({annual_total_gbp}, 4) AS annual_total_gbp
+            ,ROUND({annual_profit_gbp}, 4) AS annual_profit_gbp
         FROM base
         {{search_clause}}
         {{sort_clause}}

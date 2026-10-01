@@ -26,7 +26,7 @@ audit-fixes = [
     "pygments>=2.20.0",
     "requests>=2.33.0", # Required by 'moto', 'pip-audit', others
     "idna>=3.15",   # Required by 'requests'
-    "urllib3>=2.7.0", # Required by 'botocore' (->'boto3'), 'requests', others
+    "urllib3>=2.8.0", # Required by 'botocore' (->'boto3'), 'requests', others
 ]
 lambda-layer = [
     "pydantic-strict-partial>=1.0.0",

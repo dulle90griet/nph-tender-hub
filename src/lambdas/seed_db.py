@@ -459,7 +459,7 @@ def initialize_database(psql_conn):
                 ,"title" varchar(50) NOT NULL
                 ,"default_ft_weekly_hours" decimal(3,1) NOT NULL
                 ,"default_lunch_break_hours" decimal(2,1) NOT NULL
-                ,"hourly_rate_gbp" decimal(7,2) NOT NULL
+                ,"hourly_rate_gbp" decimal(9,4) NOT NULL
                 ,"default_annual_holiday_days" decimal(3,1)
                 ,"default_annual_training_days" decimal(3,1)
                 ,"default_annual_sick_days" decimal(3,1)
@@ -468,7 +468,7 @@ def initialize_database(psql_conn):
             CREATE TABLE "consumable" (
                 "id" SERIAL PRIMARY KEY NOT NULL
                 ,"consumable_name" varchar(100) NOT NULL
-                ,"default_unit_cost_gbp" decimal(6,2)
+                ,"default_unit_cost_gbp" decimal(8,4)
             );
 
             CREATE TABLE "service" (
@@ -479,10 +479,10 @@ def initialize_database(psql_conn):
                 ,"xero_code" int NOT NULL
                 ,"overhead_recovery_on_labour_percentage" int NOT NULL
                 ,"required_profit_margin_percentage" decimal(4,2) NOT NULL
-                ,"acceptable_market_price_gbp" decimal(8,2) NOT NULL
-                ,"our_current_unit_price_gbp" decimal(8,2) NOT NULL
-                ,"new_unit_price_gbp" decimal(8,2)
-                ,"new_day_rate_gbp" decimal(9,2)
+                ,"acceptable_market_price_gbp" decimal(10,4) NOT NULL
+                ,"our_current_unit_price_gbp" decimal(10,4) NOT NULL
+                ,"new_unit_price_gbp" decimal(10,4)
+                ,"new_day_rate_gbp" decimal(11,4)
                 ,"comments" varchar(100)
             );
 
@@ -503,7 +503,7 @@ def initialize_database(psql_conn):
             CREATE TABLE "direct_cost" (
                 "service_id" int NOT NULL
                 ,"consumable_id" int NOT NULL
-                ,"cost_gbp" decimal(5,2) NOT NULL
+                ,"cost_gbp" decimal(7,4) NOT NULL
                 ,PRIMARY KEY ("service_id", "consumable_id")
             );
 
@@ -524,7 +524,7 @@ def initialize_database(psql_conn):
                 "tender_id" int NOT NULL
                 ,"service_id" int NOT NULL
                 ,"total_number_pa" int NOT NULL
-                ,"unit_price_override_gbp" decimal(8,2)
+                ,"unit_price_override_gbp" decimal(10,4)
                 ,PRIMARY KEY ("tender_id", "service_id")
             );
 
