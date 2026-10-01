@@ -274,7 +274,7 @@ UpdateJobTitle = create_partial_model(JobTitle)
 
 class Consumable(BaseModel):
     consumable_name: Annotated[str, Field(max_length=100)]
-    default_unit_cost_gbp: OptionalDecimal(6, 4) = None
+    default_unit_cost_gbp: OptionalDecimal(8, 4) = None
 
 
 UpdateConsumable = create_partial_model(Consumable)
@@ -287,16 +287,16 @@ class Service(BaseModel):
     xero_code: Annotated[int, Field(ge=0, le=9999)]
     overhead_recovery_on_labour_percentage: int
     required_profit_margin_percentage: Annotated[
-        Decimal, Field(max_digits=4, decimal_places=4)
+        Decimal, Field(max_digits=4, decimal_places=2)
     ]
     acceptable_market_price_gbp: Annotated[
-        Decimal, Field(max_digits=8, decimal_places=4)
+        Decimal, Field(max_digits=10, decimal_places=4)
     ]
     our_current_unit_price_gbp: Annotated[
-        Decimal, Field(max_digits=8, decimal_places=4)
+        Decimal, Field(max_digits=10, decimal_places=4)
     ]
-    new_unit_price_gbp: OptionalDecimal(8, 4) = None
-    new_day_rate_gbp: OptionalDecimal(9, 4) = None
+    new_unit_price_gbp: OptionalDecimal(10, 4) = None
+    new_day_rate_gbp: OptionalDecimal(10, 4) = None
     comments: Optional[Annotated[str, Field(max_length=100)]] = None
 
 
@@ -324,7 +324,7 @@ UpdateLabourCost = create_partial_model(LabourCost)
 class DirectCost(BaseModel):
     service_id: int
     consumable_id: int
-    cost_gbp: Annotated[Decimal, Field(max_digits=5, decimal_places=2)]
+    cost_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=4)]
 
 
 UpdateDirectCost = create_partial_model(DirectCost)
@@ -351,7 +351,7 @@ class TenderLineItem(BaseModel):
     tender_id: int
     service_id: int
     total_number_pa: int
-    unit_price_override_gbp: OptionalDecimal(8, 4) = None
+    unit_price_override_gbp: OptionalDecimal(10, 4) = None
 
 
 UpdateTenderLineItem = create_partial_model(TenderLineItem)
