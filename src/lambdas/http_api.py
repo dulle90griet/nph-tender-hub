@@ -19,6 +19,7 @@ from pydantic_strict_partial import create_partial_model
 import psycopg_pool
 from psycopg.sql import Composable, SQL, Identifier, Placeholder
 from psycopg.rows import dict_row
+from psycopg.errors import UniqueViolation
 
 from http import HTTPStatus
 from aws_lambda_powertools.event_handler import (
@@ -438,6 +439,24 @@ def handle_validation_error(exp: InvalidParameterError):
                 "message": exp.msg,
             },
         },
+    )
+
+@app.exception_handler(UniqueViolation)
+def handle_unique_violation(exp: UniqueViolation):
+    constraint = exp.diag.constraint_name or "unique constraint"
+    detail = exp.diag.message_detail
+
+    return Response(
+        status_code=409,
+        content_type=content_types.APPLICATION_JSON,
+        body=json.dumps({
+            "statusCode": HTTPStatus.CONFLICT,
+            "detail": [{
+                "loc": ["body", constraint],
+                "type": "unique_violation",
+                "message": f'Duplicate value violates unique constraint "{constraint}". {detail}'
+            }]
+        })
     )
 
 
