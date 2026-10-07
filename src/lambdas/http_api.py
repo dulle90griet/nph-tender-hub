@@ -454,7 +454,7 @@ def handle_unique_violation(exp: UniqueViolation):
             "detail": [{
                 "loc": ["body", constraint],
                 "type": "unique_violation",
-                "message": f'Duplicate value violates unique constraint "{constraint}". {detail}'
+                "message": f"Duplicate value violates unique constraint '{constraint}'. {detail}"
             }]
         })
     )
