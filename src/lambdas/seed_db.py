@@ -467,7 +467,7 @@ def initialize_database(psql_conn):
 
             CREATE TABLE "consumable" (
                 "id" SERIAL PRIMARY KEY NOT NULL
-                ,"consumable_name" varchar(100) UNIQUE NOT NULL
+                ,"consumable_name" varchar(100) NOT NULL
                 ,"default_unit_cost_gbp" decimal(8,4)
             );
 
@@ -529,9 +529,11 @@ def initialize_database(psql_conn):
             );
 
             ALTER TABLE "job_title" ADD FOREIGN KEY ("department_id") REFERENCES "department" ("id");
-            ALTER TABLE "job_title" ADD CONSTRAINT unique_title UNIQUE ("title");
+            ALTER TABLE "job_title" ADD CONSTRAINT uq_job_title_title UNIQUE ("title");
 
-            ALTER TABLE "service" ADD CONSTRAINT unique_slug UNIQUE("category", "service_name");
+            ALTER TABLE "consumable" ADD CONSTRAINT uq_consumable_consumable_name UNIQUE ("consumable_name");
+
+            ALTER TABLE "service" ADD CONSTRAINT uq_service_category_service_name UNIQUE("category", "service_name");
 
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("title_engaged_id") REFERENCES "job_title" ("id");
@@ -540,6 +542,7 @@ def initialize_database(psql_conn):
             ALTER TABLE "direct_cost" ADD FOREIGN KEY ("consumable_id") REFERENCES "consumable" ("id");
 
             ALTER TABLE "tender" ADD FOREIGN KEY ("client_id") REFERENCES "client" ("id");
+            ALTER TABLE "tender" ADD CONSTRAINT uq_tender_client_id_tender_title UNIQUE ("client_id", "tender_title");
 
             ALTER TABLE "tenders_services" ADD FOREIGN KEY ("tender_id") REFERENCES "tender" ("id");
             ALTER TABLE "tenders_services" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
