@@ -467,7 +467,7 @@ def initialize_database(psql_conn):
 
             CREATE TABLE "consumable" (
                 "id" SERIAL PRIMARY KEY NOT NULL
-                ,"consumable_name" varchar(100) NOT NULL
+                ,"consumable_name" varchar(100) UNIQUE NOT NULL
                 ,"default_unit_cost_gbp" decimal(8,4)
             );
 
