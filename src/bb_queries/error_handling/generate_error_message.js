@@ -10,6 +10,8 @@ const fieldDisplays = {"column_name": "column_display_name"};
 
 const currentTime = new Date();
 const genericMessage = `contact your administrator with the following information:\n\n- **Screen**: ${screenPath}\n- **Timestamp**: ${currentTime}`;
+const type409 = "\n\n- **Error**: 409";
+const type422 = "\n\n- **Error**: 422";
 
 if (typeof $("State.queryResult") === 'undefined' ||
     typeof $("State.queryResult").data === 'undefined') {
@@ -22,7 +24,7 @@ if (($("State.queryResult").data[0]?.statusCode ?? null) === 422) {
   if (fieldDisplay !== null) {
     return `Invalid value supplied for ${fieldDisplay}. Please check the limits described in the form.`;
   } else {
-    return `An error was encountered, but the details were not recognised.\n\n Please ${genericMessage}`;
+    return `An error was encountered, but the details were not recognised.\n\n Please ${genericMessage}${type422}`;
   }
 } else if (($("State.queryResult").data[0]?.statusCode ?? null) === 409) {
   const message = $("State.queryResult").data[0]?.detail?.[0]?.message ?? null;
@@ -31,7 +33,7 @@ if (($("State.queryResult").data[0]?.statusCode ?? null) === 422) {
   if (!messageDetail) {
     const text = `A Unique Violation was encountered, meaning a ${screenDatum} with those values already exists.`;
     text += "\n\nNormally the server would tell us more than that, but in this case it hasn't.";
-    text += `\n\nTry entering a ${screenDatum} with different identifying values. If the problem persists, please ${genericMessage}`;
+    text += `\n\nTry entering a ${screenDatum} with different identifying values. If the problem persists, please ${genericMessage}${type409}`;
     return text;
 
   } else {
