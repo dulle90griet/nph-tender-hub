@@ -1,6 +1,14 @@
 // Variables for use when pasting generate_error_message.js
 // into a given screen's error modal
 
+// /client
+const screenDatum = "client"
+const screenPath = "/client"
+const fieldDisplays = {
+  "id": "ID",
+  "client_name": "Client Name",
+}
+
 // /consumable
 const screenDatum = "consumable"
 const screenPath = "/consumable"
