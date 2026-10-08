@@ -41,6 +41,15 @@ const fieldDisplays = {
   "default_annual_sick_days": "Default Annual Sick Days",
 };
 
+// /labour-cost
+const screenDatum = "labour cost";
+const screenPath = "/labour-cost";
+const fieldDisplays = {
+  "service_id": "Service ID",
+  "title_engaged_id": "Title Engaged ID",
+  "required_time_mins": "Required Time (Mins)",
+};
+
 // /tender
 const screenDatum = "tender";
 const screenPath = "/tender";
