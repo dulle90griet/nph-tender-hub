@@ -88,3 +88,12 @@ const fieldDisplays = {
   "projected_sales_value_gbp": "Projected Sales Value (GBP)",
 };
 
+// /tender/line-items
+const screenDatum = "line item";
+const screenPath = `/tender/line-items/${$("URL.id")}`;
+fieldDisplays = {
+  "tender_id": "Tender ID",
+  "service_id": "Service ID",
+  "total_number_pa": "Total Number p.a.",
+  "unit_price_override_gbp": "Unit Price Override (GBP)",
+};
