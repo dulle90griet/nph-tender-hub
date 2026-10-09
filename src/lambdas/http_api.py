@@ -260,7 +260,7 @@ def parse_sort_strings(sort_strings: list[str]) -> list[SortClause]:
 
 
 class JobTitle(BaseModel):
-    department_id: Annotated[int, Field(ge=1, le=2**31-1)]
+    department_id: Annotated[int, Field(ge=1, le=2**31 - 1)]
     title: Annotated[str, Field(max_length=50)]
     default_ft_weekly_hours: Annotated[Decimal, Field(max_digits=3, decimal_places=1)]
     default_lunch_break_hours: Annotated[Decimal, Field(max_digits=2, decimal_places=1)]
@@ -286,7 +286,9 @@ class Service(BaseModel):
     category: Annotated[str, Field(max_length=50)]
     service_name: Annotated[str, Field(max_length=75)]
     xero_code: Annotated[int, Field(ge=0, le=9999)]
-    overhead_recovery_on_labour_percentage: Annotated[int, Field(ge=-(2**31), le=2**31-1)]
+    overhead_recovery_on_labour_percentage: Annotated[
+        int, Field(ge=-(2**31), le=2**31 - 1)
+    ]
     required_profit_margin_percentage: Annotated[
         Decimal, Field(max_digits=4, decimal_places=2)
     ]
@@ -307,24 +309,24 @@ UpdateService = create_partial_model(Service)
 class OverheadCost(BaseModel):
     cost_type: Annotated[str, Field(max_length=30)]
     cost_description: Annotated[str, Field(max_length=30)]
-    budgeted_spend_gbp: Annotated[int, Field(ge=-(2**31), le=2**31-1)]
+    budgeted_spend_gbp: Annotated[int, Field(ge=-(2**31), le=2**31 - 1)]
 
 
 UpdateOverheadCost = create_partial_model(OverheadCost)
 
 
 class LabourCost(BaseModel):
-    service_id: Annotated[int, Field(ge=1, le=2**31-1)]
-    title_engaged_id: Annotated[int, Field(ge=1, le=2**31-1)]
-    required_time_mins: Annotated[int, Field(ge=-(2**31), le=2**31-1)]
+    service_id: Annotated[int, Field(ge=1, le=2**31 - 1)]
+    title_engaged_id: Annotated[int, Field(ge=1, le=2**31 - 1)]
+    required_time_mins: Annotated[int, Field(ge=-(2**31), le=2**31 - 1)]
 
 
 UpdateLabourCost = create_partial_model(LabourCost)
 
 
 class DirectCost(BaseModel):
-    service_id: Annotated[int, Field(ge=1, le=2**31-1)]
-    consumable_id: Annotated[int, Field(ge=1, le=2**31-1)]
+    service_id: Annotated[int, Field(ge=1, le=2**31 - 1)]
+    consumable_id: Annotated[int, Field(ge=1, le=2**31 - 1)]
     cost_gbp: Annotated[Decimal, Field(max_digits=7, decimal_places=4)]
 
 
@@ -340,8 +342,8 @@ UpdateClient = create_partial_model(Client)
 
 class Tender(BaseModel):
     tender_title: Annotated[str, Field(max_length=50)]
-    client_id: Annotated[int, Field(ge=1, le=2**31-1)]
-    projected_sales_value_gbp: Annotated[int, Field(ge=-(2**31), le=2**31-1)]
+    client_id: Annotated[int, Field(ge=1, le=2**31 - 1)]
+    projected_sales_value_gbp: Annotated[int, Field(ge=-(2**31), le=2**31 - 1)]
     date_created: datetime
 
 
@@ -349,9 +351,9 @@ UpdateTender = create_partial_model(Tender)
 
 
 class TenderLineItem(BaseModel):
-    tender_id: Annotated[int, Field(ge=1, le=2**31-1)]
-    service_id: Annotated[int, Field(ge=1, le=2**31-1)]
-    total_number_pa: Annotated[int, Field(ge=0, le=2**31-1)]
+    tender_id: Annotated[int, Field(ge=1, le=2**31 - 1)]
+    service_id: Annotated[int, Field(ge=1, le=2**31 - 1)]
+    total_number_pa: Annotated[int, Field(ge=0, le=2**31 - 1)]
     unit_price_override_gbp: OptionalDecimal(10, 4) = None
 
 
@@ -441,6 +443,7 @@ def handle_validation_error(exp: InvalidParameterError):
         },
     )
 
+
 @app.exception_handler(UniqueViolation)
 def handle_unique_violation(exp: UniqueViolation):
     constraint = exp.diag.constraint_name or "unique constraint"
@@ -449,14 +452,18 @@ def handle_unique_violation(exp: UniqueViolation):
     return Response(
         status_code=409,
         content_type=content_types.APPLICATION_JSON,
-        body=json.dumps({
-            "statusCode": HTTPStatus.CONFLICT,
-            "detail": [{
-                "loc": ["body", constraint],
-                "type": "unique_violation",
-                "message": f"Duplicate value violates unique constraint '{constraint}'. {detail}"
-            }]
-        })
+        body=json.dumps(
+            {
+                "statusCode": HTTPStatus.CONFLICT,
+                "detail": [
+                    {
+                        "loc": ["body", constraint],
+                        "type": "unique_violation",
+                        "message": f"Duplicate value violates unique constraint '{constraint}'. {detail}",
+                    }
+                ],
+            }
+        ),
     )
 
 
