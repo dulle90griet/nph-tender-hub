@@ -50,6 +50,34 @@ const fieldDisplays = {
   "required_time_mins": "Required Time (Mins)",
 };
 
+// /overhead-cost
+const screenDatum = "overhead cost";
+const screenPath = "/overhead-cost";
+const fieldDisplays = {
+  "id": "ID",
+  "cost_type": "Cost Type",
+  "cost_description": "Cost Description",
+  "budgeted_spend_gbp": "Budgeted Spend (GBP)",
+}
+
+// /service
+const screenDatum = "service";
+const screenPath = "/service";
+const fieldDisplays = {
+  "id": "ID",
+  "pillar": "Pillar",
+  "category": "Category",
+  "service_name": "Service Name",
+  "xero_code": "Xero Code",
+  "overhead_recovery_on_labour_percentage": "Overhead Recovery on Labour (%)",
+  "required_profit_margin_percentage": "Required Profit Margin (%)",
+  "acceptable_market_price_gbp": "Acceptable Market Price (GBP)",
+  "our_current_unit_price_gbp": "Our Current Unit Price (GBP)",
+  "new_unit_price_gbp": "New Unit Price (GBP)",
+  "new_day_rate_gbp": "New Day Rate (GBP)",
+  "comments": "Comments",
+};
+
 // /tender
 const screenDatum = "tender";
 const screenPath = "/tender";
