@@ -38,8 +38,8 @@ if (($("State.queryResult").data[0]?.statusCode ?? null) === 422) {
 
   } else {
     const [, keysString, valuesString] = messageDetail;
-    const keys = keysString.replace(/,\s/g, ",").split(",");
-    const values = valuesString.replace(/,\s/g, ",").split(",");
+    const keys = keysString.replace(/, /g, ",").split(",");
+    const values = valuesString.replace(/, /g, ",").split(",");
     const valuesListable = keys.length === values.length;
 
     let errMsg = `A ${screenDatum} with ${valuesListable ? "" : "that combination of "}`;
