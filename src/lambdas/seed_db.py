@@ -535,6 +535,8 @@ def initialize_database(psql_conn):
 
             ALTER TABLE "service" ADD CONSTRAINT uq_service_category_service_name UNIQUE("category", "service_name");
 
+            ALTER TABLE "overhead_cost" ADD CONSTRAINT uq_overhead_cost_cost_description UNIQUE ("cost_description");
+
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("service_id") REFERENCES "service" ("id");
             ALTER TABLE "labour_cost" ADD FOREIGN KEY ("title_engaged_id") REFERENCES "job_title" ("id");
 
